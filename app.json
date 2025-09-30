@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "esdiyet-temp",
-    "slug": "esdiyet-temp",
+    "name": "ESdiyet",
+    "slug": "esdiyet",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
