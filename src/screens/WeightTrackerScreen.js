@@ -9,9 +9,11 @@ import {
   Alert,
   Modal,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { weightService } from '../services/supabase';
 
@@ -20,7 +22,8 @@ const { width } = Dimensions.get('window');
 export default function WeightTrackerScreen() {
   const [weights, setWeights] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [weight, setWeight] = useState('');
   const [notes, setNotes] = useState('');
   const [editingId, setEditingId] = useState(null);
@@ -41,18 +44,29 @@ export default function WeightTrackerScreen() {
 
   const openAddModal = () => {
     setEditingId(null);
-    setSelectedDate(new Date().toISOString().split('T')[0]);
+    setSelectedDate(new Date());
     setWeight('');
     setNotes('');
+    setShowDatePicker(false);
     setModalVisible(true);
   };
 
   const openEditModal = (record) => {
     setEditingId(record.id);
-    setSelectedDate(record.date);
+    setSelectedDate(new Date(record.date));
     setWeight(record.weight.toString());
     setNotes(record.notes || '');
+    setShowDatePicker(false);
     setModalVisible(true);
+  };
+
+  const onDateChange = (event, date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (date) {
+      setSelectedDate(date);
+    }
   };
 
   const saveWeight = async () => {
@@ -63,7 +77,7 @@ export default function WeightTrackerScreen() {
 
     try {
       const weightData = {
-        date: selectedDate,
+        date: selectedDate.toISOString().split('T')[0],
         weight: parseFloat(weight),
         notes: notes,
       };
@@ -289,13 +303,41 @@ export default function WeightTrackerScreen() {
             <View style={styles.modalBody}>
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Tarih</Text>
-                <TextInput
-                  style={styles.input}
-                  value={selectedDate}
-                  onChangeText={setSelectedDate}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={COLORS.textLight}
-                />
+                <TouchableOpacity
+                  style={styles.dateButton}
+                  onPress={() => setShowDatePicker(true)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="calendar" size={20} color={COLORS.primary} />
+                  <Text style={styles.dateButtonText}>
+                    {selectedDate.toLocaleDateString('tr-TR', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric'
+                    })}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+                {showDatePicker && (
+                  <View style={styles.datePickerContainer}>
+                    <DateTimePicker
+                      value={selectedDate}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={onDateChange}
+                      locale="tr-TR"
+                      maximumDate={new Date()}
+                    />
+                    {Platform.OS === 'ios' && (
+                      <TouchableOpacity
+                        style={styles.datePickerCloseBtn}
+                        onPress={() => setShowDatePicker(false)}
+                      >
+                        <Text style={styles.datePickerCloseText}>Tamam</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
               </View>
 
               <View style={styles.inputGroup}>
@@ -577,6 +619,36 @@ const styles = StyleSheet.create({
     padding: SIZES.md,
     fontSize: SIZES.body,
     color: COLORS.text,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: SIZES.radiusMedium,
+    padding: SIZES.md,
+    gap: SIZES.sm,
+  },
+  dateButtonText: {
+    flex: 1,
+    fontSize: SIZES.body,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  datePickerContainer: {
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusMedium,
+    marginTop: SIZES.sm,
+    overflow: 'hidden',
+  },
+  datePickerCloseBtn: {
+    backgroundColor: COLORS.primary,
+    padding: SIZES.sm,
+    alignItems: 'center',
+  },
+  datePickerCloseText: {
+    fontSize: SIZES.body,
+    fontWeight: '600',
+    color: COLORS.textOnPrimary,
   },
   weightInput: {
     fontSize: SIZES.h3,
