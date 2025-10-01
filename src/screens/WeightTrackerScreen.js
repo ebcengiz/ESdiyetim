@@ -10,6 +10,9 @@ import {
   Modal,
   Dimensions,
   Platform,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -278,29 +281,39 @@ export default function WeightTrackerScreen() {
         transparent={true}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalTitleContainer}>
-                <Ionicons
-                  name={editingId ? 'create' : 'add-circle'}
-                  size={24}
-                  color={COLORS.primary}
-                  style={styles.modalIcon}
-                />
-                <Text style={styles.modalTitle}>
-                  {editingId ? 'Düzenle' : 'Yeni Kayıt'}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setModalVisible(false)}
-                style={styles.closeButton}
-              >
-                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalKeyboardView}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback>
+                <View style={styles.modalContent}>
+                  <View style={styles.modalHeader}>
+                    <View style={styles.modalTitleContainer}>
+                      <Ionicons
+                        name={editingId ? 'create' : 'add-circle'}
+                        size={24}
+                        color={COLORS.primary}
+                        style={styles.modalIcon}
+                      />
+                      <Text style={styles.modalTitle}>
+                        {editingId ? 'Düzenle' : 'Yeni Kayıt'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setModalVisible(false)}
+                      style={styles.closeButton}
+                    >
+                      <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
 
-            <View style={styles.modalBody}>
+                  <ScrollView
+                    style={styles.modalBody}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                  >
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Tarih</Text>
                 <TouchableOpacity
@@ -364,29 +377,32 @@ export default function WeightTrackerScreen() {
                   placeholderTextColor={COLORS.textLight}
                 />
               </View>
-            </View>
+                  </ScrollView>
 
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.cancelBtn]}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={styles.cancelBtnText}>İptal</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.saveBtnModal]}
-                onPress={saveWeight}
-              >
-                <LinearGradient
-                  colors={[COLORS.primary, COLORS.primaryDark]}
-                  style={styles.saveBtnGradient}
-                >
-                  <Text style={styles.saveBtnText}>Kaydet</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+                  <View style={styles.modalFooter}>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, styles.cancelBtn]}
+                      onPress={() => setModalVisible(false)}
+                    >
+                      <Text style={styles.cancelBtnText}>İptal</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, styles.saveBtnModal]}
+                      onPress={saveWeight}
+                    >
+                      <LinearGradient
+                        colors={[COLORS.primary, COLORS.primaryDark]}
+                        style={styles.saveBtnGradient}
+                      >
+                        <Text style={styles.saveBtnText}>Kaydet</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-          </View>
-        </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -561,6 +577,9 @@ const styles = StyleSheet.create({
     fontWeight: '300',
     color: COLORS.textOnPrimary,
   },
+  modalKeyboardView: {
+    flex: 1,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: COLORS.overlay,
@@ -570,7 +589,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderTopLeftRadius: SIZES.radiusXL,
     borderTopRightRadius: SIZES.radiusXL,
-    paddingBottom: SIZES.xl,
+    maxHeight: '90%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -642,12 +661,15 @@ const styles = StyleSheet.create({
   },
   datePickerCloseBtn: {
     backgroundColor: COLORS.primary,
-    padding: SIZES.sm,
+    paddingVertical: SIZES.md,
+    paddingHorizontal: SIZES.lg,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
   },
   datePickerCloseText: {
-    fontSize: SIZES.body,
-    fontWeight: '600',
+    fontSize: SIZES.h5,
+    fontWeight: '700',
     color: COLORS.textOnPrimary,
   },
   weightInput: {
@@ -662,6 +684,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: SIZES.md,
     paddingHorizontal: SIZES.lg,
+    paddingVertical: SIZES.lg,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+    backgroundColor: COLORS.surface,
   },
   modalBtn: {
     flex: 1,
