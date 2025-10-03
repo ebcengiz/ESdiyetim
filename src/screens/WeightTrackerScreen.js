@@ -355,27 +355,33 @@ export default function WeightTrackerScreen() {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Kilo (kg)</Text>
-                <TextInput
-                  style={[styles.input, styles.weightInput]}
-                  value={weight}
-                  onChangeText={setWeight}
-                  placeholder="75.5"
-                  keyboardType="decimal-pad"
-                  placeholderTextColor={COLORS.textLight}
-                />
+                <View style={styles.weightInputContainer}>
+                  <Ionicons name="fitness" size={20} color={COLORS.primary} />
+                  <TextInput
+                    style={styles.weightInput}
+                    value={weight}
+                    onChangeText={setWeight}
+                    placeholder="75.5"
+                    keyboardType="decimal-pad"
+                    placeholderTextColor={COLORS.textLight}
+                  />
+                </View>
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Notlar (Opsiyonel)</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={notes}
-                  onChangeText={setNotes}
-                  placeholder="Notlarınızı yazın..."
-                  multiline
-                  numberOfLines={3}
-                  placeholderTextColor={COLORS.textLight}
-                />
+                <View style={styles.notesInputContainer}>
+                  <Ionicons name="document-text" size={20} color={COLORS.primary} />
+                  <TextInput
+                    style={styles.notesInput}
+                    value={notes}
+                    onChangeText={setNotes}
+                    placeholder="Notlarınızı yazın..."
+                    multiline
+                    numberOfLines={3}
+                    placeholderTextColor={COLORS.textLight}
+                  />
+                </View>
               </View>
                   </ScrollView>
 
@@ -632,13 +638,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginBottom: SIZES.xs,
   },
-  input: {
-    backgroundColor: COLORS.surfaceAlt,
-    borderRadius: SIZES.radiusMedium,
-    padding: SIZES.md,
-    fontSize: SIZES.body,
-    color: COLORS.text,
-  },
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -672,11 +671,33 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.textOnPrimary,
   },
+  weightInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: SIZES.radiusMedium,
+    paddingHorizontal: SIZES.md,
+    gap: SIZES.sm,
+  },
   weightInput: {
+    flex: 1,
     fontSize: SIZES.h3,
     fontWeight: '700',
+    color: COLORS.text,
+    paddingVertical: SIZES.md,
   },
-  textArea: {
+  notesInputContainer: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: SIZES.radiusMedium,
+    padding: SIZES.md,
+    gap: SIZES.sm,
+    alignItems: 'flex-start',
+  },
+  notesInput: {
+    flex: 1,
+    fontSize: SIZES.body,
+    color: COLORS.text,
     minHeight: 80,
     textAlignVertical: 'top',
   },

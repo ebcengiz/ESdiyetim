@@ -7,18 +7,23 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
-  KeyboardAvoidingView,
+  Modal,
   Platform,
+  KeyboardAvoidingView,
   TouchableWithoutFeedback,
-  Keyboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { dietPlanService } from '../services/supabase';
 
 export default function DietPlanScreen() {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dietPlans, setDietPlans] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [dietPlan, setDietPlan] = useState({
     breakfast: '',
     morning_snack: '',
@@ -29,53 +34,68 @@ export default function DietPlanScreen() {
     notes: '',
     total_calories: '',
   });
-  const [isEditing, setIsEditing] = useState(false);
-  const [existingPlanId, setExistingPlanId] = useState(null);
 
   useEffect(() => {
-    loadDietPlan();
-  }, [selectedDate]);
+    loadDietPlans();
+  }, []);
 
-  const loadDietPlan = async () => {
+  const loadDietPlans = async () => {
     try {
-      const data = await dietPlanService.getByDate(selectedDate);
-      if (data) {
-        setDietPlan({
-          breakfast: data.breakfast || '',
-          morning_snack: data.morning_snack || '',
-          lunch: data.lunch || '',
-          afternoon_snack: data.afternoon_snack || '',
-          dinner: data.dinner || '',
-          evening_snack: data.evening_snack || '',
-          notes: data.notes || '',
-          total_calories: data.total_calories?.toString() || '',
-        });
-        setExistingPlanId(data.id);
-        setIsEditing(false);
-      } else {
-        setDietPlan({
-          breakfast: '',
-          morning_snack: '',
-          lunch: '',
-          afternoon_snack: '',
-          dinner: '',
-          evening_snack: '',
-          notes: '',
-          total_calories: '',
-        });
-        setExistingPlanId(null);
-        setIsEditing(true);
-      }
+      const data = await dietPlanService.getAll();
+      setDietPlans(data || []);
     } catch (error) {
-      console.error('Diyet planı yükleme hatası:', error);
-      Alert.alert('Hata', 'Diyet planı yüklenirken bir hata oluştu.');
+      console.error('Diyet planları yükleme hatası:', error);
+      Alert.alert('Hata', 'Diyet planları yüklenirken bir hata oluştu.');
+    }
+  };
+
+  const openAddModal = () => {
+    setEditingId(null);
+    setSelectedDate(new Date());
+    setDietPlan({
+      breakfast: '',
+      morning_snack: '',
+      lunch: '',
+      afternoon_snack: '',
+      dinner: '',
+      evening_snack: '',
+      notes: '',
+      total_calories: '',
+    });
+    setShowDatePicker(false);
+    setModalVisible(true);
+  };
+
+  const openEditModal = (plan) => {
+    setEditingId(plan.id);
+    setSelectedDate(new Date(plan.date));
+    setDietPlan({
+      breakfast: plan.breakfast || '',
+      morning_snack: plan.morning_snack || '',
+      lunch: plan.lunch || '',
+      afternoon_snack: plan.afternoon_snack || '',
+      dinner: plan.dinner || '',
+      evening_snack: plan.evening_snack || '',
+      notes: plan.notes || '',
+      total_calories: plan.total_calories?.toString() || '',
+    });
+    setShowDatePicker(false);
+    setModalVisible(true);
+  };
+
+  const onDateChange = (event, date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (date) {
+      setSelectedDate(date);
     }
   };
 
   const saveDietPlan = async () => {
     try {
       const planData = {
-        date: selectedDate,
+        date: selectedDate.toISOString().split('T')[0],
         breakfast: dietPlan.breakfast,
         morning_snack: dietPlan.morning_snack,
         lunch: dietPlan.lunch,
@@ -86,22 +106,23 @@ export default function DietPlanScreen() {
         total_calories: dietPlan.total_calories ? parseInt(dietPlan.total_calories) : null,
       };
 
-      if (existingPlanId) {
-        await dietPlanService.update(existingPlanId, planData);
+      if (editingId) {
+        await dietPlanService.update(editingId, planData);
         Alert.alert('✅ Başarılı', 'Diyet planı güncellendi!');
       } else {
-        const newPlan = await dietPlanService.create(planData);
-        setExistingPlanId(newPlan.id);
-        Alert.alert('✅ Başarılı', 'Diyet planı kaydedildi!');
+        await dietPlanService.create(planData);
+        Alert.alert('✅ Başarılı', 'Diyet planı eklendi!');
       }
-      setIsEditing(false);
+
+      setModalVisible(false);
+      loadDietPlans();
     } catch (error) {
       console.error('Diyet planı kaydetme hatası:', error);
       Alert.alert('❌ Hata', 'Diyet planı kaydedilirken bir hata oluştu.');
     }
   };
 
-  const deleteDietPlan = () => {
+  const deleteDietPlan = (id) => {
     Alert.alert(
       'Diyet Planını Sil',
       'Bu diyet planını silmek istediğinizden emin misiniz?',
@@ -112,9 +133,9 @@ export default function DietPlanScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await dietPlanService.delete(existingPlanId);
+              await dietPlanService.delete(id);
               Alert.alert('✅ Başarılı', 'Diyet planı silindi!');
-              loadDietPlan();
+              loadDietPlans();
             } catch (error) {
               console.error('Diyet planı silme hatası:', error);
               Alert.alert('❌ Hata', 'Diyet planı silinirken bir hata oluştu.');
@@ -125,300 +146,382 @@ export default function DietPlanScreen() {
     );
   };
 
-  const changeDate = (days) => {
-    const newDate = new Date(selectedDate);
-    newDate.setDate(newDate.getDate() + days);
-    setSelectedDate(newDate.toISOString().split('T')[0]);
-  };
-
-  const goToToday = () => {
-    setSelectedDate(new Date().toISOString().split('T')[0]);
-  };
-
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    const today = new Date().toISOString().split('T')[0];
-
-    if (dateString === today) {
-      return 'Bugün';
-    }
-
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (dateString === yesterday.toISOString().split('T')[0]) {
-      return 'Dün';
-    }
-
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    if (dateString === tomorrow.toISOString().split('T')[0]) {
-      return 'Yarın';
-    }
-
     return date.toLocaleDateString('tr-TR', {
       day: 'numeric',
-      month: 'long',
-      weekday: 'short'
+      month: 'short',
     });
   };
 
+  const getStats = () => {
+    if (dietPlans.length === 0) return null;
+
+    const totalPlans = dietPlans.length;
+    const withCalories = dietPlans.filter((p) => p.total_calories).length;
+    const avgCalories =
+      withCalories > 0
+        ? Math.round(
+            dietPlans.reduce((sum, p) => sum + (p.total_calories || 0), 0) / withCalories
+          )
+        : 0;
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const monthlyPlans = dietPlans.filter((p) => new Date(p.date) >= thirtyDaysAgo).length;
+
+    return {
+      totalPlans,
+      avgCalories,
+      monthlyPlans,
+    };
+  };
+
+  const getMealSummary = (plan) => {
+    const meals = [];
+    if (plan.breakfast) meals.push('Kahvaltı');
+    if (plan.lunch) meals.push('Öğle');
+    if (plan.dinner) meals.push('Akşam');
+    return meals.length > 0 ? meals.join(' • ') : 'Öğün yok';
+  };
+
+  const stats = getStats();
+
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      {/* Date Selector */}
-      <LinearGradient
-        colors={[COLORS.primary, COLORS.primaryLight]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.dateSelector}
-      >
-        <TouchableOpacity
-          onPress={() => changeDate(-1)}
-          style={styles.dateArrow}
+    <View style={styles.container}>
+      {/* Stats Header */}
+      {stats && (
+        <LinearGradient
+          colors={[COLORS.primary, COLORS.primaryLight]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.statsHeader}
         >
-          <Text style={styles.dateArrowText}>‹</Text>
-        </TouchableOpacity>
+          <StatCard label="Toplam Plan" value={stats.totalPlans} icon="restaurant" />
+          <StatCard
+            label="Ort. Kalori"
+            value={stats.avgCalories > 0 ? `${stats.avgCalories}` : '-'}
+            icon="flame"
+          />
+          <StatCard label="Bu Ay" value={stats.monthlyPlans} icon="calendar" />
+        </LinearGradient>
+      )}
 
-        <TouchableOpacity onPress={goToToday} style={styles.dateDisplay}>
-          <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
-          <Text style={styles.dateSubText}>
-            {new Date(selectedDate).toLocaleDateString('tr-TR', {
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric'
-            })}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => changeDate(1)}
-          style={styles.dateArrow}
-        >
-          <Text style={styles.dateArrowText}>›</Text>
-        </TouchableOpacity>
-      </LinearGradient>
-
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
-          {/* Main Meals */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Ana Öğünler</Text>
-
-            <MealInput
-              icon="sunny"
-              label="Kahvaltı"
-              placeholder="Kahvaltıda ne yediniz?"
-              value={dietPlan.breakfast}
-              onChangeText={(text) => setDietPlan({ ...dietPlan, breakfast: text })}
-              editable={isEditing}
-            />
-
-            <MealInput
-              icon="partly-sunny"
-              label="Öğle Yemeği"
-              placeholder="Öğle yemeğinde ne yediniz?"
-              value={dietPlan.lunch}
-              onChangeText={(text) => setDietPlan({ ...dietPlan, lunch: text })}
-              editable={isEditing}
-            />
-
-            <MealInput
-              icon="moon"
-              label="Akşam Yemeği"
-              placeholder="Akşam yemeğinde ne yediniz?"
-              value={dietPlan.dinner}
-              onChangeText={(text) => setDietPlan({ ...dietPlan, dinner: text })}
-              editable={isEditing}
-            />
+          {/* Title */}
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>Diyet Planlarım</Text>
+            <Text style={styles.subtitle}>{dietPlans.length} plan</Text>
           </View>
 
-          {/* Snacks */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Ara Öğünler</Text>
-
-            <MealInput
-              icon="cafe"
-              label="Kuşluk"
-              placeholder="Sabah ara öğünü..."
-              value={dietPlan.morning_snack}
-              onChangeText={(text) => setDietPlan({ ...dietPlan, morning_snack: text })}
-              editable={isEditing}
-              compact
-            />
-
-            <MealInput
-              icon="nutrition"
-              label="İkindi"
-              placeholder="Öğleden sonra ara öğünü..."
-              value={dietPlan.afternoon_snack}
-              onChangeText={(text) => setDietPlan({ ...dietPlan, afternoon_snack: text })}
-              editable={isEditing}
-              compact
-            />
-
-            <MealInput
-              icon="moon-outline"
-              label="Gece"
-              placeholder="Akşam ara öğünü..."
-              value={dietPlan.evening_snack}
-              onChangeText={(text) => setDietPlan({ ...dietPlan, evening_snack: text })}
-              editable={isEditing}
-              compact
-            />
-          </View>
-
-          {/* Calories & Notes */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Ek Bilgiler</Text>
-
-            <View style={styles.modernCard}>
-              <View style={styles.calorieContainer}>
-                <View style={styles.calorieIcon}>
-                  <Ionicons name="flame" size={24} color={COLORS.primary} />
-                </View>
-                <View style={styles.calorieInput}>
-                  <Text style={styles.label}>Toplam Kalori</Text>
-                  <TextInput
-                    style={[
-                      styles.calorieTextInput,
-                      !isEditing && styles.inputDisabled
-                    ]}
-                    value={dietPlan.total_calories}
-                    onChangeText={(text) => setDietPlan({ ...dietPlan, total_calories: text })}
-                    placeholder="1500"
-                    keyboardType="numeric"
-                    editable={isEditing}
-                    placeholderTextColor={COLORS.textLight}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.notesContainer}>
-                <View style={styles.notesIcon}>
-                  <Ionicons name="document-text" size={24} color={COLORS.primary} />
-                </View>
-                <View style={styles.notesInput}>
-                  <Text style={styles.label}>Notlar</Text>
-                  <TextInput
-                    style={[
-                      styles.textArea,
-                      !isEditing && styles.inputDisabled
-                    ]}
-                    value={dietPlan.notes}
-                    onChangeText={(text) => setDietPlan({ ...dietPlan, notes: text })}
-                    placeholder="Notlarınızı buraya yazabilirsiniz..."
-                    multiline
-                    numberOfLines={3}
-                    editable={isEditing}
-                    placeholderTextColor={COLORS.textLight}
-                  />
-                </View>
-              </View>
+          {/* Info Message */}
+          {dietPlans.length > 0 && (
+            <View style={styles.infoMessage}>
+              <Ionicons name="information-circle" size={16} color={COLORS.info} />
+              <Text style={styles.infoText}>
+                Düzenlemek için dokunun, silmek için basılı tutun
+              </Text>
             </View>
-          </View>
+          )}
 
-          {/* Action Buttons */}
-          <View style={styles.actionButtons}>
-            {isEditing ? (
-              <>
-                <TouchableOpacity
-                  style={[styles.actionBtn, styles.saveBtn]}
-                  onPress={saveDietPlan}
-                >
-                  <LinearGradient
-                    colors={[COLORS.primary, COLORS.primaryDark]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.btnGradient}
-                  >
-                    <View style={styles.btnContent}>
-                      <Ionicons name="save" size={20} color={COLORS.textOnPrimary} />
-                      <Text style={styles.btnText}>Kaydet</Text>
+          {/* Diet Plans List */}
+          {dietPlans.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="restaurant-outline" size={64} color={COLORS.textLight} />
+              <Text style={styles.emptyText}>Henüz diyet planı yok</Text>
+              <Text style={styles.emptySubtext}>Başlamak için + butonuna tıklayın</Text>
+            </View>
+          ) : (
+            dietPlans.map((plan) => (
+              <TouchableOpacity
+                key={plan.id}
+                style={styles.planCard}
+                onPress={() => openEditModal(plan)}
+                onLongPress={() => deleteDietPlan(plan.id)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.planHeader}>
+                  <View style={styles.planDateContainer}>
+                    <Ionicons name="calendar" size={16} color={COLORS.primary} />
+                    <Text style={styles.planDate}>{formatDate(plan.date)}</Text>
+                  </View>
+                  {plan.total_calories && (
+                    <View style={styles.calorieBadge}>
+                      <Ionicons name="flame" size={14} color={COLORS.textOnPrimary} />
+                      <Text style={styles.calorieText}>{plan.total_calories} kcal</Text>
                     </View>
-                  </LinearGradient>
-                </TouchableOpacity>
-                {existingPlanId && (
-                  <TouchableOpacity
-                    style={[styles.actionBtn, styles.cancelBtn]}
-                    onPress={() => {
-                      loadDietPlan();
-                      setIsEditing(false);
-                    }}
-                  >
-                    <View style={styles.btnContent}>
-                      <Ionicons name="close-circle" size={20} color={COLORS.textSecondary} />
-                      <Text style={styles.cancelBtnText}>İptal</Text>
+                  )}
+                </View>
+
+                <View style={styles.planBody}>
+                  <View style={styles.mealSummaryContainer}>
+                    <Ionicons name="restaurant" size={20} color={COLORS.primary} />
+                    <Text style={styles.mealSummary}>{getMealSummary(plan)}</Text>
+                  </View>
+
+                  {plan.notes && (
+                    <View style={styles.notesPreview}>
+                      <Ionicons name="document-text" size={14} color={COLORS.textSecondary} />
+                      <Text style={styles.notesPreviewText} numberOfLines={1}>
+                        {plan.notes}
+                      </Text>
                     </View>
-                  </TouchableOpacity>
-                )}
-              </>
-            ) : (
-              <>
-                <TouchableOpacity
-                  style={[styles.actionBtn, styles.editBtn]}
-                  onPress={() => setIsEditing(true)}
-                >
-                  <LinearGradient
-                    colors={[COLORS.secondary, COLORS.accent]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.btnGradient}
-                  >
-                    <View style={styles.btnContent}>
-                      <Ionicons name="create" size={20} color={COLORS.textOnPrimary} />
-                      <Text style={styles.btnText}>Düzenle</Text>
-                    </View>
-                  </LinearGradient>
-                </TouchableOpacity>
-                {existingPlanId && (
-                  <TouchableOpacity
-                    style={[styles.actionBtn, styles.deleteBtn]}
-                    onPress={deleteDietPlan}
-                  >
-                    <View style={styles.btnContent}>
-                      <Ionicons name="trash" size={20} color={COLORS.error} />
-                      <Text style={styles.deleteBtnText}>Sil</Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
-              </>
-            )}
-          </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+
+      {/* Add Button */}
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={openAddModal}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={[COLORS.primary, COLORS.primaryDark]}
+          style={styles.addButtonGradient}
+        >
+          <Text style={styles.addButtonText}>+</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+
+      {/* Add/Edit Modal */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalKeyboardView}
+        >
+          <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback>
+                <View style={styles.modalContent}>
+                  <View style={styles.modalHeader}>
+                    <View style={styles.modalTitleContainer}>
+                      <Ionicons
+                        name={editingId ? 'create' : 'add-circle'}
+                        size={24}
+                        color={COLORS.primary}
+                        style={styles.modalIcon}
+                      />
+                      <Text style={styles.modalTitle}>
+                        {editingId ? 'Planı Düzenle' : 'Yeni Plan'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setModalVisible(false)}
+                      style={styles.closeButton}
+                    >
+                      <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <ScrollView
+                    style={styles.modalBody}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {/* Date Input */}
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Tarih</Text>
+                      <TouchableOpacity
+                        style={styles.dateButton}
+                        onPress={() => setShowDatePicker(true)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="calendar" size={20} color={COLORS.primary} />
+                        <Text style={styles.dateButtonText}>
+                          {selectedDate.toLocaleDateString('tr-TR', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                          })}
+                        </Text>
+                        <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+                      </TouchableOpacity>
+                      {showDatePicker && (
+                        <View style={styles.datePickerContainer}>
+                          <DateTimePicker
+                            value={selectedDate}
+                            mode="date"
+                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                            onChange={onDateChange}
+                            locale="tr-TR"
+                          />
+                          {Platform.OS === 'ios' && (
+                            <TouchableOpacity
+                              style={styles.datePickerCloseBtn}
+                              onPress={() => setShowDatePicker(false)}
+                            >
+                              <Text style={styles.datePickerCloseText}>Tamam</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Main Meals Section */}
+                    <Text style={styles.sectionTitle}>Ana Öğünler</Text>
+
+                    <MealInput
+                      icon="sunny"
+                      label="Kahvaltı"
+                      placeholder="Kahvaltıda ne yediniz?"
+                      value={dietPlan.breakfast}
+                      onChangeText={(text) => setDietPlan({ ...dietPlan, breakfast: text })}
+                    />
+
+                    <MealInput
+                      icon="partly-sunny"
+                      label="Öğle Yemeği"
+                      placeholder="Öğle yemeğinde ne yediniz?"
+                      value={dietPlan.lunch}
+                      onChangeText={(text) => setDietPlan({ ...dietPlan, lunch: text })}
+                    />
+
+                    <MealInput
+                      icon="moon"
+                      label="Akşam Yemeği"
+                      placeholder="Akşam yemeğinde ne yediniz?"
+                      value={dietPlan.dinner}
+                      onChangeText={(text) => setDietPlan({ ...dietPlan, dinner: text })}
+                    />
+
+                    {/* Snacks Section */}
+                    <Text style={styles.sectionTitle}>Ara Öğünler</Text>
+
+                    <MealInput
+                      icon="cafe"
+                      label="Kuşluk"
+                      placeholder="Sabah ara öğünü..."
+                      value={dietPlan.morning_snack}
+                      onChangeText={(text) =>
+                        setDietPlan({ ...dietPlan, morning_snack: text })
+                      }
+                      compact
+                    />
+
+                    <MealInput
+                      icon="nutrition"
+                      label="İkindi"
+                      placeholder="Öğleden sonra ara öğünü..."
+                      value={dietPlan.afternoon_snack}
+                      onChangeText={(text) =>
+                        setDietPlan({ ...dietPlan, afternoon_snack: text })
+                      }
+                      compact
+                    />
+
+                    <MealInput
+                      icon="moon-outline"
+                      label="Gece"
+                      placeholder="Akşam ara öğünü..."
+                      value={dietPlan.evening_snack}
+                      onChangeText={(text) =>
+                        setDietPlan({ ...dietPlan, evening_snack: text })
+                      }
+                      compact
+                    />
+
+                    {/* Additional Info Section */}
+                    <Text style={styles.sectionTitle}>Ek Bilgiler</Text>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Toplam Kalori</Text>
+                      <View style={styles.calorieInputContainer}>
+                        <Ionicons name="flame" size={20} color={COLORS.primary} />
+                        <TextInput
+                          style={styles.calorieInput}
+                          value={dietPlan.total_calories}
+                          onChangeText={(text) =>
+                            setDietPlan({ ...dietPlan, total_calories: text })
+                          }
+                          placeholder="1500"
+                          keyboardType="numeric"
+                          placeholderTextColor={COLORS.textLight}
+                        />
+                      </View>
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Notlar (Opsiyonel)</Text>
+                      <View style={styles.notesInputContainer}>
+                        <Ionicons name="document-text" size={20} color={COLORS.primary} />
+                        <TextInput
+                          style={styles.notesInput}
+                          value={dietPlan.notes}
+                          onChangeText={(text) => setDietPlan({ ...dietPlan, notes: text })}
+                          placeholder="Notlarınızı yazın..."
+                          multiline
+                          numberOfLines={3}
+                          placeholderTextColor={COLORS.textLight}
+                        />
+                      </View>
+                    </View>
+                  </ScrollView>
+
+                  <View style={styles.modalFooter}>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, styles.cancelBtn]}
+                      onPress={() => setModalVisible(false)}
+                    >
+                      <Text style={styles.cancelBtnText}>İptal</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, styles.saveBtnModal]}
+                      onPress={saveDietPlan}
+                    >
+                      <LinearGradient
+                        colors={[COLORS.primary, COLORS.primaryDark]}
+                        style={styles.saveBtnGradient}
+                      >
+                        <Text style={styles.saveBtnText}>Kaydet</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
+      </Modal>
+    </View>
   );
 }
 
+// Stat Card Component
+const StatCard = ({ label, value, icon }) => (
+  <View style={styles.statCard}>
+    <Ionicons name={icon} size={28} color={COLORS.textOnPrimary} />
+    <Text style={styles.statValue}>{value}</Text>
+    <Text style={styles.statLabel}>{label}</Text>
+  </View>
+);
+
 // Meal Input Component
-const MealInput = ({ icon, label, placeholder, value, onChangeText, editable, compact }) => (
-  <View style={[styles.mealCard, compact && styles.mealCardCompact]}>
-    <View style={styles.mealHeader}>
+const MealInput = ({ icon, label, placeholder, value, onChangeText, compact }) => (
+  <View style={[styles.mealInputGroup, compact && styles.mealInputGroupCompact]}>
+    <View style={styles.mealInputHeader}>
       <View style={styles.mealIconBadge}>
-        <Ionicons name={icon} size={18} color={COLORS.primary} />
+        <Ionicons name={icon} size={16} color={COLORS.primary} />
       </View>
-      <Text style={styles.mealLabel}>{label}</Text>
+      <Text style={styles.mealInputLabel}>{label}</Text>
     </View>
     <TextInput
-      style={[
-        styles.mealInput,
-        !editable && styles.inputDisabled,
-        compact && styles.mealInputCompact
-      ]}
+      style={[styles.mealInput, compact && styles.mealInputCompact]}
       value={value}
       onChangeText={onChangeText}
       placeholder={placeholder}
       placeholderTextColor={COLORS.textLight}
       multiline
-      editable={editable}
     />
   </View>
 );
@@ -428,39 +531,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  dateSelector: {
+  statsHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SIZES.md,
-    paddingVertical: SIZES.lg,
+    justifyContent: 'space-around',
+    padding: SIZES.containerPadding,
+    paddingTop: SIZES.lg,
   },
-  dateArrow: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
+  statCard: {
     alignItems: 'center',
   },
-  dateArrowText: {
-    fontSize: 28,
-    color: COLORS.textOnPrimary,
-    fontWeight: '600',
-  },
-  dateDisplay: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: SIZES.md,
-  },
-  dateText: {
-    fontSize: SIZES.h2,
+  statValue: {
+    fontSize: SIZES.h4,
     fontWeight: '700',
     color: COLORS.textOnPrimary,
-    marginBottom: 4,
+    marginBottom: SIZES.xs,
+    marginTop: SIZES.xs,
   },
-  dateSubText: {
-    fontSize: SIZES.small,
+  statLabel: {
+    fontSize: SIZES.tiny,
     color: COLORS.textOnPrimary,
     opacity: 0.9,
   },
@@ -470,160 +558,310 @@ const styles = StyleSheet.create({
   content: {
     padding: SIZES.containerPadding,
   },
-  section: {
-    marginBottom: SIZES.sectionSpacing,
-  },
-  sectionTitle: {
-    fontSize: SIZES.h3,
-    fontWeight: '700',
-    color: COLORS.text,
+  titleContainer: {
     marginBottom: SIZES.md,
   },
-  mealCard: {
+  title: {
+    fontSize: SIZES.h2,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  subtitle: {
+    fontSize: SIZES.small,
+    color: COLORS.textSecondary,
+    marginTop: SIZES.xs,
+  },
+  infoMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.highlight,
+    paddingHorizontal: SIZES.sm,
+    paddingVertical: SIZES.xs,
+    borderRadius: SIZES.radiusSmall,
+    marginBottom: SIZES.md,
+    gap: SIZES.xs,
+  },
+  infoText: {
+    fontSize: SIZES.small,
+    color: COLORS.textSecondary,
+    flex: 1,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: SIZES.xxxl,
+  },
+  emptyText: {
+    fontSize: SIZES.h4,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginBottom: SIZES.xs,
+    marginTop: SIZES.md,
+  },
+  emptySubtext: {
+    fontSize: SIZES.body,
+    color: COLORS.textLight,
+  },
+  planCard: {
     backgroundColor: COLORS.surface,
     borderRadius: SIZES.radiusLarge,
     padding: SIZES.md,
     marginBottom: SIZES.md,
     ...SHADOWS.small,
   },
-  mealCardCompact: {
-    padding: SIZES.sm,
-  },
-  mealHeader: {
+  planHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: SIZES.sm,
   },
-  mealIconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.highlight,
+  planDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SIZES.xs,
+  },
+  planDate: {
+    fontSize: SIZES.small,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  calorieBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SIZES.sm,
+    paddingVertical: 4,
+    borderRadius: SIZES.radiusSmall,
+    gap: 4,
+  },
+  calorieText: {
+    fontSize: SIZES.tiny,
+    fontWeight: '700',
+    color: COLORS.textOnPrimary,
+  },
+  planBody: {
+    gap: SIZES.xs,
+  },
+  mealSummaryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SIZES.sm,
+  },
+  mealSummary: {
+    fontSize: SIZES.body,
+    fontWeight: '600',
+    color: COLORS.text,
+    flex: 1,
+  },
+  notesPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SIZES.xs,
+    marginTop: SIZES.xs,
+  },
+  notesPreviewText: {
+    fontSize: SIZES.small,
+    color: COLORS.textSecondary,
+    flex: 1,
+  },
+  addButton: {
+    position: 'absolute',
+    bottom: SIZES.lg,
+    right: SIZES.lg,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    overflow: 'hidden',
+    ...SHADOWS.large,
+  },
+  addButtonGradient: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: SIZES.sm,
   },
-  mealEmoji: {
-    fontSize: 18,
+  addButtonText: {
+    fontSize: 36,
+    fontWeight: '300',
+    color: COLORS.textOnPrimary,
   },
-  mealLabel: {
-    fontSize: SIZES.h5,
+  modalKeyboardView: {
+    flex: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: COLORS.overlay,
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: SIZES.radiusXL,
+    borderTopRightRadius: SIZES.radiusXL,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SIZES.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  modalTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SIZES.sm,
+  },
+  modalIcon: {
+    marginRight: SIZES.xs,
+  },
+  modalTitle: {
+    fontSize: SIZES.h3,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.surfaceAlt,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBody: {
+    padding: SIZES.lg,
+  },
+  sectionTitle: {
+    fontSize: SIZES.h4,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginTop: SIZES.md,
+    marginBottom: SIZES.sm,
+  },
+  inputGroup: {
+    marginBottom: SIZES.md,
+  },
+  inputLabel: {
+    fontSize: SIZES.small,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginBottom: SIZES.xs,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: SIZES.radiusMedium,
+    padding: SIZES.md,
+    gap: SIZES.sm,
+  },
+  dateButtonText: {
+    flex: 1,
+    fontSize: SIZES.body,
     fontWeight: '600',
     color: COLORS.text,
   },
+  datePickerContainer: {
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusMedium,
+    marginTop: SIZES.sm,
+    overflow: 'hidden',
+  },
+  datePickerCloseBtn: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: SIZES.md,
+    paddingHorizontal: SIZES.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  datePickerCloseText: {
+    fontSize: SIZES.h5,
+    fontWeight: '700',
+    color: COLORS.textOnPrimary,
+  },
+  mealInputGroup: {
+    marginBottom: SIZES.md,
+  },
+  mealInputGroupCompact: {
+    marginBottom: SIZES.sm,
+  },
+  mealInputHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SIZES.xs,
+    gap: SIZES.xs,
+  },
+  mealIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.highlight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mealInputLabel: {
+    fontSize: SIZES.small,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
   mealInput: {
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: SIZES.radiusMedium,
+    padding: SIZES.md,
     fontSize: SIZES.body,
     color: COLORS.text,
     minHeight: 60,
     textAlignVertical: 'top',
-    paddingHorizontal: SIZES.sm,
   },
   mealInputCompact: {
-    minHeight: 40,
+    minHeight: 50,
   },
-  inputDisabled: {
-    color: COLORS.textSecondary,
-  },
-  modernCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radiusLarge,
-    padding: SIZES.md,
-    ...SHADOWS.small,
-  },
-  calorieContainer: {
+  calorieInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SIZES.sm,
-  },
-  calorieIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.highlight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SIZES.md,
-  },
-  calorieEmoji: {
-    fontSize: 24,
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: SIZES.radiusMedium,
+    paddingHorizontal: SIZES.md,
+    gap: SIZES.sm,
   },
   calorieInput: {
     flex: 1,
-  },
-  label: {
-    fontSize: SIZES.small,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    marginBottom: 4,
-  },
-  calorieTextInput: {
-    fontSize: SIZES.h3,
+    fontSize: SIZES.h4,
     fontWeight: '700',
     color: COLORS.text,
+    paddingVertical: SIZES.md,
   },
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.divider,
-    marginVertical: SIZES.md,
-  },
-  notesContainer: {
+  notesInputContainer: {
     flexDirection: 'row',
-    paddingVertical: SIZES.sm,
-  },
-  notesIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.highlight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SIZES.md,
-  },
-  notesEmoji: {
-    fontSize: 24,
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: SIZES.radiusMedium,
+    padding: SIZES.md,
+    gap: SIZES.sm,
+    alignItems: 'flex-start',
   },
   notesInput: {
     flex: 1,
-  },
-  textArea: {
     fontSize: SIZES.body,
     color: COLORS.text,
     minHeight: 80,
     textAlignVertical: 'top',
   },
-  actionButtons: {
+  modalFooter: {
     flexDirection: 'row',
     gap: SIZES.md,
-    marginBottom: SIZES.xl,
+    paddingHorizontal: SIZES.lg,
+    paddingVertical: SIZES.lg,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+    backgroundColor: COLORS.surface,
   },
-  actionBtn: {
+  modalBtn: {
     flex: 1,
     height: 56,
     borderRadius: SIZES.radiusMedium,
     overflow: 'hidden',
-    ...SHADOWS.small,
   },
-  btnGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  btnContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SIZES.xs,
-  },
-  btnText: {
-    fontSize: SIZES.h5,
-    fontWeight: '700',
-    color: COLORS.textOnPrimary,
-  },
-  saveBtn: {},
-  editBtn: {},
   cancelBtn: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 2,
-    borderColor: COLORS.border,
+    backgroundColor: COLORS.surfaceAlt,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -632,16 +870,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.textSecondary,
   },
-  deleteBtn: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 2,
-    borderColor: COLORS.error,
+  saveBtnModal: {},
+  saveBtnGradient: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  deleteBtnText: {
+  saveBtnText: {
     fontSize: SIZES.h5,
-    fontWeight: '600',
-    color: COLORS.error,
+    fontWeight: '700',
+    color: COLORS.textOnPrimary,
   },
 });

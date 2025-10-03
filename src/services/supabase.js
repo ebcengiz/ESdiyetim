@@ -179,3 +179,62 @@ export const tipsService = {
     return null;
   },
 };
+
+// Vücut bilgileri işlemleri
+export const bodyInfoService = {
+  // En son vücut bilgisini getir
+  async getLatest() {
+    const { data, error } = await supabase
+      .from("body_info")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error && error.code !== "PGRST116") throw error;
+    return data;
+  },
+
+  // Tüm vücut bilgilerini getir
+  async getAll() {
+    const { data, error } = await supabase
+      .from("body_info")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Yeni vücut bilgisi ekle
+  async create(bodyInfo) {
+    const { data, error } = await supabase
+      .from("body_info")
+      .insert([bodyInfo])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Vücut bilgisini güncelle
+  async update(id, bodyInfo) {
+    const { data, error } = await supabase
+      .from("body_info")
+      .update(bodyInfo)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Vücut bilgisini sil
+  async delete(id) {
+    const { error } = await supabase.from("body_info").delete().eq("id", id);
+
+    if (error) throw error;
+  },
+};

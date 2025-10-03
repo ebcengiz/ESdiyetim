@@ -9,6 +9,7 @@ import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import HomeScreen from '../screens/HomeScreen';
 import DietPlanScreen from '../screens/DietPlanScreen';
 import WeightTrackerScreen from '../screens/WeightTrackerScreen';
+import BodyInfoScreen from '../screens/BodyInfoScreen';
 import TipsScreen from '../screens/TipsScreen';
 
 const Tab = createBottomTabNavigator();
@@ -84,6 +85,21 @@ export default function MainNavigator() {
             tabBarIcon: ({ color, size, focused }) => (
               <Ionicons
                 name={focused ? 'fitness' : 'fitness-outline'}
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="BodyInfo"
+          component={BodyInfoScreen}
+          options={{
+            title: 'Vücut Bilgilerim',
+            tabBarLabel: 'VKİ',
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons
+                name={focused ? 'body' : 'body-outline'}
                 size={size}
                 color={color}
               />
