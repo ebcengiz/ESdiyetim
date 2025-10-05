@@ -249,7 +249,7 @@ export default function HomeScreen({ navigation }) {
                 icon="trophy-outline"
                 label="Hedefler"
                 color={COLORS.info}
-                onPress={() => Alert.alert('Yakında', 'Bu özellik çok yakında!')}
+                onPress={() => navigation.navigate('Goals')}
               />
             </View>
           </View>

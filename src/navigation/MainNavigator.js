@@ -11,6 +11,7 @@ import DietPlanScreen from '../screens/DietPlanScreen';
 import WeightTrackerScreen from '../screens/WeightTrackerScreen';
 import BodyInfoScreen from '../screens/BodyInfoScreen';
 import TipsScreen from '../screens/TipsScreen';
+import GoalsScreen from '../screens/GoalsScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -85,6 +86,21 @@ export default function MainNavigator() {
             tabBarIcon: ({ color, size, focused }) => (
               <Ionicons
                 name={focused ? 'fitness' : 'fitness-outline'}
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Goals"
+          component={GoalsScreen}
+          options={{
+            title: 'Hedeflerim',
+            tabBarLabel: 'Hedefler',
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons
+                name={focused ? 'trophy' : 'trophy-outline'}
                 size={size}
                 color={color}
               />

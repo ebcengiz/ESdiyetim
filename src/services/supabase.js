@@ -238,3 +238,61 @@ export const bodyInfoService = {
     if (error) throw error;
   },
 };
+
+// Hedefler işlemleri
+export const goalsService = {
+  // Tüm hedefleri getir
+  async getAll() {
+    const { data, error } = await supabase
+      .from("goals")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Aktif hedefleri getir
+  async getActive() {
+    const { data, error } = await supabase
+      .from("goals")
+      .select("*")
+      .eq("status", "active")
+      .order("target_date", { ascending: true });
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Yeni hedef ekle
+  async create(goal) {
+    const { data, error } = await supabase
+      .from("goals")
+      .insert([goal])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Hedefi güncelle
+  async update(id, goal) {
+    const { data, error } = await supabase
+      .from("goals")
+      .update(goal)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Hedefi sil
+  async delete(id) {
+    const { error } = await supabase.from("goals").delete().eq("id", id);
+
+    if (error) throw error;
+  },
+};
