@@ -114,7 +114,15 @@ export const weightService = {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      // Duplicate key hatası için özel mesaj
+      if (error.code === '23505' || error.message.includes('duplicate') || error.message.includes('unique')) {
+        const err = new Error('Bu tarih için zaten bir kilo kaydı bulunuyor. Lütfen farklı bir tarih seçin veya mevcut kaydı düzenleyin.');
+        err.code = 'DUPLICATE_DATE';
+        throw err;
+      }
+      throw error;
+    }
     return data;
   },
 

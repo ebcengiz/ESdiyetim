@@ -13,12 +13,14 @@ import {
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { weightService } from '../services/supabase';
+import { aiService } from '../services/aiService';
 
 const { width } = Dimensions.get('window');
 
@@ -31,6 +33,11 @@ export default function WeightTrackerScreen() {
   const [notes, setNotes] = useState('');
   const [editingId, setEditingId] = useState(null);
 
+  // AI Tavsiye state'leri
+  const [aiAdviceModalVisible, setAiAdviceModalVisible] = useState(false);
+  const [aiAdvice, setAiAdvice] = useState('');
+  const [loadingAdvice, setLoadingAdvice] = useState(false);
+
   useEffect(() => {
     loadWeights();
   }, []);
@@ -40,8 +47,11 @@ export default function WeightTrackerScreen() {
       const data = await weightService.getAll();
       setWeights(data || []);
     } catch (error) {
-      console.error('Kilo kayıtları yükleme hatası:', error);
-      Alert.alert('Hata', 'Kilo kayıtları yüklenirken bir hata oluştu.');
+      Alert.alert(
+        '⚠️ Yükleme Hatası',
+        'Kilo kayıtlarınız yüklenirken bir sorun oluştu. Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.',
+        [{ text: 'Tamam', style: 'default' }]
+      );
     }
   };
 
@@ -87,42 +97,108 @@ export default function WeightTrackerScreen() {
 
       if (editingId) {
         await weightService.update(editingId, weightData);
-        Alert.alert('✅ Başarılı', 'Kilo kaydı güncellendi!');
+        Alert.alert(
+          '✅ Güncellendi',
+          'Kilo kaydınız başarıyla güncellendi.',
+          [{ text: 'Tamam', style: 'default' }]
+        );
       } else {
         await weightService.create(weightData);
-        Alert.alert('✅ Başarılı', 'Kilo kaydı eklendi!');
+        Alert.alert(
+          '✅ Kaydedildi',
+          'Yeni kilo kaydınız başarıyla eklendi.',
+          [{ text: 'Tamam', style: 'default' }]
+        );
       }
 
       setModalVisible(false);
       loadWeights();
     } catch (error) {
-      console.error('Kilo kaydı kaydetme hatası:', error);
-      if (error.message.includes('duplicate')) {
-        Alert.alert('❌ Hata', 'Bu tarih için zaten bir kayıt var.');
-      } else {
-        Alert.alert('❌ Hata', 'Kilo kaydı kaydedilirken bir hata oluştu.');
+      // Duplicate key hatası
+      if (error.code === 'DUPLICATE_DATE') {
+        Alert.alert(
+          '📆 Aynı Gün Kaydı',
+          error.message,
+          [{ text: 'Tamam', style: 'default' }]
+        );
+      }
+      // Diğer veritabanı hataları
+      else if (error.message) {
+        Alert.alert(
+          '⚠️ İşlem Başarısız',
+          'Kilo kaydı kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.',
+          [{ text: 'Tamam', style: 'default' }]
+        );
+      }
+      // Bilinmeyen hatalar
+      else {
+        Alert.alert(
+          '⚠️ Bağlantı Hatası',
+          'Beklenmeyen bir hata oluştu. Lütfen internet bağlantınızı kontrol edin.',
+          [{ text: 'Tamam', style: 'default' }]
+        );
       }
     }
   };
 
   const deleteWeight = (id) => {
-    Alert.alert('Kaydı Sil', 'Bu kilo kaydını silmek istediğinizden emin misiniz?', [
-      { text: 'İptal', style: 'cancel' },
-      {
-        text: 'Sil',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await weightService.delete(id);
-            Alert.alert('✅ Başarılı', 'Kilo kaydı silindi!');
-            loadWeights();
-          } catch (error) {
-            console.error('Kilo kaydı silme hatası:', error);
-            Alert.alert('❌ Hata', 'Kilo kaydı silinirken bir hata oluştu.');
-          }
+    Alert.alert(
+      '🗑️ Kaydı Sil',
+      'Bu kilo kaydını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await weightService.delete(id);
+              Alert.alert(
+                '✅ Başarılı',
+                'Kilo kaydınız başarıyla silindi.',
+                [{ text: 'Tamam', style: 'default' }]
+              );
+              loadWeights();
+            } catch (error) {
+              Alert.alert(
+                '⚠️ Silme Başarısız',
+                'Kilo kaydı silinirken bir hata oluştu. Lütfen tekrar deneyin.',
+                [{ text: 'Tamam', style: 'default' }]
+              );
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
+  };
+
+  // AI Tavsiye Al
+  const getAIAdvice = async () => {
+    if (!stats || weights.length === 0) {
+      Alert.alert(
+        '⚠️ Yetersiz Veri',
+        'AI tavsiyesi alabilmek için en az bir kilo kaydı girmelisiniz.',
+        [{ text: 'Tamam', style: 'default' }]
+      );
+      return;
+    }
+
+    setLoadingAdvice(true);
+    setAiAdviceModalVisible(true);
+    setAiAdvice('');
+
+    try {
+      const weightData = {
+        weights: weights,
+        stats: stats,
+      };
+      const result = await aiService.getWeightTrackingAdvice(weightData);
+      setAiAdvice(result.advice);
+    } catch (error) {
+      setAiAdvice('⚠️ Tavsiye alınırken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+    } finally {
+      setLoadingAdvice(false);
+    }
   };
 
   const calculateChange = (index) => {
@@ -188,6 +264,27 @@ export default function WeightTrackerScreen() {
             icon="stats-chart"
           />
         </LinearGradient>
+      )}
+
+      {/* AI Tavsiye Butonu */}
+      {stats && (
+        <View style={styles.aiButtonContainer}>
+          <TouchableOpacity
+            style={styles.aiButton}
+            onPress={getAIAdvice}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={[COLORS.accent, COLORS.accentDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.aiButtonGradient}
+            >
+              <Ionicons name="sparkles" size={20} color={COLORS.textOnPrimary} />
+              <Text style={styles.aiButtonText}>AI'dan Analiz Al</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       )}
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -409,6 +506,83 @@ export default function WeightTrackerScreen() {
             </View>
           </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* AI Tavsiye Modal */}
+      <Modal
+        visible={aiAdviceModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setAiAdviceModalVisible(false)}
+      >
+        <View style={styles.aiModalOverlay}>
+          <View style={styles.aiModalContent}>
+            <View style={styles.aiModalHeader}>
+              <View style={styles.modalTitleContainer}>
+                <Ionicons
+                  name="sparkles"
+                  size={24}
+                  color={COLORS.accent}
+                />
+                <Text style={styles.modalTitle}>AI Kilo Analizi</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setAiAdviceModalVisible(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.aiModalBody}
+              showsVerticalScrollIndicator={false}
+            >
+              {loadingAdvice ? (
+                <View style={styles.aiLoadingContainer}>
+                  <ActivityIndicator size="large" color={COLORS.accent} />
+                  <Text style={styles.aiLoadingText}>
+                    Kilo takip verileriniz analiz ediliyor...
+                  </Text>
+                  <Text style={styles.aiLoadingSubtext}>
+                    Bu birkaç saniye sürebilir
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.aiAdviceContainer}>
+                  <LinearGradient
+                    colors={[COLORS.accent, COLORS.accentDark]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.aiAdviceHeader}
+                  >
+                    <Ionicons name="analytics" size={32} color={COLORS.textOnPrimary} />
+                    <Text style={styles.aiAdviceTitle}>
+                      Kişiselleştirilmiş Analiz
+                    </Text>
+                  </LinearGradient>
+                  <View style={styles.aiAdviceContent}>
+                    <Text style={styles.aiAdviceText}>{aiAdvice}</Text>
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={styles.aiModalFooter}>
+              <TouchableOpacity
+                style={styles.aiCloseButton}
+                onPress={() => setAiAdviceModalVisible(false)}
+              >
+                <LinearGradient
+                  colors={[COLORS.primary, COLORS.primaryDark]}
+                  style={styles.aiCloseButtonGradient}
+                >
+                  <Text style={styles.aiCloseButtonText}>Kapat</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -733,6 +907,113 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveBtnText: {
+    fontSize: SIZES.h5,
+    fontWeight: '700',
+    color: COLORS.textOnPrimary,
+  },
+  // AI Buton Stilleri
+  aiButtonContainer: {
+    padding: SIZES.md,
+    backgroundColor: COLORS.background,
+  },
+  aiButton: {
+    borderRadius: SIZES.radiusMedium,
+    overflow: 'hidden',
+    ...SHADOWS.small,
+  },
+  aiButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SIZES.md,
+    paddingHorizontal: SIZES.lg,
+    gap: SIZES.sm,
+  },
+  aiButtonText: {
+    fontSize: SIZES.body,
+    fontWeight: '600',
+    color: COLORS.textOnPrimary,
+  },
+  // AI Modal Stilleri
+  aiModalOverlay: {
+    flex: 1,
+    backgroundColor: COLORS.overlay,
+    justifyContent: 'flex-end',
+  },
+  aiModalContent: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: SIZES.radiusXL,
+    borderTopRightRadius: SIZES.radiusXL,
+    maxHeight: '85%',
+  },
+  aiModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SIZES.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  aiModalBody: {
+    padding: SIZES.lg,
+  },
+  aiLoadingContainer: {
+    alignItems: 'center',
+    paddingVertical: SIZES.xxxl,
+    gap: SIZES.md,
+  },
+  aiLoadingText: {
+    fontSize: SIZES.h4,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  aiLoadingSubtext: {
+    fontSize: SIZES.body,
+    color: COLORS.textSecondary,
+  },
+  aiAdviceContainer: {
+    borderRadius: SIZES.radiusLarge,
+    overflow: 'hidden',
+    ...SHADOWS.medium,
+  },
+  aiAdviceHeader: {
+    padding: SIZES.lg,
+    alignItems: 'center',
+    gap: SIZES.sm,
+  },
+  aiAdviceTitle: {
+    fontSize: SIZES.h3,
+    fontWeight: '700',
+    color: COLORS.textOnPrimary,
+    textAlign: 'center',
+  },
+  aiAdviceContent: {
+    backgroundColor: COLORS.surface,
+    padding: SIZES.lg,
+  },
+  aiAdviceText: {
+    fontSize: SIZES.body,
+    color: COLORS.text,
+    lineHeight: 24,
+  },
+  aiModalFooter: {
+    padding: SIZES.lg,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+    backgroundColor: COLORS.surface,
+  },
+  aiCloseButton: {
+    height: 56,
+    borderRadius: SIZES.radiusMedium,
+    overflow: 'hidden',
+    ...SHADOWS.small,
+  },
+  aiCloseButtonGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiCloseButtonText: {
     fontSize: SIZES.h5,
     fontWeight: '700',
     color: COLORS.textOnPrimary,

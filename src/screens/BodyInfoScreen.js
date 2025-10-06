@@ -8,11 +8,13 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { bodyInfoService } from '../services/supabase';
+import { aiService } from '../services/aiService';
 
 export default function BodyInfoScreen() {
   const [loading, setLoading] = useState(true);
@@ -25,6 +27,11 @@ export default function BodyInfoScreen() {
   const [existingId, setExistingId] = useState(null);
   const [bmi, setBmi] = useState(null);
   const [bmiCategory, setBmiCategory] = useState(null);
+
+  // AI Tavsiye state'leri
+  const [aiAdviceModalVisible, setAiAdviceModalVisible] = useState(false);
+  const [aiAdvice, setAiAdvice] = useState('');
+  const [loadingAdvice, setLoadingAdvice] = useState(false);
 
   useEffect(() => {
     loadBodyInfo();
@@ -119,6 +126,36 @@ export default function BodyInfoScreen() {
     } catch (error) {
       console.error('Vücut bilgileri kaydetme hatası:', error);
       Alert.alert('❌ Hata', 'Vücut bilgileri kaydedilirken bir hata oluştu.');
+    }
+  };
+
+  // AI Tavsiye Al
+  const getAIAdvice = async () => {
+    if (!bmi || !bmiCategory) {
+      Alert.alert('⚠️ Uyarı', 'Lütfen önce vücut bilgilerinizi girin ve VKİ hesaplansın.');
+      return;
+    }
+
+    setLoadingAdvice(true);
+    setAiAdviceModalVisible(true);
+    setAiAdvice('');
+
+    try {
+      const bmiData = {
+        bmi: parseFloat(bmi),
+        category: bmiCategory.name,
+        height: parseFloat(bodyInfo.height),
+        weight: parseFloat(bodyInfo.weight),
+        age: parseInt(bodyInfo.age),
+        gender: bodyInfo.gender,
+      };
+
+      const result = await aiService.getBMIAdvice(bmiData);
+      setAiAdvice(result.advice);
+    } catch (error) {
+      setAiAdvice('⚠️ Tavsiye alınırken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+    } finally {
+      setLoadingAdvice(false);
     }
   };
 
@@ -340,6 +377,23 @@ export default function BodyInfoScreen() {
                 <Text style={styles.bmiScaleText}>Obez (≥30)</Text>
               </View>
             </View>
+
+            {/* AI Tavsiye Butonu */}
+            <TouchableOpacity
+              style={styles.aiAdviceButton}
+              onPress={getAIAdvice}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={[COLORS.accent, COLORS.accentDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.aiAdviceGradient}
+              >
+                <Ionicons name="sparkles" size={20} color={COLORS.textOnPrimary} />
+                <Text style={styles.aiAdviceButtonText}>AI'dan Detaylı Tavsiye Al</Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -358,6 +412,83 @@ export default function BodyInfoScreen() {
           </View>
         )}
       </View>
+
+      {/* AI Tavsiye Modal */}
+      <Modal
+        visible={aiAdviceModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setAiAdviceModalVisible(false)}
+      >
+        <View style={styles.aiModalOverlay}>
+          <View style={styles.aiModalContent}>
+            <View style={styles.aiModalHeader}>
+              <View style={styles.modalTitleContainer}>
+                <Ionicons
+                  name="sparkles"
+                  size={24}
+                  color={COLORS.accent}
+                />
+                <Text style={styles.modalTitle}>AI VKİ Tavsiyesi</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setAiAdviceModalVisible(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.aiModalBody}
+              showsVerticalScrollIndicator={false}
+            >
+              {loadingAdvice ? (
+                <View style={styles.aiLoadingContainer}>
+                  <ActivityIndicator size="large" color={COLORS.accent} />
+                  <Text style={styles.aiLoadingText}>
+                    AI tavsiyeniz hazırlanıyor...
+                  </Text>
+                  <Text style={styles.aiLoadingSubtext}>
+                    Bu birkaç saniye sürebilir
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.aiAdviceContainer}>
+                  <LinearGradient
+                    colors={bmiCategory ? [bmiCategory.color, bmiCategory.color + 'CC'] : [COLORS.accent, COLORS.accentDark]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.aiAdviceHeader}
+                  >
+                    <Ionicons name="fitness" size={32} color={COLORS.textOnPrimary} />
+                    <Text style={styles.aiAdviceTitle}>
+                      VKİ: {bmi} - {bmiCategory?.name}
+                    </Text>
+                  </LinearGradient>
+                  <View style={styles.aiAdviceContent}>
+                    <Text style={styles.aiAdviceText}>{aiAdvice}</Text>
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={styles.aiModalFooter}>
+              <TouchableOpacity
+                style={styles.aiCloseButton}
+                onPress={() => setAiAdviceModalVisible(false)}
+              >
+                <LinearGradient
+                  colors={[COLORS.primary, COLORS.primaryDark]}
+                  style={styles.aiCloseButtonGradient}
+                >
+                  <Text style={styles.aiCloseButtonText}>Kapat</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -545,5 +676,126 @@ const styles = StyleSheet.create({
     fontSize: SIZES.body,
     color: COLORS.text,
     lineHeight: 22,
+  },
+  // AI Tavsiye Stilleri
+  aiAdviceButton: {
+    marginTop: SIZES.md,
+    borderRadius: SIZES.radiusMedium,
+    overflow: 'hidden',
+    ...SHADOWS.small,
+  },
+  aiAdviceGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SIZES.md,
+    paddingHorizontal: SIZES.lg,
+    gap: SIZES.sm,
+  },
+  aiAdviceButtonText: {
+    fontSize: SIZES.body,
+    fontWeight: '600',
+    color: COLORS.textOnPrimary,
+  },
+  aiModalOverlay: {
+    flex: 1,
+    backgroundColor: COLORS.overlay,
+    justifyContent: 'flex-end',
+  },
+  aiModalContent: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: SIZES.radiusXL,
+    borderTopRightRadius: SIZES.radiusXL,
+    maxHeight: '85%',
+  },
+  aiModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SIZES.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  modalTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SIZES.sm,
+  },
+  modalTitle: {
+    fontSize: SIZES.h3,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.surfaceAlt,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiModalBody: {
+    padding: SIZES.lg,
+  },
+  aiLoadingContainer: {
+    alignItems: 'center',
+    paddingVertical: SIZES.xxxl,
+    gap: SIZES.md,
+  },
+  aiLoadingText: {
+    fontSize: SIZES.h4,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  aiLoadingSubtext: {
+    fontSize: SIZES.body,
+    color: COLORS.textSecondary,
+  },
+  aiAdviceContainer: {
+    borderRadius: SIZES.radiusLarge,
+    overflow: 'hidden',
+    ...SHADOWS.medium,
+  },
+  aiAdviceHeader: {
+    padding: SIZES.lg,
+    alignItems: 'center',
+    gap: SIZES.sm,
+  },
+  aiAdviceTitle: {
+    fontSize: SIZES.h3,
+    fontWeight: '700',
+    color: COLORS.textOnPrimary,
+    textAlign: 'center',
+  },
+  aiAdviceContent: {
+    backgroundColor: COLORS.surface,
+    padding: SIZES.lg,
+  },
+  aiAdviceText: {
+    fontSize: SIZES.body,
+    color: COLORS.text,
+    lineHeight: 24,
+  },
+  aiModalFooter: {
+    padding: SIZES.lg,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+    backgroundColor: COLORS.surface,
+  },
+  aiCloseButton: {
+    height: 56,
+    borderRadius: SIZES.radiusMedium,
+    overflow: 'hidden',
+    ...SHADOWS.small,
+  },
+  aiCloseButtonGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiCloseButtonText: {
+    fontSize: SIZES.h5,
+    fontWeight: '700',
+    color: COLORS.textOnPrimary,
   },
 });

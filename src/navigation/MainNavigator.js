@@ -1,9 +1,12 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Platform } from 'react-native';
+import { Platform, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
+
+const { width } = Dimensions.get('window');
+const iconSize = width < 375 ? 22 : 24;
 
 // Ekranlar
 import HomeScreen from '../screens/HomeScreen';
@@ -31,8 +34,14 @@ export default function MainNavigator() {
             ...SHADOWS.large,
           },
           tabBarLabelStyle: {
-            fontSize: SIZES.tiny,
-            fontWeight: '700',
+            fontSize: width < 375 ? 9 : 10,
+            fontWeight: '600',
+            marginTop: 2,
+            marginBottom: 2,
+          },
+          tabBarAllowFontScaling: false,
+          tabBarItemStyle: {
+            paddingHorizontal: 0,
           },
           headerStyle: {
             backgroundColor: COLORS.primary,
@@ -52,10 +61,10 @@ export default function MainNavigator() {
           options={{
             title: 'Ana Sayfa',
             tabBarLabel: 'Ana Sayfa',
-            tabBarIcon: ({ color, size, focused }) => (
+            tabBarIcon: ({ color, focused }) => (
               <Ionicons
                 name={focused ? 'home' : 'home-outline'}
-                size={size}
+                size={iconSize}
                 color={color}
               />
             ),
@@ -68,10 +77,10 @@ export default function MainNavigator() {
           options={{
             title: 'Diyet Programım',
             tabBarLabel: 'Diyetim',
-            tabBarIcon: ({ color, size, focused }) => (
+            tabBarIcon: ({ color, focused }) => (
               <Ionicons
                 name={focused ? 'restaurant' : 'restaurant-outline'}
-                size={size}
+                size={iconSize}
                 color={color}
               />
             ),
@@ -83,10 +92,10 @@ export default function MainNavigator() {
           options={{
             title: 'Kilo Takibi',
             tabBarLabel: 'Kilom',
-            tabBarIcon: ({ color, size, focused }) => (
+            tabBarIcon: ({ color, focused }) => (
               <Ionicons
                 name={focused ? 'fitness' : 'fitness-outline'}
-                size={size}
+                size={iconSize}
                 color={color}
               />
             ),
@@ -98,10 +107,10 @@ export default function MainNavigator() {
           options={{
             title: 'Hedeflerim',
             tabBarLabel: 'Hedefler',
-            tabBarIcon: ({ color, size, focused }) => (
+            tabBarIcon: ({ color, focused }) => (
               <Ionicons
                 name={focused ? 'trophy' : 'trophy-outline'}
-                size={size}
+                size={iconSize}
                 color={color}
               />
             ),
@@ -113,10 +122,10 @@ export default function MainNavigator() {
           options={{
             title: 'Vücut Bilgilerim',
             tabBarLabel: 'VKİ',
-            tabBarIcon: ({ color, size, focused }) => (
+            tabBarIcon: ({ color, focused }) => (
               <Ionicons
                 name={focused ? 'body' : 'body-outline'}
-                size={size}
+                size={iconSize}
                 color={color}
               />
             ),
@@ -128,10 +137,10 @@ export default function MainNavigator() {
           options={{
             title: 'Sağlık Tavsiyeleri',
             tabBarLabel: 'Tavsiyeler',
-            tabBarIcon: ({ color, size, focused }) => (
+            tabBarIcon: ({ color, focused }) => (
               <Ionicons
                 name={focused ? 'bulb' : 'bulb-outline'}
-                size={size}
+                size={iconSize}
                 color={color}
               />
             ),
