@@ -13,10 +13,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { weightService, dietPlanService, tipsService } from '../services/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen({ navigation }) {
+  const { user, signOut } = useAuth();
   const [latestWeight, setLatestWeight] = useState(null);
   const [todayDiet, setTodayDiet] = useState(null);
   const [randomTip, setRandomTip] = useState(null);
@@ -56,6 +58,29 @@ export default function HomeScreen({ navigation }) {
     return 'İyi akşamlar';
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Çıkış Yap',
+      'Hesabınızdan çıkmak istediğinize emin misiniz?',
+      [
+        {
+          text: 'İptal',
+          style: 'cancel',
+        },
+        {
+          text: 'Çıkış Yap',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await signOut();
+            if (error) {
+              Alert.alert('Hata', 'Çıkış yapılırken bir hata oluştu.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -83,9 +108,18 @@ export default function HomeScreen({ navigation }) {
                 <Ionicons name="hand-right" size={20} color={COLORS.textOnPrimary} style={styles.greetingIcon} />
               </View>
               <Text style={styles.appName}>ESdiyet</Text>
+              {user?.user_metadata?.full_name && (
+                <Text style={styles.userName}>{user.user_metadata.full_name}</Text>
+              )}
             </View>
-            <View style={styles.headerBadge}>
-              <Ionicons name="leaf" size={28} color={COLORS.textOnPrimary} />
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={styles.logoutButton}
+                onPress={handleLogout}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="log-out-outline" size={24} color={COLORS.textOnPrimary} />
+              </TouchableOpacity>
             </View>
           </View>
         </LinearGradient>
@@ -325,10 +359,21 @@ const styles = StyleSheet.create({
     color: COLORS.textOnPrimary,
     letterSpacing: -0.5,
   },
-  headerBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  userName: {
+    fontSize: SIZES.small,
+    color: COLORS.textOnPrimary,
+    opacity: 0.8,
+    marginTop: 4,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SIZES.sm,
+  },
+  logoutButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',

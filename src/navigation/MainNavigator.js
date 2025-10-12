@@ -1,9 +1,11 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Platform, Dimensions } from 'react-native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Platform, Dimensions, View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
+import { useAuth } from '../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 const iconSize = width < 375 ? 22 : 24;
@@ -15,13 +17,31 @@ import WeightTrackerScreen from '../screens/WeightTrackerScreen';
 import BodyInfoScreen from '../screens/BodyInfoScreen';
 import TipsScreen from '../screens/TipsScreen';
 import GoalsScreen from '../screens/GoalsScreen';
+import LoginScreen from '../screens/LoginScreen';
+import RegisterScreen from '../screens/RegisterScreen';
 
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
 
-export default function MainNavigator() {
+// Auth Stack (Login/Register)
+function AuthStack() {
   return (
-    <NavigationContainer>
-      <Tab.Navigator
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+      }}
+    >
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
+    </Stack.Navigator>
+  );
+}
+
+// App Stack (Main App - Tab Navigator)
+function AppStack() {
+  return (
+    <Tab.Navigator
         screenOptions={{
           tabBarActiveTintColor: COLORS.primary,
           tabBarInactiveTintColor: COLORS.textLight,
@@ -147,6 +167,40 @@ export default function MainNavigator() {
           }}
         />
       </Tab.Navigator>
+  );
+}
+
+// Loading Screen
+function LoadingScreen() {
+  return (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color={COLORS.primary} />
+    </View>
+  );
+}
+
+// Main Navigator
+export default function MainNavigator() {
+  const { user, loading } = useAuth();
+
+  return (
+    <NavigationContainer>
+      {loading ? (
+        <LoadingScreen />
+      ) : user ? (
+        <AppStack />
+      ) : (
+        <AuthStack />
+      )}
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+  },
+});

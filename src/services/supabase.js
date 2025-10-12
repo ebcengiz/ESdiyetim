@@ -22,11 +22,15 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 
 // Diyet programı işlemleri
 export const dietPlanService = {
-  // Tüm diyet planlarını getir
+  // Tüm diyet planlarını getir (sadece kullanıcının kendi kayıtları)
   async getAll() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const { data, error } = await supabase
       .from("diet_plans")
       .select("*")
+      .eq("user_id", user.id)
       .order("date", { ascending: false });
 
     if (error) throw error;
@@ -35,9 +39,13 @@ export const dietPlanService = {
 
   // Belirli bir tarihe göre diyet planını getir
   async getByDate(date) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const { data, error } = await supabase
       .from("diet_plans")
       .select("*")
+      .eq("user_id", user.id)
       .eq("date", date)
       .single();
 
@@ -47,9 +55,12 @@ export const dietPlanService = {
 
   // Yeni diyet planı ekle
   async create(dietPlan) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const { data, error } = await supabase
       .from("diet_plans")
-      .insert([dietPlan])
+      .insert([{ ...dietPlan, user_id: user.id }])
       .select()
       .single();
 
@@ -59,10 +70,14 @@ export const dietPlanService = {
 
   // Diyet planını güncelle
   async update(id, dietPlan) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const { data, error } = await supabase
       .from("diet_plans")
       .update(dietPlan)
       .eq("id", id)
+      .eq("user_id", user.id)
       .select()
       .single();
 
@@ -72,7 +87,14 @@ export const dietPlanService = {
 
   // Diyet planını sil
   async delete(id) {
-    const { error } = await supabase.from("diet_plans").delete().eq("id", id);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
+    const { error } = await supabase
+      .from("diet_plans")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id);
 
     if (error) throw error;
   },
@@ -80,11 +102,15 @@ export const dietPlanService = {
 
 // Kilo takip işlemleri
 export const weightService = {
-  // Tüm kilo kayıtlarını getir
+  // Tüm kilo kayıtlarını getir (sadece kullanıcının kendi kayıtları)
   async getAll() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const { data, error } = await supabase
       .from("weight_records")
       .select("*")
+      .eq("user_id", user.id)
       .order("date", { ascending: false });
 
     if (error) throw error;
@@ -93,12 +119,16 @@ export const weightService = {
 
   // Son 30 günün kilo kayıtlarını getir
   async getLastMonth() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const { data, error } = await supabase
       .from("weight_records")
       .select("*")
+      .eq("user_id", user.id)
       .gte("date", thirtyDaysAgo.toISOString().split("T")[0])
       .order("date", { ascending: true });
 
@@ -108,9 +138,12 @@ export const weightService = {
 
   // Yeni kilo kaydı ekle
   async create(weightRecord) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const { data, error } = await supabase
       .from("weight_records")
-      .insert([weightRecord])
+      .insert([{ ...weightRecord, user_id: user.id }])
       .select()
       .single();
 
@@ -128,10 +161,14 @@ export const weightService = {
 
   // Kilo kaydını güncelle
   async update(id, weightRecord) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const { data, error } = await supabase
       .from("weight_records")
       .update(weightRecord)
       .eq("id", id)
+      .eq("user_id", user.id)
       .select()
       .single();
 
@@ -141,19 +178,27 @@ export const weightService = {
 
   // Kilo kaydını sil
   async delete(id) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const { error } = await supabase
       .from("weight_records")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", user.id);
 
     if (error) throw error;
   },
 
   // En son kilo kaydını getir
   async getLatest() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const { data, error } = await supabase
       .from("weight_records")
       .select("*")
+      .eq("user_id", user.id)
       .order("date", { ascending: false })
       .limit(1)
       .single();
@@ -190,11 +235,15 @@ export const tipsService = {
 
 // Vücut bilgileri işlemleri
 export const bodyInfoService = {
-  // En son vücut bilgisini getir
+  // En son vücut bilgisini getir (sadece kullanıcının kendi kaydı)
   async getLatest() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const { data, error } = await supabase
       .from("body_info")
       .select("*")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
@@ -203,11 +252,15 @@ export const bodyInfoService = {
     return data;
   },
 
-  // Tüm vücut bilgilerini getir
+  // Tüm vücut bilgilerini getir (sadece kullanıcının kendi kayıtları)
   async getAll() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const { data, error } = await supabase
       .from("body_info")
       .select("*")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -216,9 +269,12 @@ export const bodyInfoService = {
 
   // Yeni vücut bilgisi ekle
   async create(bodyInfo) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const { data, error } = await supabase
       .from("body_info")
-      .insert([bodyInfo])
+      .insert([{ ...bodyInfo, user_id: user.id }])
       .select()
       .single();
 
@@ -228,10 +284,14 @@ export const bodyInfoService = {
 
   // Vücut bilgisini güncelle
   async update(id, bodyInfo) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const { data, error } = await supabase
       .from("body_info")
       .update(bodyInfo)
       .eq("id", id)
+      .eq("user_id", user.id)
       .select()
       .single();
 
@@ -241,7 +301,14 @@ export const bodyInfoService = {
 
   // Vücut bilgisini sil
   async delete(id) {
-    const { error } = await supabase.from("body_info").delete().eq("id", id);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
+    const { error } = await supabase
+      .from("body_info")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id);
 
     if (error) throw error;
   },
@@ -249,22 +316,30 @@ export const bodyInfoService = {
 
 // Hedefler işlemleri
 export const goalsService = {
-  // Tüm hedefleri getir
+  // Tüm hedefleri getir (sadece kullanıcının kendi hedefleri)
   async getAll() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const { data, error } = await supabase
       .from("goals")
       .select("*")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
     return data;
   },
 
-  // Aktif hedefleri getir
+  // Aktif hedefleri getir (sadece kullanıcının kendi aktif hedefleri)
   async getActive() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const { data, error } = await supabase
       .from("goals")
       .select("*")
+      .eq("user_id", user.id)
       .eq("status", "active")
       .order("target_date", { ascending: true });
 
@@ -274,9 +349,12 @@ export const goalsService = {
 
   // Yeni hedef ekle
   async create(goal) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const { data, error } = await supabase
       .from("goals")
-      .insert([goal])
+      .insert([{ ...goal, user_id: user.id }])
       .select()
       .single();
 
@@ -286,10 +364,14 @@ export const goalsService = {
 
   // Hedefi güncelle
   async update(id, goal) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
     const { data, error } = await supabase
       .from("goals")
       .update(goal)
       .eq("id", id)
+      .eq("user_id", user.id)
       .select()
       .single();
 
@@ -299,7 +381,14 @@ export const goalsService = {
 
   // Hedefi sil
   async delete(id) {
-    const { error } = await supabase.from("goals").delete().eq("id", id);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
+    const { error } = await supabase
+      .from("goals")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id);
 
     if (error) throw error;
   },
