@@ -21,7 +21,7 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, resetPassword } = useAuth();
 
   const handleLogin = async () => {
     // Validation
@@ -65,6 +65,56 @@ export default function LoginScreen({ navigation }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForgotPassword = () => {
+    // E-posta alanı dolu mu kontrol et
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!email.trim() || !emailRegex.test(email)) {
+      Alert.alert(
+        'Şifremi Unuttum',
+        'Lütfen önce e-posta adresinizi yukarıdaki alana girin, ardından "Şifremi Unuttum" butonuna tekrar tıklayın.',
+        [{ text: 'Tamam' }]
+      );
+      return;
+    }
+
+    // Onay alert'i göster
+    Alert.alert(
+      'Şifre Sıfırlama',
+      `${email} adresine şifre sıfırlama bağlantısı göndermek istiyor musunuz?`,
+      [
+        {
+          text: 'İptal',
+          style: 'cancel',
+        },
+        {
+          text: 'Gönder',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const { error } = await resetPassword(email.trim().toLowerCase());
+
+              if (error) {
+                Alert.alert('Hata', 'Şifre sıfırlama bağlantısı gönderilemedi. Lütfen tekrar deneyin.');
+              } else {
+                Alert.alert(
+                  'Başarılı',
+                  'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi. Lütfen e-postanızı kontrol edin.',
+                  [{ text: 'Tamam' }]
+                );
+              }
+            } catch (error) {
+              Alert.alert('Hata', 'Beklenmeyen bir hata oluştu.');
+              console.error('Reset password error:', error);
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -148,7 +198,7 @@ export default function LoginScreen({ navigation }) {
           {/* Forgot Password */}
           <TouchableOpacity
             style={styles.forgotPasswordContainer}
-            onPress={() => navigation.navigate('ForgotPassword')}
+            onPress={handleForgotPassword}
             disabled={loading}
           >
             <Text style={styles.forgotPasswordText}>Şifremi Unuttum</Text>

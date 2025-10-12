@@ -52,6 +52,7 @@ export const AuthProvider = ({ children }) => {
         email,
         password,
         options: {
+          emailRedirectTo: false,
           data: {
             full_name: fullName,
           },

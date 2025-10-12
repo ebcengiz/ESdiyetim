@@ -81,7 +81,7 @@ export default function RegisterScreen({ navigation }) {
       // Başarılı kayıt
       Alert.alert(
         'Kayıt Başarılı!',
-        'Hesabınız oluşturuldu. E-postanıza gönderilen doğrulama linkine tıklayarak hesabınızı aktif edin.',
+        'Hesabınız oluşturuldu. Artık giriş yapabilirsiniz.',
         [
           {
             text: 'Tamam',
@@ -225,14 +225,6 @@ export default function RegisterScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          {/* Info Box */}
-          <View style={styles.infoBox}>
-            <Ionicons name="information-circle-outline" size={20} color={COLORS.info} />
-            <Text style={styles.infoText}>
-              Kayıt olduktan sonra e-postanıza bir doğrulama linki gönderilecektir.
-            </Text>
-          </View>
-
           {/* Register Button */}
           <TouchableOpacity
             style={[styles.registerButton, loading && styles.registerButtonDisabled]}
@@ -348,21 +340,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: SIZES.md,
     padding: SIZES.xs,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: COLORS.infoBackground,
-    borderRadius: SIZES.radiusMedium,
-    padding: SIZES.md,
-    marginBottom: SIZES.xl,
-    gap: SIZES.sm,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: SIZES.bodySmall,
-    color: COLORS.info,
-    lineHeight: 20,
   },
   registerButton: {
     borderRadius: SIZES.radiusMedium,
