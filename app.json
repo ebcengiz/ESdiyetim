@@ -2,7 +2,7 @@
   "expo": {
     "name": "ESdiyet",
     "slug": "esdiyet",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.esdiyet.app",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "NSCameraUsageDescription": "Bu uygulama profil fotoğrafı eklemek için kameraya ihtiyaç duyar.",
         "NSPhotoLibraryUsageDescription": "Bu uygulama profil fotoğrafı seçmek için galeriye ihtiyaç duyar."
