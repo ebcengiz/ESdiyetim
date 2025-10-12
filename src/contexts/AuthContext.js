@@ -1,6 +1,6 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import { supabase } from '../services/supabase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useState, useEffect, useContext } from "react";
+import { supabase } from "../services/supabase";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const AuthContext = createContext({});
 
@@ -16,14 +16,14 @@ export const AuthProvider = ({ children }) => {
     // Auth state değişikliklerini dinle
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth event:', event);
+        console.log("Auth event:", event);
         setSession(session);
         setUser(session?.user ?? null);
 
-        if (event === 'SIGNED_IN') {
-          await AsyncStorage.setItem('userSession', JSON.stringify(session));
-        } else if (event === 'SIGNED_OUT') {
-          await AsyncStorage.removeItem('userSession');
+        if (event === "SIGNED_IN") {
+          await AsyncStorage.setItem("userSession", JSON.stringify(session));
+        } else if (event === "SIGNED_OUT") {
+          await AsyncStorage.removeItem("userSession");
         }
       }
     );
@@ -36,11 +36,13 @@ export const AuthProvider = ({ children }) => {
   const checkSession = async () => {
     try {
       setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user ?? null);
     } catch (error) {
-      console.error('Session check error:', error);
+      // Session kontrolü hatası
     } finally {
       setLoading(false);
     }
@@ -63,7 +65,7 @@ export const AuthProvider = ({ children }) => {
 
       return { data, error: null };
     } catch (error) {
-      console.error('Sign up error:', error);
+      // Kayıt hatası
       return { data: null, error };
     }
   };
@@ -79,7 +81,7 @@ export const AuthProvider = ({ children }) => {
 
       return { data, error: null };
     } catch (error) {
-      console.error('Sign in error:', error);
+      // Developer hata mesajını konsola yazdırma
       return { data: null, error };
     }
   };
@@ -90,27 +92,12 @@ export const AuthProvider = ({ children }) => {
       if (error) throw error;
 
       // Clear local storage
-      await AsyncStorage.removeItem('userSession');
+      await AsyncStorage.removeItem("userSession");
 
       return { error: null };
     } catch (error) {
-      console.error('Sign out error:', error);
+      // Çıkış hatası
       return { error };
-    }
-  };
-
-  const resetPassword = async (email) => {
-    try {
-      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'esdiyet://reset-password',
-      });
-
-      if (error) throw error;
-
-      return { data, error: null };
-    } catch (error) {
-      console.error('Password reset error:', error);
-      return { data: null, error };
     }
   };
 
@@ -124,7 +111,7 @@ export const AuthProvider = ({ children }) => {
 
       return { data, error: null };
     } catch (error) {
-      console.error('Profile update error:', error);
+      // Profil güncelleme hatası
       return { data: null, error };
     }
   };
@@ -136,7 +123,6 @@ export const AuthProvider = ({ children }) => {
     signUp,
     signIn,
     signOut,
-    resetPassword,
     updateProfile,
   };
 
@@ -146,7 +132,7 @@ export const AuthProvider = ({ children }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };

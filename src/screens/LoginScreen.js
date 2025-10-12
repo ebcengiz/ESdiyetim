@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -10,117 +10,75 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, SHADOWS } from '../constants/theme';
-import { useAuth } from '../contexts/AuthContext';
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS, SIZES, SHADOWS } from "../constants/theme";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function LoginScreen({ navigation }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn, resetPassword } = useAuth();
+  const { signIn } = useAuth();
 
   const handleLogin = async () => {
     // Validation
     if (!email.trim()) {
-      Alert.alert('Hata', 'Lütfen e-posta adresinizi girin.');
+      Alert.alert("Hata", "Lütfen e-posta adresinizi girin.");
       return;
     }
 
     if (!password.trim()) {
-      Alert.alert('Hata', 'Lütfen şifrenizi girin.');
+      Alert.alert("Hata", "Lütfen şifrenizi girin.");
       return;
     }
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Alert.alert('Hata', 'Geçerli bir e-posta adresi girin.');
+      Alert.alert("Hata", "Geçerli bir e-posta adresi girin.");
       return;
     }
 
     setLoading(true);
 
     try {
-      const { data, error } = await signIn(email.trim().toLowerCase(), password);
+      const { data, error } = await signIn(
+        email.trim().toLowerCase(),
+        password
+      );
 
       if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-          Alert.alert('Giriş Başarısız', 'E-posta veya şifre hatalı.');
-        } else if (error.message.includes('Email not confirmed')) {
-          Alert.alert('E-posta Doğrulanmadı', 'Lütfen e-postanızdaki doğrulama linkine tıklayın.');
+        if (error.message.includes("Invalid login credentials")) {
+          Alert.alert("Giriş Başarısız", "E-posta veya şifre hatalı.");
+        } else if (error.message.includes("Email not confirmed")) {
+          Alert.alert(
+            "E-posta Doğrulanmadı",
+            "Lütfen e-postanızdaki doğrulama linkine tıklayın."
+          );
         } else {
-          Alert.alert('Hata', error.message || 'Giriş yapılırken bir hata oluştu.');
+          Alert.alert(
+            "Hata",
+            error.message || "Giriş yapılırken bir hata oluştu."
+          );
         }
         return;
       }
 
       // Navigation otomatik olarak AuthContext tarafından yönetilecek
     } catch (error) {
-      Alert.alert('Hata', 'Beklenmeyen bir hata oluştu.');
-      console.error('Login error:', error);
+      Alert.alert("Hata", "Beklenmeyen bir hata oluştu.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleForgotPassword = () => {
-    // E-posta alanı dolu mu kontrol et
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!email.trim() || !emailRegex.test(email)) {
-      Alert.alert(
-        'Şifremi Unuttum',
-        'Lütfen önce e-posta adresinizi yukarıdaki alana girin, ardından "Şifremi Unuttum" butonuna tekrar tıklayın.',
-        [{ text: 'Tamam' }]
-      );
-      return;
-    }
-
-    // Onay alert'i göster
-    Alert.alert(
-      'Şifre Sıfırlama',
-      `${email} adresine şifre sıfırlama bağlantısı göndermek istiyor musunuz?`,
-      [
-        {
-          text: 'İptal',
-          style: 'cancel',
-        },
-        {
-          text: 'Gönder',
-          onPress: async () => {
-            setLoading(true);
-            try {
-              const { error } = await resetPassword(email.trim().toLowerCase());
-
-              if (error) {
-                Alert.alert('Hata', 'Şifre sıfırlama bağlantısı gönderilemedi. Lütfen tekrar deneyin.');
-              } else {
-                Alert.alert(
-                  'Başarılı',
-                  'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi. Lütfen e-postanızı kontrol edin.',
-                  [{ text: 'Tamam' }]
-                );
-              }
-            } catch (error) {
-              Alert.alert('Hata', 'Beklenmeyen bir hata oluştu.');
-              console.error('Reset password error:', error);
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -169,7 +127,11 @@ export default function LoginScreen({ navigation }) {
           {/* Password Input */}
           <View style={styles.inputContainer}>
             <View style={styles.inputIconContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color={COLORS.primary} />
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color={COLORS.primary}
+              />
             </View>
             <TextInput
               style={[styles.input, styles.passwordInput]}
@@ -188,21 +150,12 @@ export default function LoginScreen({ navigation }) {
               disabled={loading}
             >
               <Ionicons
-                name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                name={showPassword ? "eye-outline" : "eye-off-outline"}
                 size={20}
                 color={COLORS.textSecondary}
               />
             </TouchableOpacity>
           </View>
-
-          {/* Forgot Password */}
-          <TouchableOpacity
-            style={styles.forgotPasswordContainer}
-            onPress={handleForgotPassword}
-            disabled={loading}
-          >
-            <Text style={styles.forgotPasswordText}>Şifremi Unuttum</Text>
-          </TouchableOpacity>
 
           {/* Login Button */}
           <TouchableOpacity
@@ -212,7 +165,11 @@ export default function LoginScreen({ navigation }) {
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={loading ? [COLORS.disabled, COLORS.disabled] : [COLORS.primary, COLORS.primaryDark]}
+              colors={
+                loading
+                  ? [COLORS.disabled, COLORS.disabled]
+                  : [COLORS.primary, COLORS.primaryDark]
+              }
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.loginGradient}
@@ -222,7 +179,11 @@ export default function LoginScreen({ navigation }) {
               ) : (
                 <>
                   <Text style={styles.loginButtonText}>Giriş Yap</Text>
-                  <Ionicons name="arrow-forward" size={20} color={COLORS.textOnPrimary} />
+                  <Ionicons
+                    name="arrow-forward"
+                    size={20}
+                    color={COLORS.textOnPrimary}
+                  />
                 </>
               )}
             </LinearGradient>
@@ -239,7 +200,7 @@ export default function LoginScreen({ navigation }) {
           <View style={styles.registerContainer}>
             <Text style={styles.registerText}>Hesabınız yok mu? </Text>
             <TouchableOpacity
-              onPress={() => navigation.navigate('Register')}
+              onPress={() => navigation.navigate("Register")}
               disabled={loading}
             >
               <Text style={styles.registerLink}>Kayıt Olun</Text>
@@ -262,23 +223,23 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: 60,
     paddingBottom: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   logoContainer: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   logoBadge: {
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: SIZES.lg,
   },
   appTitle: {
     fontSize: 32,
-    fontWeight: '700',
+    fontWeight: "700",
     color: COLORS.textOnPrimary,
     marginBottom: SIZES.xs,
   },
@@ -294,7 +255,7 @@ const styles = StyleSheet.create({
   },
   welcomeText: {
     fontSize: SIZES.h2,
-    fontWeight: '700',
+    fontWeight: "700",
     color: COLORS.text,
     marginBottom: SIZES.xs,
   },
@@ -304,8 +265,8 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.xl,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: COLORS.surface,
     borderRadius: SIZES.radiusMedium,
     marginBottom: SIZES.md,
@@ -314,7 +275,7 @@ const styles = StyleSheet.create({
   },
   inputIconContainer: {
     width: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   input: {
     flex: 1,
@@ -326,22 +287,13 @@ const styles = StyleSheet.create({
     paddingRight: 40,
   },
   eyeIcon: {
-    position: 'absolute',
+    position: "absolute",
     right: SIZES.md,
     padding: SIZES.xs,
   },
-  forgotPasswordContainer: {
-    alignSelf: 'flex-end',
-    marginBottom: SIZES.xl,
-  },
-  forgotPasswordText: {
-    fontSize: SIZES.bodySmall,
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
   loginButton: {
     borderRadius: SIZES.radiusMedium,
-    overflow: 'hidden',
+    overflow: "hidden",
     ...SHADOWS.medium,
   },
   loginButtonDisabled: {
@@ -349,19 +301,19 @@ const styles = StyleSheet.create({
   },
   loginGradient: {
     height: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: SIZES.sm,
   },
   loginButtonText: {
     fontSize: SIZES.h4,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.textOnPrimary,
   },
   divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginVertical: SIZES.xl,
   },
   dividerLine: {
@@ -375,9 +327,9 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   registerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
   },
   registerText: {
     fontSize: SIZES.body,
@@ -386,6 +338,6 @@ const styles = StyleSheet.create({
   registerLink: {
     fontSize: SIZES.body,
     color: COLORS.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
