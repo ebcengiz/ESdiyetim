@@ -39,7 +39,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "BURAYA_EAS_PROJECT_ID_GELECEK"
+        "projectId": ""
       }
     }
   }
