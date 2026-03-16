@@ -12,7 +12,6 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.esdiyet.app",
@@ -39,7 +38,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": ""
+        "projectId": "2fad153f-cc7c-45d6-9c70-5278b639de19"
       }
     }
   }
