@@ -9,7 +9,7 @@ const AI_PROVIDER = "groq"; // BURADAN DEĞİŞTİRİN
 
 // API Keys
 const HUGGINGFACE_API_KEY = ""; // https://huggingface.co/settings/tokens
-const GROQ_API_KEY = "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"; // https://console.groq.com/keys
+const GROQ_API_KEY = "GROQ_KEY_REMOVED"; // https://console.groq.com/keys
 const COHERE_API_KEY = ""; // https://dashboard.cohere.com/api-keys
 const GEMINI_API_KEY = "GEMINI_KEY_REMOVED";
 
