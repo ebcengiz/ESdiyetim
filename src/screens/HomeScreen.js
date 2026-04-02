@@ -18,7 +18,7 @@ import { useAuth } from '../contexts/AuthContext';
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen({ navigation }) {
-  const { user, signOut } = useAuth();
+  const { user, signOut, deleteAccount } = useAuth();
   const [latestWeight, setLatestWeight] = useState(null);
   const [todayDiet, setTodayDiet] = useState(null);
   const [randomTip, setRandomTip] = useState(null);
@@ -56,6 +56,26 @@ export default function HomeScreen({ navigation }) {
     if (hour < 12) return 'Günaydın';
     if (hour < 18) return 'İyi günler';
     return 'İyi akşamlar';
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Hesabı Sil',
+      'Hesabınızı silmek istediğinize emin misiniz? Tüm verileriniz (diyet planları, kilo kayıtları, hedefler) kalıcı olarak silinecektir.',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Evet, Hesabı Sil',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await deleteAccount();
+            if (error) {
+              Alert.alert('Hata', 'Hesap silinirken bir hata oluştu. Lütfen tekrar deneyin.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleLogout = () => {
@@ -286,6 +306,22 @@ export default function HomeScreen({ navigation }) {
                 onPress={() => navigation.navigate('Goals')}
               />
             </View>
+          </View>
+
+          {/* Hesap Yönetimi */}
+          <View style={styles.section}>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="person-circle-outline" size={24} color={COLORS.text} />
+              <Text style={styles.sectionTitle}>Hesap Yönetimi</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.deleteAccountBtn}
+              onPress={handleDeleteAccount}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={20} color={COLORS.error} />
+              <Text style={styles.deleteAccountText}>Hesabımı ve Tüm Verilerimi Sil</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -547,5 +583,21 @@ const styles = StyleSheet.create({
     fontSize: SIZES.small,
     fontWeight: '600',
     color: COLORS.textOnPrimary,
+  },
+  deleteAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SIZES.sm,
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusMedium,
+    padding: SIZES.md,
+    borderWidth: 1,
+    borderColor: COLORS.error + '40',
+    ...SHADOWS.small,
+  },
+  deleteAccountText: {
+    fontSize: SIZES.body,
+    fontWeight: '600',
+    color: COLORS.error,
   },
 });

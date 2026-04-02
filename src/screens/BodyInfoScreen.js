@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -411,6 +412,28 @@ export default function BodyInfoScreen() {
             ))}
           </View>
         )}
+
+        {/* Tıbbi Sorumluluk Reddi */}
+        <View style={styles.mainDisclaimerBox}>
+          <Ionicons name="information-circle-outline" size={16} color="#92400E" />
+          <Text style={styles.mainDisclaimerText}>
+            Bu uygulama kişisel takip ve genel bilgilendirme amaçlıdır. Sunulan VKİ hesaplamaları ve öneriler tıbbi teşhis veya tedavi yerine geçmez. Sağlığınıza ilişkin kararlar için mutlaka bir doktor veya uzman diyetisyene danışınız.
+          </Text>
+        </View>
+
+        {/* Kaynaklar */}
+        <View style={styles.citationsBox}>
+          <Text style={styles.citationsTitle}>Kaynaklar</Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://www.who.int/news-room/fact-sheets/detail/obesity-and-overweight')}>
+            <Text style={styles.citationLink}>• WHO — Obezite ve VKİ Sınıflandırması</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => Linking.openURL('https://hsgm.saglik.gov.tr/tr/beslenme')}>
+            <Text style={styles.citationLink}>• T.C. Sağlık Bakanlığı — Türkiye Beslenme Rehberi (TÜBER)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => Linking.openURL('https://www.nhlbi.nih.gov/health/educational/lose_wt/BMI/bmicalc.htm')}>
+            <Text style={styles.citationLink}>• NIH — Body Mass Index Classification</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* AI Tavsiye Modal */}
@@ -468,6 +491,10 @@ export default function BodyInfoScreen() {
                   </LinearGradient>
                   <View style={styles.aiAdviceContent}>
                     <Text style={styles.aiAdviceText}>{aiAdvice}</Text>
+                    <View style={styles.disclaimerBox}>
+                      <Ionicons name="information-circle-outline" size={14} color={COLORS.textSecondary} />
+                      <Text style={styles.disclaimerText}>Bu bilgiler tıbbi tavsiye yerine geçmez. Sağlık kararları için bir doktor veya uzman diyetisyene danışınız.</Text>
+                    </View>
                   </View>
                 </View>
               )}
@@ -797,5 +824,57 @@ const styles = StyleSheet.create({
     fontSize: SIZES.h5,
     fontWeight: '700',
     color: COLORS.textOnPrimary,
+  },
+  disclaimerBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: SIZES.radiusSmall,
+    padding: SIZES.sm,
+    marginTop: SIZES.md,
+  },
+  disclaimerText: {
+    flex: 1,
+    fontSize: SIZES.tiny,
+    color: COLORS.textSecondary,
+    lineHeight: 17,
+  },
+  mainDisclaimerBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SIZES.sm,
+    backgroundColor: '#FFFBEB',
+    borderRadius: SIZES.radiusMedium,
+    padding: SIZES.md,
+    marginBottom: SIZES.xl,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  mainDisclaimerText: {
+    flex: 1,
+    fontSize: SIZES.tiny,
+    color: '#92400E',
+    lineHeight: 18,
+  },
+  citationsBox: {
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusMedium,
+    padding: SIZES.md,
+    marginBottom: SIZES.xl,
+    gap: SIZES.xs,
+    ...SHADOWS.small,
+  },
+  citationsTitle: {
+    fontSize: SIZES.small,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+    marginBottom: SIZES.xs,
+  },
+  citationLink: {
+    fontSize: SIZES.tiny,
+    color: COLORS.info,
+    lineHeight: 20,
+    textDecorationLine: 'underline',
   },
 });

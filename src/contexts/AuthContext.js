@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
 import { supabase } from "../services/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { dietPlanService, weightService, bodyInfoService, goalsService } from "../services/supabase";
 
 const AuthContext = createContext({});
 
@@ -101,6 +102,27 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const deleteAccount = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
+      // Tüm kullanıcı verilerini sil
+      const tables = ['diet_plans', 'weight_records', 'body_info', 'goals'];
+      for (const table of tables) {
+        await supabase.from(table).delete().eq('user_id', user.id);
+      }
+
+      // Oturumu kapat ve yerel veriyi temizle
+      await supabase.auth.signOut();
+      await AsyncStorage.removeItem('userSession');
+
+      return { error: null };
+    } catch (error) {
+      return { error };
+    }
+  };
+
   const updateProfile = async (updates) => {
     try {
       const { data, error } = await supabase.auth.updateUser({
@@ -123,6 +145,7 @@ export const AuthProvider = ({ children }) => {
     signUp,
     signIn,
     signOut,
+    deleteAccount,
     updateProfile,
   };
 

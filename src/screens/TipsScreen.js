@@ -244,6 +244,10 @@ export default function TipsScreen() {
                   </LinearGradient>
                   <View style={styles.aiAdviceContent}>
                     <Text style={styles.aiAdviceText}>{aiAdvice}</Text>
+                    <View style={styles.disclaimerBox}>
+                      <Ionicons name="information-circle-outline" size={14} color={COLORS.textSecondary} />
+                      <Text style={styles.disclaimerText}>Bu bilgiler tıbbi tavsiye yerine geçmez. Sağlık kararları için bir doktor veya uzman diyetisyene danışınız.</Text>
+                    </View>
                   </View>
                 </View>
               )}
@@ -556,5 +560,20 @@ const styles = StyleSheet.create({
     fontSize: SIZES.h5,
     fontWeight: '700',
     color: COLORS.textOnPrimary,
+  },
+  disclaimerBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: SIZES.radiusSmall,
+    padding: SIZES.sm,
+    marginTop: SIZES.md,
+  },
+  disclaimerText: {
+    flex: 1,
+    fontSize: SIZES.tiny,
+    color: COLORS.textSecondary,
+    lineHeight: 17,
   },
 });
