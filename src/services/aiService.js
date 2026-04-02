@@ -7,11 +7,11 @@
 // HANGİ AI KULLANILACAK? ('huggingface', 'groq', 'cohere' veya 'gemini')
 const AI_PROVIDER = "groq"; // BURADAN DEĞİŞTİRİN
 
-// API Keys
-const HUGGINGFACE_API_KEY = ""; // https://huggingface.co/settings/tokens
-const GROQ_API_KEY = "GROQ_KEY_REMOVED"; // https://console.groq.com/keys
-const COHERE_API_KEY = ""; // https://dashboard.cohere.com/api-keys
-const GEMINI_API_KEY = "GEMINI_KEY_REMOVED";
+// API Keys - .env dosyasından okunur (.env git'e dahil edilmez!)
+const HUGGINGFACE_API_KEY = process.env.EXPO_PUBLIC_HUGGINGFACE_API_KEY || ""; // https://huggingface.co/settings/tokens
+const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY || ""; // https://console.groq.com/keys
+const COHERE_API_KEY = process.env.EXPO_PUBLIC_COHERE_API_KEY || ""; // https://dashboard.cohere.com/api-keys
+const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || "";
 
 export const aiService = {
   // Hedef için AI tavsiyesi al
