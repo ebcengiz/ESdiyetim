@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.esdiyet.app",
-      "buildNumber": "10",
+      "buildNumber": "11",
       "infoPlist": {
         "NSCameraUsageDescription": "Bu uygulama profil fotoğrafı eklemek için kameraya ihtiyaç duyar.",
         "NSPhotoLibraryUsageDescription": "Bu uygulama profil fotoğrafı seçmek için galeriye ihtiyaç duyar."
