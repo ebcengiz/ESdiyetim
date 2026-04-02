@@ -197,10 +197,10 @@ export default function TipsScreen() {
 
             <View style={styles.heroHeaderContent}>
               <View style={styles.heroLeft}>
-                <View style={styles.emojiBox}>
-                  <Text style={styles.emoji}>{currentCat.emoji}</Text>
+                <View style={styles.vkiStyleIconBox}>
+                  <Ionicons name="sparkles" size={18} color={currentCat.gradient[0]} />
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.heroLabel}>Yapay Zeka Tavsiyesi</Text>
                   <Text style={styles.heroSub}>{currentCat.desc}</Text>
                 </View>
@@ -222,16 +222,11 @@ export default function TipsScreen() {
           <View style={styles.heroBody}>
             {loading ? (
               <View style={styles.loadingWrap}>
-                <ActivityIndicator size="large" color={currentCat.gradient[0]} />
-                <Text style={[styles.loadingText, { color: currentCat.gradient[0] }]}>
-                  AI tavsiyeniz hazırlanıyor...
-                </Text>
-                <Text style={styles.loadingHint}>Bu birkaç saniye sürebilir</Text>
-                {/* Skeleton satırlar */}
-                <View style={styles.skeletonWrap}>
-                  {[100, 85, 90, 70].map((w, i) => (
-                    <View key={i} style={[styles.skeletonLine, { width: `${w}%` }]} />
-                  ))}
+                <View style={styles.loadingRowVki}>
+                  <ActivityIndicator size="small" color={currentCat.gradient[0]} />
+                  <Text style={[styles.loadingText, { color: currentCat.gradient[0] }]}>
+                    AI tavsiyeniz hazırlanıyor...
+                  </Text>
                 </View>
               </View>
             ) : (
@@ -368,12 +363,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   heroLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  emojiBox: {
-    width: 48, height: 48, borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center', alignItems: 'center',
+  vkiStyleIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  emoji: { fontSize: 24 },
   heroLabel: { fontSize: 15, fontWeight: '700', color: '#fff' },
   heroSub: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
   refreshBtn: {
@@ -385,15 +382,14 @@ const styles = StyleSheet.create({
   /* Hero Body */
   heroBody: { padding: 20 },
 
-  /* Loading */
-  loadingWrap: { alignItems: 'center', gap: 12, paddingVertical: 16 },
-  loadingText: { fontSize: 15, fontWeight: '700' },
-  loadingHint: { fontSize: 12, color: COLORS.textLight },
-  skeletonWrap: { width: '100%', gap: 8, marginTop: 8 },
-  skeletonLine: {
-    height: 12, borderRadius: 6,
-    backgroundColor: COLORS.surfaceAlt,
+  loadingWrap: { paddingVertical: 16, paddingHorizontal: 4 },
+  loadingRowVki: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
   },
+  loadingText: { fontSize: 15, fontWeight: '600', flex: 1 },
 
   /* Advice */
   adviceTitleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 14 },

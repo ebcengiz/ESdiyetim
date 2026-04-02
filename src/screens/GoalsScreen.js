@@ -13,7 +13,6 @@ import {
   KeyboardAvoidingView,
 
   Keyboard,
-  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +20,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { goalsService } from '../services/supabase';
 import { aiService } from '../services/aiService';
+import AIAdviceCard from '../components/AIAdviceCard';
 
 const { width } = Dimensions.get('window');
 
@@ -126,18 +126,14 @@ export default function GoalsScreen() {
         status: 'active',
       };
 
-      let savedGoal;
       if (editingId) {
         await goalsService.update(editingId, goalData);
-        savedGoal = { id: editingId, ...goalData };
       } else {
-        savedGoal = await goalsService.create(goalData);
+        await goalsService.create(goalData);
       }
 
       setModalVisible(false);
       loadGoals();
-      // ─── Kaydet sonrası otomatik AI tavsiyesi ───
-      if (savedGoal) fetchGoalAdvice(savedGoal);
     } catch (error) {
       console.error('Hedef kaydetme hatası:', error);
       Alert.alert('❌ Hata', 'Hedef kaydedilirken bir hata oluştu.');
@@ -391,43 +387,18 @@ export default function GoalsScreen() {
                       </View>
                     )}
 
-                    {/* Inline AI Tavsiye */}
                     {(() => {
                       const gAdv = goalAdvices[goal.id];
                       if (!gAdv) return null;
-                      
                       return (
-                        <View style={styles.aiInlineCard}>
-                          <LinearGradient
-                            colors={[COLORS.accent, COLORS.accentDark]}
-                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                            style={styles.aiInlineHeader}
-                          >
-                            <View style={styles.aiInlineHeaderRow}>
-                              <View style={styles.aiInlineIconBox}>
-                                <Ionicons name="sparkles" size={15} color={COLORS.accent} />
-                              </View>
-                              <Text style={styles.aiInlineTitle}>AI Tavsiyesi</Text>
-                              <TouchableOpacity
-                                onPress={() => fetchGoalAdvice(goal)}
-                                disabled={gAdv.loading}
-                                style={styles.aiInlineRefresh}
-                              >
-                                <Ionicons name="refresh" size={14} color="rgba(255,255,255,0.9)" />
-                              </TouchableOpacity>
-                            </View>
-                          </LinearGradient>
-                          <View style={styles.aiInlineBody}>
-                            {gAdv.loading ? (
-                              <View style={styles.aiInlineLoading}>
-                                <ActivityIndicator size="small" color={COLORS.accent} />
-                                <Text style={[styles.aiInlineLoadingText, { color: COLORS.accent }]}>Hazırlanıyor...</Text>
-                              </View>
-                            ) : (
-                              <Text style={styles.aiInlineText}>{gAdv.advice}</Text>
-                            )}
-                          </View>
-                        </View>
+                        <AIAdviceCard
+                          visible={gAdv.loading || !!gAdv.advice}
+                          loading={gAdv.loading}
+                          advice={gAdv.advice}
+                          onRefresh={() => fetchGoalAdvice(goal)}
+                          gradientColors={[COLORS.primary, COLORS.primaryLight]}
+                          iconTint={COLORS.primary}
+                        />
                       );
                     })()}
                   </View>
@@ -1006,39 +977,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.textOnPrimary,
   },
-  // Inline AI Kart Stilleri
-  aiAdviceButton: {
-    marginTop: SIZES.md,
-    borderRadius: SIZES.radiusMedium,
-    overflow: 'hidden',
-    ...SHADOWS.small,
-  },
-  aiAdviceGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SIZES.sm,
-    paddingHorizontal: SIZES.md,
-    gap: SIZES.xs,
-  },
-  aiAdviceButtonText: {
-    fontSize: SIZES.body,
-    fontWeight: '600',
-    color: COLORS.textOnPrimary,
-  },
-  aiInlineCard: {
-    marginTop: SIZES.md,
-    borderRadius: SIZES.radiusLarge,
-    overflow: 'hidden',
-    ...SHADOWS.medium,
-  },
-  aiInlineHeader: { padding: SIZES.md },
-  aiInlineHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm },
-  aiInlineIconBox: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center' },
-  aiInlineTitle: { flex: 1, fontSize: SIZES.body, fontWeight: '700', color: '#fff' },
-  aiInlineRefresh: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-  aiInlineBody: { backgroundColor: COLORS.surface, padding: SIZES.md },
-  aiInlineLoading: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm, paddingVertical: SIZES.sm },
-  aiInlineLoadingText: { fontSize: SIZES.small, fontWeight: '600' },
-  aiInlineText: { fontSize: SIZES.body, color: COLORS.text, lineHeight: 22 },
 });

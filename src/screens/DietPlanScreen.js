@@ -11,7 +11,6 @@ import {
   Platform,
   KeyboardAvoidingView,
   Keyboard,
-  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +18,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { dietPlanService } from '../services/supabase';
 import { aiService } from '../services/aiService';
+import AIAdviceCard from '../components/AIAdviceCard';
 
 export default function DietPlanScreen() {
   const [dietPlans, setDietPlans] = useState([]);
@@ -49,6 +49,11 @@ export default function DietPlanScreen() {
     try {
       const data = await dietPlanService.getAll();
       setDietPlans(data || []);
+      if (data?.length) fetchDietAdvice(data);
+      else {
+        setAiAdvice('');
+        setLoadingAdvice(false);
+      }
     } catch (error) {
       console.error('Diyet planları yükleme hatası:', error);
       Alert.alert('Hata', 'Diyet planları yüklenirken bir hata oluştu.');
@@ -122,8 +127,6 @@ export default function DietPlanScreen() {
 
       setModalVisible(false);
       loadDietPlans();
-      // ─── Kaydet sonrası otomatik AI tavsiyesi ───
-      fetchDietAdvice();
     } catch (error) {
       console.error('Diyet planı kaydetme hatası:', error);
       Alert.alert('❌ Hata', 'Diyet planı kaydedilirken bir hata oluştu.');
@@ -299,38 +302,16 @@ export default function DietPlanScreen() {
           )}
         </View>
 
-        {/* AI Tavsiye — Inline Kart */}
         {stats && (loadingAdvice || aiAdvice) ? (
-          <View style={[styles.aiInlineCard, { marginBottom: 100 }]}>
-            <LinearGradient
-              colors={[COLORS.accent, COLORS.accentDark]}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={styles.aiInlineHeader}
-            >
-              <View style={styles.aiInlineHeaderRow}>
-                <View style={styles.aiInlineIconBox}>
-                  <Ionicons name="sparkles" size={16} color={COLORS.accent} />
-                </View>
-                <Text style={styles.aiInlineTitle}>AI Beslenme Tavsiyesi</Text>
-                <TouchableOpacity
-                  onPress={() => fetchDietAdvice()}
-                  disabled={loadingAdvice}
-                  style={styles.aiInlineRefresh}
-                >
-                  <Ionicons name="refresh" size={16} color="rgba(255,255,255,0.9)" />
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-            <View style={styles.aiInlineBody}>
-              {loadingAdvice ? (
-                <View style={styles.aiInlineLoading}>
-                  <ActivityIndicator size="small" color={COLORS.accent} />
-                  <Text style={[styles.aiInlineLoadingText, { color: COLORS.accent }]}>Hazırlanıyor...</Text>
-                </View>
-              ) : (
-                <Text style={styles.aiInlineText}>{aiAdvice}</Text>
-              )}
-            </View>
+          <View style={{ marginBottom: 100 }}>
+            <AIAdviceCard
+              visible
+              loading={loadingAdvice}
+              advice={aiAdvice}
+              onRefresh={() => fetchDietAdvice()}
+              gradientColors={[COLORS.primary, COLORS.primaryLight]}
+              iconTint={COLORS.primary}
+            />
           </View>
         ) : null}
       </ScrollView>
@@ -940,44 +921,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.textOnPrimary,
   },
-  // AI Buton Stilleri
-  aiButtonContainer: {
-    padding: SIZES.md,
-    backgroundColor: COLORS.background,
-  },
-  aiButton: {
-    borderRadius: SIZES.radiusMedium,
-    overflow: 'hidden',
-    ...SHADOWS.small,
-  },
-  aiButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SIZES.md,
-    paddingHorizontal: SIZES.lg,
-    gap: SIZES.sm,
-  },
-  aiButtonText: {
-    fontSize: SIZES.body,
-    fontWeight: '600',
-    color: COLORS.textOnPrimary,
-  },
-  // Inline AI Kart Stilleri
-  aiInlineCard: {
-    marginHorizontal: SIZES.md,
-    borderRadius: SIZES.radiusLarge,
-    overflow: 'hidden',
-    ...SHADOWS.medium,
-    marginBottom: SIZES.md,
-  },
-  aiInlineHeader: { padding: SIZES.md },
-  aiInlineHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm },
-  aiInlineIconBox: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center' },
-  aiInlineTitle: { flex: 1, fontSize: SIZES.body, fontWeight: '700', color: '#fff' },
-  aiInlineRefresh: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-  aiInlineBody: { backgroundColor: COLORS.surface, padding: SIZES.md },
-  aiInlineLoading: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm, paddingVertical: SIZES.sm },
-  aiInlineLoadingText: { fontSize: SIZES.small, fontWeight: '600' },
-  aiInlineText: { fontSize: SIZES.body, color: COLORS.text, lineHeight: 24 },
 });

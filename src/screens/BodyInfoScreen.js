@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { bodyInfoService } from '../services/supabase';
 import { aiService } from '../services/aiService';
+import AIAdviceCard from '../components/AIAdviceCard';
 
 export default function BodyInfoScreen() {
   const [loading, setLoading] = useState(true);
@@ -52,6 +53,13 @@ export default function BodyInfoScreen() {
           gender: data.gender || 'male',
         });
         setExistingId(data.id);
+        const h = parseFloat(data.height);
+        const wt = parseFloat(data.weight);
+        const ag = parseInt(data.age, 10);
+        const g = data.gender || 'male';
+        if (h && wt && ag) {
+          fetchBMIAdvice({ height: h, weight: wt, age: ag, gender: g });
+        }
       }
     } catch (error) {
       console.error('Vücut bilgileri yükleme hatası:', error);
@@ -129,26 +137,20 @@ export default function BodyInfoScreen() {
     }
   };
 
-  // AI tavsiyesi inline
   const fetchBMIAdvice = async (params) => {
     const p = params || {
       height: parseFloat(bodyInfo.height),
       weight: parseFloat(bodyInfo.weight),
-      age: parseInt(bodyInfo.age),
+      age: parseInt(bodyInfo.age, 10),
       gender: bodyInfo.gender,
     };
-    if (!bmi && !p.height) return;
-    const currentBMI = bmi || (() => {
-      const h = p.height / 100;
-      return (p.weight / (h * h)).toFixed(1);
-    })();
-    const cat = bmiCategory?.name || (() => {
-      const v = parseFloat(currentBMI);
-      if (v < 18.5) return 'Zayıf';
-      if (v < 25)   return 'Normal';
-      if (v < 30)   return 'Fazla Kilolu';
-      return 'Obez';
-    })();
+    if (!p.height || !p.weight || !p.age) return;
+    const hM = p.height / 100;
+    const currentBMI = (p.weight / (hM * hM)).toFixed(1);
+    const v = parseFloat(currentBMI);
+    const cat =
+      bmiCategory?.name ||
+      (v < 18.5 ? 'Zayıf' : v < 25 ? 'Normal' : v < 30 ? 'Fazla Kilolu' : 'Obez');
     setLoadingAdvice(true);
     setAiAdvice('');
     try {
@@ -387,43 +389,15 @@ export default function BodyInfoScreen() {
               </View>
             </View>
 
-            {/* AI Tavsiye — Inline Kart */}
-            {bmi && bmiCategory && (
-              <View style={styles.aiInlineCard}>
-                <LinearGradient
-                  colors={[bmiCategory.color, bmiCategory.color + 'CC']}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                  style={styles.aiInlineHeader}
-                >
-                  <View style={styles.aiInlineHeaderRow}>
-                    <View style={styles.aiInlineIconBox}>
-                      <Ionicons name="sparkles" size={16} color={bmiCategory.color} />
-                    </View>
-                    <Text style={styles.aiInlineTitle}>Yapay Zeka Tavsiyesi</Text>
-                    <TouchableOpacity
-                      onPress={fetchBMIAdvice}
-                      disabled={loadingAdvice}
-                      style={styles.aiInlineRefresh}
-                    >
-                      <Ionicons name="refresh" size={16} color="rgba(255,255,255,0.9)" />
-                    </TouchableOpacity>
-                  </View>
-                </LinearGradient>
-                <View style={styles.aiInlineBody}>
-                  {loadingAdvice ? (
-                    <View style={styles.aiInlineLoading}>
-                      <ActivityIndicator size="small" color={bmiCategory.color} />
-                      <Text style={[styles.aiInlineLoadingText, { color: bmiCategory.color }]}>Hazırlanıyor...</Text>
-                    </View>
-                  ) : aiAdvice ? (
-                    <Text style={styles.aiInlineText}>{aiAdvice}</Text>
-                  ) : (
-                    <TouchableOpacity onPress={fetchBMIAdvice} activeOpacity={0.7}>
-                      <Text style={[styles.aiInlineText, { color: bmiCategory.color, fontWeight: '600' }]}>✨ AI tavsiyesi almak için dokunun</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
+            {(loadingAdvice || aiAdvice) && bmi && bmiCategory && (
+              <AIAdviceCard
+                visible
+                loading={loadingAdvice}
+                advice={aiAdvice}
+                onRefresh={() => fetchBMIAdvice()}
+                gradientColors={[bmiCategory.color, `${bmiCategory.color}BB`]}
+                iconTint={bmiCategory.color}
+              />
             )}
           </View>
         )}
@@ -655,23 +629,6 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     lineHeight: 22,
   },
-  // Inline AI Kart Stilleri
-  aiInlineCard: {
-    marginHorizontal: SIZES.md,
-    borderRadius: SIZES.radiusLarge,
-    overflow: 'hidden',
-    ...SHADOWS.medium,
-    marginBottom: SIZES.md,
-  },
-  aiInlineHeader: { padding: SIZES.md },
-  aiInlineHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm },
-  aiInlineIconBox: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center' },
-  aiInlineTitle: { flex: 1, fontSize: SIZES.body, fontWeight: '700', color: '#fff' },
-  aiInlineRefresh: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-  aiInlineBody: { backgroundColor: COLORS.surface, padding: SIZES.md },
-  aiInlineLoading: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm, paddingVertical: SIZES.sm },
-  aiInlineLoadingText: { fontSize: SIZES.small, fontWeight: '600' },
-  aiInlineText: { fontSize: SIZES.body, color: COLORS.text, lineHeight: 24 },
   mainDisclaimerBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',

@@ -13,7 +13,6 @@ import {
   KeyboardAvoidingView,
 
   Keyboard,
-  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +20,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { weightService } from '../services/supabase';
 import { aiService } from '../services/aiService';
+import AIAdviceCard from '../components/AIAdviceCard';
 
 const { width } = Dimensions.get('window');
 
@@ -41,10 +41,45 @@ export default function WeightTrackerScreen() {
     loadWeights();
   }, []);
 
+  const statsForList = (list) => {
+    if (!list?.length) return null;
+    const latest = list[0].weight;
+    const oldest = list[list.length - 1].weight;
+    const totalChange = latest - oldest;
+    const average = list.reduce((sum, w) => sum + w.weight, 0) / list.length;
+    return {
+      latest,
+      oldest,
+      totalChange,
+      average: average.toFixed(1),
+    };
+  };
+
+  const runWeightAdvice = async (list) => {
+    const w = list ?? weights;
+    const st = statsForList(w);
+    if (!st) return;
+    setLoadingAdvice(true);
+    setAiAdvice('');
+    try {
+      const result = await aiService.getWeightTrackingAdvice({ weights: w, stats: st });
+      setAiAdvice(result.advice || '');
+    } catch {
+      setAiAdvice('⚠️ Tavsiye alınamadı.');
+    } finally {
+      setLoadingAdvice(false);
+    }
+  };
+
   const loadWeights = async () => {
     try {
       const data = await weightService.getAll();
       setWeights(data || []);
+      if (data?.length) runWeightAdvice(data);
+      else {
+        setAiAdvice('');
+        setLoadingAdvice(false);
+      }
     } catch (error) {
       Alert.alert(
         '⚠️ Yükleme Hatası',
@@ -112,8 +147,6 @@ export default function WeightTrackerScreen() {
 
       setModalVisible(false);
       loadWeights();
-      // ─── Kaydet sonrası otomatik AI tavsiyesi ───
-      setTimeout(() => fetchWeightAdvice(), 500); // loadWeights tamamlansın
     } catch (error) {
       // Duplicate key hatası
       if (error.code === 'DUPLICATE_DATE') {
@@ -171,22 +204,6 @@ export default function WeightTrackerScreen() {
         },
       ]
     );
-  };
-
-  // AI tavsiyesi inline
-  const fetchWeightAdvice = async () => {
-    const currentStats = getStats();
-    if (!currentStats) return;
-    setLoadingAdvice(true);
-    setAiAdvice('');
-    try {
-      const result = await aiService.getWeightTrackingAdvice({ weights, stats: currentStats });
-      setAiAdvice(result.advice || '');
-    } catch {
-      setAiAdvice('⚠️ Tavsiye alınamadı.');
-    } finally {
-      setLoadingAdvice(false);
-    }
   };
 
   const calculateChange = (index) => {
@@ -255,45 +272,6 @@ export default function WeightTrackerScreen() {
       )}
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* AI Tavsiye — Inline Kart */}
-        {stats && (
-          <View style={styles.aiInlineCard}>
-            <LinearGradient
-              colors={[COLORS.accent, COLORS.accentDark]}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={styles.aiInlineHeader}
-            >
-              <View style={styles.aiInlineHeaderRow}>
-                <View style={styles.aiInlineIconBox}>
-                  <Ionicons name="sparkles" size={16} color={COLORS.accent} />
-                </View>
-                <Text style={styles.aiInlineTitle}>AI Kilo Analizi</Text>
-                <TouchableOpacity
-                  onPress={fetchWeightAdvice}
-                  disabled={loadingAdvice}
-                  style={styles.aiInlineRefresh}
-                >
-                  <Ionicons name="refresh" size={16} color="rgba(255,255,255,0.9)" />
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-            <View style={styles.aiInlineBody}>
-              {loadingAdvice ? (
-                <View style={styles.aiInlineLoading}>
-                  <ActivityIndicator size="small" color={COLORS.accent} />
-                  <Text style={[styles.aiInlineLoadingText, { color: COLORS.accent }]}>Hazırlanıyor...</Text>
-                </View>
-              ) : aiAdvice ? (
-                <Text style={styles.aiInlineText}>{aiAdvice}</Text>
-              ) : (
-                <TouchableOpacity onPress={fetchWeightAdvice} activeOpacity={0.7}>
-                  <Text style={[styles.aiInlineText, { color: COLORS.accent, fontWeight: '600' }]}>✨ AI analizi almak için dokunun</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        )}
-
         <View style={styles.content}>
           {/* Title */}
           <View style={styles.titleContainer}>
@@ -361,6 +339,19 @@ export default function WeightTrackerScreen() {
             })
           )}
         </View>
+
+        {stats && (loadingAdvice || aiAdvice) ? (
+          <View style={{ marginBottom: 100 }}>
+            <AIAdviceCard
+              visible
+              loading={loadingAdvice}
+              advice={aiAdvice}
+              onRefresh={() => runWeightAdvice()}
+              gradientColors={[COLORS.primary, COLORS.primaryLight]}
+              iconTint={COLORS.primary}
+            />
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* Add Button */}
@@ -839,44 +830,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.textOnPrimary,
   },
-  // AI Buton Stilleri
-  aiButtonContainer: {
-    padding: SIZES.md,
-    backgroundColor: COLORS.background,
-  },
-  aiButton: {
-    borderRadius: SIZES.radiusMedium,
-    overflow: 'hidden',
-    ...SHADOWS.small,
-  },
-  aiButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SIZES.md,
-    paddingHorizontal: SIZES.lg,
-    gap: SIZES.sm,
-  },
-  aiButtonText: {
-    fontSize: SIZES.body,
-    fontWeight: '600',
-    color: COLORS.textOnPrimary,
-  },
-  // Inline AI Kart Stilleri
-  aiInlineCard: {
-    marginHorizontal: SIZES.md,
-    borderRadius: SIZES.radiusLarge,
-    overflow: 'hidden',
-    ...SHADOWS.medium,
-    marginBottom: SIZES.md,
-  },
-  aiInlineHeader: { padding: SIZES.md },
-  aiInlineHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm },
-  aiInlineIconBox: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center' },
-  aiInlineTitle: { flex: 1, fontSize: SIZES.body, fontWeight: '700', color: '#fff' },
-  aiInlineRefresh: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-  aiInlineBody: { backgroundColor: COLORS.surface, padding: SIZES.md },
-  aiInlineLoading: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm, paddingVertical: SIZES.sm },
-  aiInlineLoadingText: { fontSize: SIZES.small, fontWeight: '600' },
-  aiInlineText: { fontSize: SIZES.body, color: COLORS.text, lineHeight: 24 },
 });

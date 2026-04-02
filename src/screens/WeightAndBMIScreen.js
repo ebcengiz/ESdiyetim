@@ -21,6 +21,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { weightService, bodyInfoService } from '../services/supabase';
 import { aiService } from '../services/aiService';
+import AIAdviceCard from '../components/AIAdviceCard';
 
 const { width } = Dimensions.get('window');
 
@@ -33,16 +34,45 @@ function WeightPanel({ onWeightChange }) {
   const [weight, setWeight] = useState('');
   const [notes, setNotes] = useState('');
   const [editingId, setEditingId] = useState(null);
-  const [aiAdviceModalVisible, setAiAdviceModalVisible] = useState(false);
   const [aiAdvice, setAiAdvice] = useState('');
   const [loadingAdvice, setLoadingAdvice] = useState(false);
 
   useEffect(() => { loadWeights(); }, []);
 
+  const statsForList = (list) => {
+    if (!list?.length) return null;
+    const latest = list[0].weight;
+    const oldest = list[list.length - 1].weight;
+    const totalChange = latest - oldest;
+    const average = list.reduce((s, w) => s + w.weight, 0) / list.length;
+    return { latest, oldest, totalChange, average: average.toFixed(1) };
+  };
+
+  const runWeightAIAdvice = async (list) => {
+    const w = list ?? weights;
+    const st = statsForList(w);
+    if (!st) return;
+    setLoadingAdvice(true);
+    setAiAdvice('');
+    try {
+      const result = await aiService.getWeightTrackingAdvice({ weights: w, stats: st });
+      setAiAdvice(result.advice || '');
+    } catch {
+      setAiAdvice('⚠️ Tavsiye alınırken bir hata oluştu.');
+    } finally {
+      setLoadingAdvice(false);
+    }
+  };
+
   const loadWeights = async () => {
     try {
       const data = await weightService.getAll();
       setWeights(data || []);
+      if (data?.length) runWeightAIAdvice(data);
+      else {
+        setAiAdvice('');
+        setLoadingAdvice(false);
+      }
     } catch {
       Alert.alert('⚠️ Yükleme Hatası', 'Kilo kayıtlarınız yüklenirken bir sorun oluştu.');
     }
@@ -138,21 +168,6 @@ function WeightPanel({ onWeightChange }) {
 
   const stats = getStats();
 
-  const getAIAdvice = async () => {
-    if (!stats) { Alert.alert('⚠️ Yetersiz Veri', 'En az bir kilo kaydı giriniz.'); return; }
-    setLoadingAdvice(true);
-    setAiAdviceModalVisible(true);
-    setAiAdvice('');
-    try {
-      const result = await aiService.getWeightTrackingAdvice({ weights, stats });
-      setAiAdvice(result.advice);
-    } catch {
-      setAiAdvice('⚠️ Tavsiye alınırken bir hata oluştu.');
-    } finally {
-      setLoadingAdvice(false);
-    }
-  };
-
   const calculateChange = (index) =>
     index < weights.length - 1 ? weights[index].weight - weights[index + 1].weight : null;
 
@@ -177,22 +192,14 @@ function WeightPanel({ onWeightChange }) {
         </LinearGradient>
       )}
 
-      {stats && (
-        <View style={s.aiBtnWrap}>
-          <TouchableOpacity style={s.aiBtn} onPress={getAIAdvice} activeOpacity={0.8}>
-            <LinearGradient
-              colors={[COLORS.accent, COLORS.accentDark]}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={s.aiBtnGradient}
-            >
-              <Ionicons name="sparkles" size={18} color={COLORS.textOnPrimary} />
-              <Text style={s.aiBtnText}>AI'dan Analiz Al</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={s.listContent}>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        <View
+          style={{
+            padding: SIZES.containerPadding,
+            paddingBottom:
+              stats && (loadingAdvice || aiAdvice) ? SIZES.md : 100,
+          }}
+        >
         <View style={s.listHeader}>
           <Text style={s.listTitle}>Kilo Geçmişi</Text>
           <Text style={s.listSub}>{weights.length} kayıt</Text>
@@ -239,6 +246,20 @@ function WeightPanel({ onWeightChange }) {
             );
           })
         )}
+        </View>
+
+        {stats && (loadingAdvice || aiAdvice) ? (
+          <View style={{ marginBottom: 100 }}>
+            <AIAdviceCard
+              visible
+              loading={loadingAdvice}
+              advice={aiAdvice}
+              onRefresh={() => runWeightAIAdvice()}
+              gradientColors={[COLORS.primary, COLORS.primaryLight]}
+              iconTint={COLORS.primary}
+            />
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* FAB */}
@@ -345,24 +366,26 @@ function WeightPanel({ onWeightChange }) {
 // ─── VKİ Paneli ───────────────────────────────────────────────────────────────
 function BMIPanel({ latestWeight }) {
   const [loading, setLoading] = useState(true);
-  const [bodyInfo, setBodyInfo] = useState({ height: '', age: '', gender: 'male' });
+  const [bodyInfo, setBodyInfo] = useState({ height: '', age: '', gender: 'male', weight: '' });
   const [existingId, setExistingId] = useState(null);
   const [isSaved, setIsSaved] = useState(false); // VKİ ancak kaydedildikten sonra gösterilir
   const [aiAdvice, setAiAdvice] = useState('');
   const [loadingAdvice, setLoadingAdvice] = useState(false);
 
-  // Efektif kilo: records'dan gelen > body_info'dan gelen
-  const effectiveWeight = latestWeight != null ? latestWeight : null;
+  const parsedWeight = () => {
+    const w = parseFloat(bodyInfo.weight);
+    return Number.isFinite(w) && w > 0 ? w : null;
+  };
 
   // BMI hesapla
-  const computeBMI = (height, w) => {
+  const computeBMI = (height, weightStr) => {
     const h = parseFloat(height);
-    const wt = parseFloat(w);
+    const wt = parseFloat(weightStr);
     if (!h || !wt || h <= 0 || wt <= 0) return null;
     return (wt / ((h / 100) * (h / 100))).toFixed(1);
   };
 
-  const bmi = computeBMI(bodyInfo.height, effectiveWeight);
+  const bmi = computeBMI(bodyInfo.height, bodyInfo.weight);
 
   const bmiCategory = (() => {
     if (!bmi) return null;
@@ -382,18 +405,33 @@ function BMIPanel({ latestWeight }) {
         const h = data.height?.toString() || '';
         const a = data.age?.toString() || '';
         const g = data.gender || 'male';
-        setBodyInfo({ height: h, age: a, gender: g });
+        const w =
+          data.weight != null
+            ? String(data.weight)
+            : latestWeight != null
+              ? String(latestWeight)
+              : '';
+        setBodyInfo({ height: h, age: a, gender: g, weight: w });
         setExistingId(data.id);
         setIsSaved(true);
-        // DB'den yüklendiyse AI tavsiyesini de otomatik çek
-        if (h && a && latestWeight) {
+        const pw = parseFloat(w);
+        if (h && a && Number.isFinite(pw) && pw > 0) {
           fetchAIAdvice({
             height: parseFloat(h),
-            age: parseInt(a),
+            age: parseInt(a, 10),
             gender: g,
-            weight: latestWeight,
+            weight: pw,
           });
         }
+      } else {
+        setBodyInfo({
+          height: '',
+          age: '',
+          gender: 'male',
+          weight: latestWeight != null ? String(latestWeight) : '',
+        });
+        setExistingId(null);
+        setIsSaved(false);
       }
     } catch (e) {
       console.error(e);
@@ -404,13 +442,15 @@ function BMIPanel({ latestWeight }) {
 
   // AI tavsiyesini inline çek (modal yok)
   const fetchAIAdvice = async (params) => {
+    const pw = parsedWeight();
     const p = params || {
       height: parseFloat(bodyInfo.height),
-      weight: effectiveWeight,
-      age: parseInt(bodyInfo.age),
+      weight: pw,
+      age: parseInt(bodyInfo.age, 10),
       gender: bodyInfo.gender,
     };
-    const currentBMI = computeBMI(p.height?.toString(), p.weight);
+    if (!params && (!pw || !bodyInfo.height)) return;
+    const currentBMI = computeBMI(p.height?.toString(), String(p.weight));
     const cat = (() => {
       if (!currentBMI) return null;
       const v = parseFloat(currentBMI);
@@ -419,7 +459,7 @@ function BMIPanel({ latestWeight }) {
       if (v < 30)   return 'Fazla Kilolu';
       return 'Obez';
     })();
-    if (!currentBMI || !cat) return;
+    if (!currentBMI || !cat || p.weight == null || Number(p.weight) <= 0) return;
     setLoadingAdvice(true);
     setAiAdvice('');
     try {
@@ -444,15 +484,16 @@ function BMIPanel({ latestWeight }) {
       Alert.alert('⚠️ Uyarı', 'Lütfen boy ve yaş alanlarını doldurun.');
       return;
     }
-    if (!effectiveWeight) {
-      Alert.alert('⚠️ Kilo Eksik', 'VKİ hesabı için önce Kilo Takibi sekmesinden kilo girişi yapın.');
+    const w = parsedWeight();
+    if (!w) {
+      Alert.alert('⚠️ Kilo Eksik', 'Lütfen geçerli bir kilo değeri girin.');
       return;
     }
     try {
       const data = {
         height: parseFloat(bodyInfo.height),
-        weight: effectiveWeight,
-        age: parseInt(bodyInfo.age),
+        weight: w,
+        age: parseInt(bodyInfo.age, 10),
         gender: bodyInfo.gender,
       };
       if (existingId) {
@@ -463,8 +504,8 @@ function BMIPanel({ latestWeight }) {
         setExistingId(newInfo.id);
         setIsSaved(true);
       }
+
       Alert.alert('✅ Kaydedildi', 'Bilgileriniz güncellendi. AI tavsiyesi hazırlanıyor...');
-      // ─── Kaydet sonrası otomatik AI tavsiyesi ───
       fetchAIAdvice(data);
     } catch {
       Alert.alert('❌ Hata', 'Vücut bilgileri kaydedilirken bir hata oluştu.');
@@ -493,23 +534,13 @@ function BMIPanel({ latestWeight }) {
   return (
     <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={s.listContent}>
 
-      {/* Mevcut kilo göstergesi */}
-      {effectiveWeight ? (
-        <View style={s.syncBadge}>
-          <Ionicons name="sync-circle" size={16} color={COLORS.success} />
-          <Text style={s.syncText}>
-            Mevcut kilonuz kilo takibinden otomatik alındı:{' '}
-            <Text style={{ fontWeight: '700' }}>{effectiveWeight} kg</Text>
-          </Text>
-        </View>
-      ) : (
-        <View style={s.noWeightBadge}>
-          <Ionicons name="alert-circle-outline" size={16} color={COLORS.warning} />
-          <Text style={s.noWeightText}>
-            VKİ hesabı için "Kilo Takibi" sekmesinden kilo girişi yapın.
-          </Text>
-        </View>
-      )}
+      <View style={s.syncBadge}>
+        <Ionicons name="information-circle" size={16} color={COLORS.info} />
+        <Text style={s.syncText}>
+          Bu kilo VKİ ve profil bilginiz için saklanır. Kilo takibindeki tarihli ölçümlerinizi değiştirmez;
+          ölçüm eklemek için &quot;Kilo Takibi&quot; sekmesini kullanın. Oradan eklediğiniz son kilo, mümkünse buraya da yansır.
+        </Text>
+      </View>
 
       {/* Form: Boy, Yaş, Cinsiyet */}
       <Text style={s.sectionTitle}>Temel Bilgiler</Text>
@@ -529,15 +560,21 @@ function BMIPanel({ latestWeight }) {
         </View>
       </View>
 
-      {/* Kilo — readonly, kilo takibinden geliyor */}
       <View style={s.inputGroup}>
         <Text style={s.inputLabel}>Kilo (kg)</Text>
-        <View style={[s.textInputWrap, { opacity: 0.7 }]}>
-          <Ionicons name="fitness" size={20} color={effectiveWeight ? COLORS.success : COLORS.textLight} />
-          <Text style={[s.textInput, { color: effectiveWeight ? COLORS.text : COLORS.textLight }]}>
-            {effectiveWeight ? `${effectiveWeight} kg` : '— Kilo Takibi sekmesinden giriniz'}
-          </Text>
-          <Ionicons name="lock-closed-outline" size={15} color={COLORS.textLight} />
+        <View style={s.textInputWrap}>
+          <Ionicons name="fitness" size={20} color={COLORS.primary} />
+          <TextInput
+            style={s.textInput}
+            value={bodyInfo.weight}
+            onChangeText={(t) => {
+              setBodyInfo({ ...bodyInfo, weight: t });
+              setIsSaved(false);
+            }}
+            placeholder="72.5"
+            keyboardType="decimal-pad"
+            placeholderTextColor={COLORS.textLight}
+          />
         </View>
       </View>
 
@@ -611,41 +648,15 @@ function BMIPanel({ latestWeight }) {
             ))}
           </View>
 
-          {/* ── Inline AI Tavsiye Kartı ── */}
           {(loadingAdvice || aiAdvice) && (
-            <View style={s.aiInlineCard}>
-              <LinearGradient
-                colors={[bmiCategory.color, bmiCategory.color + 'BB']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={s.aiInlineHeader}
-              >
-                <View style={s.aiInlineHeaderRow}>
-                  <View style={s.aiInlineIconBox}>
-                    <Ionicons name="sparkles" size={18} color={bmiCategory.color} />
-                  </View>
-                  <Text style={s.aiInlineTitle}>Yapay Zeka Tavsiyesi</Text>
-                  <TouchableOpacity
-                    onPress={() => fetchAIAdvice()}
-                    disabled={loadingAdvice}
-                    style={s.aiInlineRefresh}
-                  >
-                    <Ionicons name="refresh" size={16} color="rgba(255,255,255,0.9)" />
-                  </TouchableOpacity>
-                </View>
-              </LinearGradient>
-              <View style={s.aiInlineBody}>
-                {loadingAdvice ? (
-                  <View style={s.aiInlineLoading}>
-                    <ActivityIndicator size="small" color={bmiCategory.color} />
-                    <Text style={[s.aiInlineLoadingText, { color: bmiCategory.color }]}>
-                      AI tavsiyeniz hazırlanıyor...
-                    </Text>
-                  </View>
-                ) : (
-                  <Text style={s.aiInlineText}>{aiAdvice}</Text>
-                )}
-              </View>
-            </View>
+            <AIAdviceCard
+              visible
+              loading={loadingAdvice}
+              advice={aiAdvice}
+              onRefresh={() => fetchAIAdvice()}
+              gradientColors={[bmiCategory.color, `${bmiCategory.color}BB`]}
+              iconTint={bmiCategory.color}
+            />
           )}
         </>
       )}
@@ -833,26 +844,15 @@ const s = StyleSheet.create({
 
   // Senkronizasyon badge'leri
   syncBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: COLORS.success + '18',
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: COLORS.info + '12',
     borderRadius: SIZES.radiusMedium,
     padding: SIZES.md,
     marginBottom: SIZES.lg,
     borderWidth: 1,
-    borderColor: COLORS.success + '40',
+    borderColor: COLORS.info + '35',
   },
-  syncText: { flex: 1, fontSize: SIZES.small, color: COLORS.success, lineHeight: 18 },
-  noWeightBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: COLORS.warning + '15',
-    borderRadius: SIZES.radiusMedium,
-    padding: SIZES.md,
-    marginBottom: SIZES.lg,
-    borderWidth: 1,
-    borderColor: COLORS.warning + '40',
-  },
-  noWeightText: { flex: 1, fontSize: SIZES.small, color: COLORS.warning, lineHeight: 18 },
-
+  syncText: { flex: 1, fontSize: SIZES.small, color: COLORS.textSecondary, lineHeight: 18 },
   statsHeader: {
     flexDirection: 'row', justifyContent: 'space-around',
     paddingHorizontal: SIZES.containerPadding, paddingVertical: SIZES.md,
@@ -860,14 +860,6 @@ const s = StyleSheet.create({
   miniStat: { alignItems: 'center' },
   miniStatVal: { fontSize: SIZES.h5, fontWeight: '700', color: COLORS.textOnPrimary, marginTop: 4 },
   miniStatLabel: { fontSize: SIZES.tiny, color: COLORS.textOnPrimary, opacity: 0.85 },
-
-  aiBtnWrap: { padding: SIZES.md, backgroundColor: COLORS.background },
-  aiBtn: { borderRadius: SIZES.radiusMedium, overflow: 'hidden', ...SHADOWS.small },
-  aiBtnGradient: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingVertical: SIZES.md, paddingHorizontal: SIZES.lg, gap: SIZES.sm,
-  },
-  aiBtnText: { fontSize: SIZES.body, fontWeight: '600', color: COLORS.textOnPrimary },
 
   listContent: { padding: SIZES.containerPadding, paddingBottom: 100 },
   listHeader: { marginBottom: SIZES.md },
@@ -1006,30 +998,6 @@ const s = StyleSheet.create({
   sourceLabelText: { flex: 1, fontSize: SIZES.small, color: COLORS.textSecondary, lineHeight: 18 },
   sourceDivider: { height: 1, backgroundColor: COLORS.divider, marginHorizontal: SIZES.md },
 
-  aiModalOverlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'flex-end' },
-  aiModalBox: { backgroundColor: COLORS.surface, borderTopLeftRadius: SIZES.radiusXL, borderTopRightRadius: SIZES.radiusXL, maxHeight: '85%' },
-  aiModalHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: SIZES.lg, borderBottomWidth: 1, borderBottomColor: COLORS.divider },
-  aiModalBody: { padding: SIZES.lg },
-  aiModalFoot: { padding: SIZES.lg, borderTopWidth: 1, borderTopColor: COLORS.divider, backgroundColor: COLORS.surface },
-  aiCloseBtn: { height: 52, borderRadius: SIZES.radiusMedium, overflow: 'hidden' },
-  aiLoading: { alignItems: 'center', paddingVertical: 60, gap: SIZES.md },
-  aiLoadingText: { fontSize: SIZES.h4, fontWeight: '600', color: COLORS.text },
-  aiAdviceWrap: { borderRadius: SIZES.radiusLarge, overflow: 'hidden', ...SHADOWS.medium },
-  aiAdviceTop: { padding: SIZES.lg, alignItems: 'center', gap: SIZES.sm },
-  aiAdviceTitle: { fontSize: SIZES.h4, fontWeight: '700', color: COLORS.textOnPrimary, textAlign: 'center' },
-  aiAdviceBody: { backgroundColor: COLORS.surface, padding: SIZES.lg },
-  aiAdviceText: { fontSize: SIZES.body, color: COLORS.text, lineHeight: 24 },
   disclaimerBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: COLORS.surfaceAlt, borderRadius: SIZES.radiusSmall, padding: SIZES.sm, marginTop: SIZES.md },
   disclaimerText: { flex: 1, fontSize: SIZES.tiny, color: COLORS.textSecondary, lineHeight: 17 },
-  // ── Inline AI kart
-  aiInlineCard: { borderRadius: SIZES.radiusLarge, overflow: 'hidden', ...SHADOWS.medium, marginTop: SIZES.md },
-  aiInlineHeader: { padding: SIZES.md },
-  aiInlineHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm },
-  aiInlineIconBox: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center' },
-  aiInlineTitle: { flex: 1, fontSize: SIZES.body, fontWeight: '700', color: '#fff' },
-  aiInlineRefresh: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-  aiInlineBody: { backgroundColor: COLORS.surface, padding: SIZES.md },
-  aiInlineLoading: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm, paddingVertical: SIZES.sm },
-  aiInlineLoadingText: { fontSize: SIZES.small, fontWeight: '600' },
-  aiInlineText: { fontSize: SIZES.body, color: COLORS.text, lineHeight: 24 },
 });
