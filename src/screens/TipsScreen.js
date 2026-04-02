@@ -1,579 +1,449 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  RefreshControl,
-  Alert,
-  Modal,
   ActivityIndicator,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
-import { tipsService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 
-export default function TipsScreen() {
-  const [tips, setTips] = useState([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('tümü');
+const { width } = Dimensions.get('window');
 
-  // AI Tavsiye state'leri
-  const [aiAdviceModalVisible, setAiAdviceModalVisible] = useState(false);
-  const [aiAdvice, setAiAdvice] = useState('');
-  const [loadingAdvice, setLoadingAdvice] = useState(false);
-  const [selectedAICategory, setSelectedAICategory] = useState('genel');
+const CATEGORIES = [
+  {
+    id: 'genel',
+    name: 'Genel',
+    icon: 'bulb-outline',
+    activeIcon: 'bulb',
+    gradient: ['#6C63FF', '#4ECDC4'],
+    emoji: '💡',
+    desc: 'Günlük sağlık önerileri',
+  },
+  {
+    id: 'beslenme',
+    name: 'Beslenme',
+    icon: 'nutrition-outline',
+    activeIcon: 'nutrition',
+    gradient: ['#FF6B6B', '#FEA846'],
+    emoji: '🥗',
+    desc: 'Sağlıklı beslenme rehberi',
+  },
+  {
+    id: 'egzersiz',
+    name: 'Egzersiz',
+    icon: 'barbell-outline',
+    activeIcon: 'barbell',
+    gradient: ['#0EA5E9', '#6366F1'],
+    emoji: '💪',
+    desc: 'Fitness ve hareket',
+  },
+  {
+    id: 'motivasyon',
+    name: 'Motivasyon',
+    icon: 'trophy-outline',
+    activeIcon: 'trophy',
+    gradient: ['#F59E0B', '#EF4444'],
+    emoji: '🌟',
+    desc: 'Zihinsel güç & hedef',
+  },
+];
+
+export default function TipsScreen() {
+  const [selected, setSelected] = useState('genel');
+  // Her kategori için ayrı AI tavsiye cache
+  const [adviceCache, setAdviceCache] = useState({});
+  const [loading, setLoading] = useState(false);
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+  const spinAnim = useRef(new Animated.Value(0)).current;
+
+  const currentCat = CATEGORIES.find(c => c.id === selected);
+
+  const animateIn = useCallback(() => {
+    fadeAnim.setValue(0);
+    slideAnim.setValue(20);
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
+
+  const startSpin = useCallback(() => {
+    spinAnim.setValue(0);
+    Animated.loop(
+      Animated.timing(spinAnim, { toValue: 1, duration: 1000, useNativeDriver: true })
+    ).start();
+  }, [spinAnim]);
+
+  const fetchAdvice = useCallback(async (categoryId, force = false) => {
+    if (!force && adviceCache[categoryId]) {
+      animateIn();
+      return;
+    }
+    setLoading(true);
+    startSpin();
+    try {
+      const result = await aiService.getHealthTip(categoryId);
+      setAdviceCache(prev => ({ ...prev, [categoryId]: result.advice || '' }));
+      animateIn();
+    } catch {
+      setAdviceCache(prev => ({
+        ...prev,
+        [categoryId]: '⚠️ Tavsiye alınamadı. Lütfen tekrar deneyin.',
+      }));
+    } finally {
+      setLoading(false);
+      spinAnim.stopAnimation();
+    }
+  }, [adviceCache, animateIn, startSpin, spinAnim]);
 
   useEffect(() => {
-    loadTips();
-  }, []);
+    fetchAdvice(selected);
+  }, [selected]);
 
-  const loadTips = async () => {
-    try {
-      const data = await tipsService.getAll();
-      setTips(data || []);
-    } catch (error) {
-      console.error('Tavsiyeler yükleme hatası:', error);
-      Alert.alert('Hata', 'Tavsiyeler yüklenirken bir hata oluştu.');
+  const spin = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+
+  const currentAdvice = adviceCache[selected] || '';
+
+  // Metni satırlara böl ve başlık/içerik ayrıştır
+  const parseAdvice = (text) => {
+    if (!text) return { title: '', paragraphs: [] };
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+    // İlk satır veya ** ile çevrilmiş kısım başlık olabilir
+    let title = '';
+    let rest = [...lines];
+
+    const firstLine = lines[0] || '';
+    if (firstLine.startsWith('**') || firstLine.length < 80) {
+      title = firstLine.replace(/\*\*/g, '').trim();
+      rest = lines.slice(1);
     }
+
+    const paragraphs = rest
+      .map(l => l.replace(/\*\*/g, '').replace(/^[-•]\s*/, '').trim())
+      .filter(Boolean);
+
+    return { title, paragraphs };
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadTips();
-    setRefreshing(false);
-  };
-
-  // AI Tavsiye Al
-  const getAIAdvice = async (category) => {
-    setSelectedAICategory(category);
-    setLoadingAdvice(true);
-    setAiAdviceModalVisible(true);
-    setAiAdvice('');
-
-    try {
-      const result = await aiService.getHealthTip(category);
-      setAiAdvice(result.advice);
-    } catch (error) {
-      setAiAdvice('⚠️ Tavsiye alınırken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
-    } finally {
-      setLoadingAdvice(false);
-    }
-  };
-
-  const categories = [
-    { id: 'tümü', name: 'Tümü', icon: 'apps' },
-    { id: 'genel', name: 'Genel', icon: 'bulb' },
-    { id: 'beslenme', name: 'Beslenme', icon: 'nutrition' },
-    { id: 'egzersiz', name: 'Egzersiz', icon: 'barbell' },
-    { id: 'motivasyon', name: 'Motivasyon', icon: 'trophy' },
-  ];
-
-  const getCategoryColor = (category) => {
-    const colors = {
-      genel: COLORS.primary,
-      beslenme: COLORS.secondary,
-      egzersiz: COLORS.accentDark,
-      motivasyon: COLORS.info,
-    };
-    return colors[category] || COLORS.primary;
-  };
-
-  const filteredTips =
-    selectedCategory === 'tümü'
-      ? tips
-      : tips.filter((tip) => tip.category === selectedCategory);
+  const { title, paragraphs } = parseAdvice(currentAdvice);
 
   return (
     <View style={styles.container}>
-      {/* AI Tavsiye Butonu */}
-      <View style={styles.aiButtonContainer}>
-        <TouchableOpacity
-          style={styles.aiHeaderButton}
-          onPress={() => getAIAdvice(selectedCategory === 'tümü' ? 'genel' : selectedCategory)}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={[COLORS.accent, COLORS.accentDark]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.aiHeaderGradient}
-          >
-            <Ionicons name="sparkles" size={20} color={COLORS.textOnPrimary} />
-            <Text style={styles.aiHeaderText}>AI'dan Tavsiye Al</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
-
-      {/* Category Filter */}
-      <View style={styles.categoryContainer}>
+      {/* Kategori Seçici */}
+      <View style={styles.tabBar}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryScroll}
+          contentContainerStyle={styles.tabScroll}
         >
-          {categories.map((category) => (
-            <TouchableOpacity
-              key={category.id}
-              style={[
-                styles.categoryChip,
-                selectedCategory === category.id && styles.categoryChipActive,
-                selectedCategory === category.id && {
-                  backgroundColor: COLORS.primary,
-                },
-              ]}
-              onPress={() => setSelectedCategory(category.id)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={category.icon}
-                size={16}
-                color={selectedCategory === category.id ? COLORS.textOnPrimary : COLORS.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.categoryText,
-                  selectedCategory === category.id && styles.categoryTextActive,
-                ]}
+          {CATEGORIES.map(cat => {
+            const active = selected === cat.id;
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                onPress={() => setSelected(cat.id)}
+                activeOpacity={0.75}
+                style={styles.tabWrap}
               >
-                {category.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                {active ? (
+                  <LinearGradient
+                    colors={cat.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.tabActive}
+                  >
+                    <Ionicons name={cat.activeIcon} size={15} color="#fff" />
+                    <Text style={styles.tabTextActive}>{cat.name}</Text>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.tabInactive}>
+                    <Ionicons name={cat.icon} size={15} color={COLORS.textSecondary} />
+                    <Text style={styles.tabText}>{cat.name}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
-      {/* Tips List */}
       <ScrollView
-        style={styles.scrollView}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[COLORS.primary]}
-            tintColor={COLORS.primary}
-          />
-        }
       >
-        <View style={styles.content}>
-          {filteredTips.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyEmoji}>💡</Text>
-              <Text style={styles.emptyText}>Henüz tavsiye bulunmuyor</Text>
-              <Text style={styles.emptySubtext}>
-                Supabase veritabanınıza tavsiyeler ekleyin
-              </Text>
-            </View>
-          ) : (
-            <>
-              <View style={styles.headerContainer}>
-                <Text style={styles.resultCount}>
-                  {filteredTips.length} tavsiye bulundu
-                </Text>
-              </View>
+        {/* Hero Kart */}
+        <View style={styles.heroCard}>
+          {/* Gradient Başlık */}
+          <LinearGradient
+            colors={currentCat.gradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroHeader}
+          >
+            {/* Dekoratif daireler */}
+            <View style={styles.decCircle1} />
+            <View style={styles.decCircle2} />
 
-              {filteredTips.map((tip, index) => (
-                <TipCard
-                  key={tip.id}
-                  tip={tip}
-                  color={getCategoryColor(tip.category)}
-                  index={index}
-                />
-              ))}
-            </>
-          )}
-        </View>
-      </ScrollView>
-
-      {/* AI Tavsiye Modal */}
-      <Modal
-        visible={aiAdviceModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setAiAdviceModalVisible(false)}
-      >
-        <View style={styles.aiModalOverlay}>
-          <View style={styles.aiModalContent}>
-            <View style={styles.aiModalHeader}>
-              <View style={styles.modalTitleContainer}>
-                <Ionicons
-                  name="sparkles"
-                  size={24}
-                  color={COLORS.accent}
-                />
-                <Text style={styles.modalTitle}>AI Tavsiyesi</Text>
+            <View style={styles.heroHeaderContent}>
+              <View style={styles.heroLeft}>
+                <View style={styles.emojiBox}>
+                  <Text style={styles.emoji}>{currentCat.emoji}</Text>
+                </View>
+                <View>
+                  <Text style={styles.heroLabel}>Yapay Zeka Tavsiyesi</Text>
+                  <Text style={styles.heroSub}>{currentCat.desc}</Text>
+                </View>
               </View>
               <TouchableOpacity
-                onPress={() => setAiAdviceModalVisible(false)}
-                style={styles.closeButton}
+                style={styles.refreshBtn}
+                onPress={() => fetchAdvice(selected, true)}
+                disabled={loading}
+                activeOpacity={0.75}
               >
-                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+                <Animated.View style={{ transform: [{ rotate: loading ? spin : '0deg' }] }}>
+                  <Ionicons name="refresh" size={18} color="rgba(255,255,255,0.95)" />
+                </Animated.View>
               </TouchableOpacity>
             </View>
+          </LinearGradient>
 
-            <ScrollView
-              style={styles.aiModalBody}
-              showsVerticalScrollIndicator={false}
-            >
-              {loadingAdvice ? (
-                <View style={styles.aiLoadingContainer}>
-                  <ActivityIndicator size="large" color={COLORS.accent} />
-                  <Text style={styles.aiLoadingText}>
-                    AI tavsiyeniz hazırlanıyor...
-                  </Text>
-                  <Text style={styles.aiLoadingSubtext}>
-                    Bu birkaç saniye sürebilir
-                  </Text>
+          {/* İçerik */}
+          <View style={styles.heroBody}>
+            {loading ? (
+              <View style={styles.loadingWrap}>
+                <ActivityIndicator size="large" color={currentCat.gradient[0]} />
+                <Text style={[styles.loadingText, { color: currentCat.gradient[0] }]}>
+                  AI tavsiyeniz hazırlanıyor...
+                </Text>
+                <Text style={styles.loadingHint}>Bu birkaç saniye sürebilir</Text>
+                {/* Skeleton satırlar */}
+                <View style={styles.skeletonWrap}>
+                  {[100, 85, 90, 70].map((w, i) => (
+                    <View key={i} style={[styles.skeletonLine, { width: `${w}%` }]} />
+                  ))}
                 </View>
-              ) : (
-                <View style={styles.aiAdviceContainer}>
-                  <LinearGradient
-                    colors={[COLORS.accent, COLORS.accentDark]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.aiAdviceHeader}
-                  >
-                    <Ionicons name="bulb" size={32} color={COLORS.textOnPrimary} />
-                    <Text style={styles.aiAdviceTitle}>
-                      {selectedAICategory.charAt(0).toUpperCase() + selectedAICategory.slice(1)} Tavsiyesi
+              </View>
+            ) : (
+              <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+                {/* Başlık */}
+                {!!title && (
+                  <View style={styles.adviceTitleRow}>
+                    <LinearGradient
+                      colors={currentCat.gradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.titleAccent}
+                    />
+                    <Text style={styles.adviceTitle}>{title}</Text>
+                  </View>
+                )}
+
+                {/* Paragraflar */}
+                {paragraphs.map((p, i) => (
+                  <Text key={i} style={styles.adviceParagraph}>{p}</Text>
+                ))}
+
+                {/* Footer */}
+                <View style={styles.cardFooter}>
+                  <View style={[styles.disclaimer, { borderColor: `${currentCat.gradient[0]}25` }]}>
+                    <Ionicons name="shield-checkmark-outline" size={13} color={currentCat.gradient[0]} />
+                    <Text style={styles.disclaimerText}>
+                      Bu tavsiye tıbbi teşhis veya tedavi yerine geçmez.
                     </Text>
-                  </LinearGradient>
-                  <View style={styles.aiAdviceContent}>
-                    <Text style={styles.aiAdviceText}>{aiAdvice}</Text>
-                    <View style={styles.disclaimerBox}>
-                      <Ionicons name="information-circle-outline" size={14} color={COLORS.textSecondary} />
-                      <Text style={styles.disclaimerText}>Bu bilgiler tıbbi tavsiye yerine geçmez. Sağlık kararları için bir doktor veya uzman diyetisyene danışınız.</Text>
-                    </View>
                   </View>
                 </View>
-              )}
-            </ScrollView>
-
-            <View style={styles.aiModalFooter}>
-              <TouchableOpacity
-                style={styles.aiCloseButton}
-                onPress={() => setAiAdviceModalVisible(false)}
-              >
-                <LinearGradient
-                  colors={[COLORS.primary, COLORS.primaryDark]}
-                  style={styles.aiCloseButtonGradient}
-                >
-                  <Text style={styles.aiCloseButtonText}>Kapat</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
+              </Animated.View>
+            )}
           </View>
         </View>
-      </Modal>
+
+        {/* Alt Kartlar: diğer kategorilerin cache'lenmiş tavsiyeleri */}
+        {CATEGORIES.filter(c => c.id !== selected && adviceCache[c.id]).length > 0 && (
+          <>
+            <View style={styles.otherHeader}>
+              <View style={styles.otherHeaderLine} />
+              <Text style={styles.otherHeaderText}>Diğer Kategoriler</Text>
+              <View style={styles.otherHeaderLine} />
+            </View>
+
+            {CATEGORIES.filter(c => c.id !== selected && adviceCache[c.id]).map(cat => {
+              const { title: t, paragraphs: ps } = parseAdvice(adviceCache[cat.id]);
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={styles.miniCard}
+                  onPress={() => setSelected(cat.id)}
+                  activeOpacity={0.85}
+                >
+                  <LinearGradient
+                    colors={cat.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.miniCardLeft}
+                  >
+                    <Text style={styles.miniEmoji}>{cat.emoji}</Text>
+                  </LinearGradient>
+                  <View style={styles.miniCardRight}>
+                    <View style={styles.miniCardHeader}>
+                      <Text style={styles.miniCardCat}>{cat.name}</Text>
+                      <Ionicons name="chevron-forward" size={14} color={COLORS.textLight} />
+                    </View>
+                    {!!t && <Text style={styles.miniCardTitle} numberOfLines={1}>{t}</Text>}
+                    {ps.length > 0 && (
+                      <Text style={styles.miniCardSnippet} numberOfLines={2}>
+                        {ps[0]}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </>
+        )}
+
+        <View style={{ height: 32 }} />
+      </ScrollView>
     </View>
   );
 }
 
-// Tip Card Component
-const TipCard = ({ tip, color, index }) => {
-  const getCategoryIcon = (category) => {
-    const icons = {
-      genel: 'bulb',
-      beslenme: 'nutrition',
-      egzersiz: 'barbell',
-      motivasyon: 'trophy',
-    };
-    return icons[category] || 'bulb';
-  };
-
-  return (
-    <View style={styles.tipCard}>
-      <LinearGradient
-        colors={[color, `${color}E6`]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.tipHeader}
-      >
-        <View style={styles.tipIconBadge}>
-          <Ionicons name={getCategoryIcon(tip.category)} size={24} color={COLORS.textOnPrimary} />
-        </View>
-        {tip.category && (
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryBadgeText}>
-              {tip.category.charAt(0).toUpperCase() + tip.category.slice(1)}
-            </Text>
-          </View>
-        )}
-      </LinearGradient>
-
-      <View style={styles.tipBody}>
-        <Text style={styles.tipTitle}>{tip.title}</Text>
-        <Text style={styles.tipContent}>{tip.content}</Text>
-      </View>
-    </View>
-  );
-};
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  aiButtonContainer: {
-    padding: SIZES.md,
+  container: { flex: 1, backgroundColor: COLORS.background },
+
+  /* Tab Bar */
+  tabBar: {
     backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  aiHeaderButton: {
-    borderRadius: SIZES.radiusMedium,
-    overflow: 'hidden',
-    ...SHADOWS.small,
-  },
-  aiHeaderGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SIZES.md,
-    paddingHorizontal: SIZES.lg,
-    gap: SIZES.sm,
-  },
-  aiHeaderText: {
-    fontSize: SIZES.body,
-    fontWeight: '600',
-    color: COLORS.textOnPrimary,
-  },
-  categoryContainer: {
-    backgroundColor: COLORS.surface,
-    paddingVertical: SIZES.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  categoryScroll: {
-    paddingHorizontal: SIZES.containerPadding,
-    gap: SIZES.sm,
-  },
-  categoryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SIZES.md,
     paddingVertical: SIZES.sm,
-    borderRadius: SIZES.radiusFull,
-    backgroundColor: COLORS.surfaceAlt,
-    gap: SIZES.xs,
-  },
-  categoryChipActive: {
-    ...SHADOWS.small,
-  },
-  categoryEmoji: {
-    fontSize: 16,
-  },
-  categoryText: {
-    fontSize: SIZES.small,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  categoryTextActive: {
-    color: COLORS.textOnPrimary,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: SIZES.containerPadding,
-  },
-  headerContainer: {
-    marginBottom: SIZES.md,
-  },
-  resultCount: {
-    fontSize: SIZES.small,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: SIZES.xxxl,
-  },
-  emptyEmoji: {
-    fontSize: 64,
-    marginBottom: SIZES.md,
-  },
-  emptyText: {
-    fontSize: SIZES.h4,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    marginBottom: SIZES.xs,
-  },
-  emptySubtext: {
-    fontSize: SIZES.body,
-    color: COLORS.textLight,
-    textAlign: 'center',
-    paddingHorizontal: SIZES.xl,
-  },
-  tipCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radiusLarge,
-    marginBottom: SIZES.md,
-    overflow: 'hidden',
-    ...SHADOWS.medium,
-  },
-  tipHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SIZES.md,
-  },
-  tipIconBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tipIcon: {
-    fontSize: 20,
-  },
-  categoryBadge: {
-    paddingHorizontal: SIZES.sm,
-    paddingVertical: 4,
-    borderRadius: SIZES.radiusSmall,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  categoryBadgeText: {
-    fontSize: SIZES.tiny,
-    fontWeight: '700',
-    color: COLORS.textOnPrimary,
-    textTransform: 'uppercase',
-  },
-  tipBody: {
-    padding: SIZES.md,
-  },
-  tipTitle: {
-    fontSize: SIZES.h4,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: SIZES.sm,
-  },
-  tipContent: {
-    fontSize: SIZES.body,
-    color: COLORS.textSecondary,
-    lineHeight: 24,
-  },
-  // AI Modal Stilleri
-  aiModalOverlay: {
-    flex: 1,
-    backgroundColor: COLORS.overlay,
-    justifyContent: 'flex-end',
-  },
-  aiModalContent: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: SIZES.radiusXL,
-    borderTopRightRadius: SIZES.radiusXL,
-    maxHeight: '85%',
-  },
-  aiModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SIZES.lg,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: COLORS.border,
   },
-  modalTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SIZES.sm,
+  tabScroll: { paddingHorizontal: SIZES.containerPadding, gap: SIZES.sm },
+  tabWrap: {},
+  tabActive: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 20,
   },
-  modalTitle: {
-    fontSize: SIZES.h3,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  tabInactive: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 20,
     backgroundColor: COLORS.surfaceAlt,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  aiModalBody: {
-    padding: SIZES.lg,
-  },
-  aiLoadingContainer: {
-    alignItems: 'center',
-    paddingVertical: SIZES.xxxl,
-    gap: SIZES.md,
-  },
-  aiLoadingText: {
-    fontSize: SIZES.h4,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  aiLoadingSubtext: {
-    fontSize: SIZES.body,
-    color: COLORS.textSecondary,
-  },
-  aiAdviceContainer: {
-    borderRadius: SIZES.radiusLarge,
+  tabTextActive: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  tabText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+
+  /* Scroll */
+  scroll: { flex: 1 },
+  scrollContent: { padding: 16, gap: 12 },
+
+  /* Hero Kart */
+  heroCard: {
+    borderRadius: 20,
     overflow: 'hidden',
-    ...SHADOWS.medium,
-  },
-  aiAdviceHeader: {
-    padding: SIZES.lg,
-    alignItems: 'center',
-    gap: SIZES.sm,
-  },
-  aiAdviceTitle: {
-    fontSize: SIZES.h3,
-    fontWeight: '700',
-    color: COLORS.textOnPrimary,
-    textAlign: 'center',
-  },
-  aiAdviceContent: {
     backgroundColor: COLORS.surface,
-    padding: SIZES.lg,
+    ...SHADOWS.large,
   },
-  aiAdviceText: {
-    fontSize: SIZES.body,
-    color: COLORS.text,
-    lineHeight: 24,
+  heroHeader: { padding: 20, overflow: 'hidden' },
+  decCircle1: {
+    position: 'absolute', width: 120, height: 120, borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.1)', top: -30, right: -20,
   },
-  aiModalFooter: {
-    padding: SIZES.lg,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
-    backgroundColor: COLORS.surface,
+  decCircle2: {
+    position: 'absolute', width: 80, height: 80, borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.08)', bottom: -20, right: 60,
   },
-  aiCloseButton: {
-    height: 56,
-    borderRadius: SIZES.radiusMedium,
-    overflow: 'hidden',
-    ...SHADOWS.small,
+  heroHeaderContent: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  aiCloseButtonGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  heroLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  emojiBox: {
+    width: 48, height: 48, borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center', alignItems: 'center',
   },
-  aiCloseButtonText: {
-    fontSize: SIZES.h5,
-    fontWeight: '700',
-    color: COLORS.textOnPrimary,
+  emoji: { fontSize: 24 },
+  heroLabel: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  heroSub: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+  refreshBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center', alignItems: 'center',
   },
-  disclaimerBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
+
+  /* Hero Body */
+  heroBody: { padding: 20 },
+
+  /* Loading */
+  loadingWrap: { alignItems: 'center', gap: 12, paddingVertical: 16 },
+  loadingText: { fontSize: 15, fontWeight: '700' },
+  loadingHint: { fontSize: 12, color: COLORS.textLight },
+  skeletonWrap: { width: '100%', gap: 8, marginTop: 8 },
+  skeletonLine: {
+    height: 12, borderRadius: 6,
     backgroundColor: COLORS.surfaceAlt,
-    borderRadius: SIZES.radiusSmall,
-    padding: SIZES.sm,
-    marginTop: SIZES.md,
+  },
+
+  /* Advice */
+  adviceTitleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 14 },
+  titleAccent: { width: 4, borderRadius: 2, minHeight: 20, marginTop: 2 },
+  adviceTitle: {
+    flex: 1, fontSize: 17, fontWeight: '800',
+    color: COLORS.text, lineHeight: 24,
+  },
+  adviceParagraph: {
+    fontSize: 15, color: COLORS.textSecondary,
+    lineHeight: 24, marginBottom: 10,
+  },
+
+  /* Card Footer */
+  cardFooter: { marginTop: 8 },
+  disclaimer: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 6,
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: 10, padding: 10,
+    borderWidth: 1,
   },
   disclaimerText: {
-    flex: 1,
-    fontSize: SIZES.tiny,
-    color: COLORS.textSecondary,
-    lineHeight: 17,
+    flex: 1, fontSize: 11, color: COLORS.textLight, lineHeight: 16,
   },
+
+  /* Diğer Kategoriler */
+  otherHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8,
+  },
+  otherHeaderLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
+  otherHeaderText: { fontSize: 12, fontWeight: '600', color: COLORS.textLight },
+
+  /* Mini Kart */
+  miniCard: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...SHADOWS.small,
+  },
+  miniCardLeft: {
+    width: 56, justifyContent: 'center', alignItems: 'center',
+  },
+  miniEmoji: { fontSize: 22 },
+  miniCardRight: { flex: 1, padding: 12 },
+  miniCardHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  miniCardCat: { fontSize: 11, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
+  miniCardTitle: { fontSize: 14, fontWeight: '700', color: COLORS.text, marginBottom: 3 },
+  miniCardSnippet: { fontSize: 12, color: COLORS.textSecondary, lineHeight: 17 },
 });

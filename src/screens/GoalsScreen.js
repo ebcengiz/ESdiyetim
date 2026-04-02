@@ -37,11 +37,8 @@ export default function GoalsScreen() {
   const [notes, setNotes] = useState('');
   const [editingId, setEditingId] = useState(null);
 
-  // AI Tavsiye state'leri
-  const [aiAdviceModalVisible, setAiAdviceModalVisible] = useState(false);
-  const [aiAdvice, setAiAdvice] = useState('');
-  const [loadingAdvice, setLoadingAdvice] = useState(false);
-  const [selectedGoalForAdvice, setSelectedGoalForAdvice] = useState(null);
+  // AI Tavsiye state'leri — her hedef için ayrı { advice, loading }
+  const [goalAdvices, setGoalAdvices] = useState({});
 
   useEffect(() => {
     loadGoals();
@@ -124,16 +121,18 @@ export default function GoalsScreen() {
         status: 'active',
       };
 
+      let savedGoal;
       if (editingId) {
         await goalsService.update(editingId, goalData);
-        Alert.alert('✅ Başarılı', 'Hedef güncellendi!');
+        savedGoal = { id: editingId, ...goalData };
       } else {
-        await goalsService.create(goalData);
-        Alert.alert('✅ Başarılı', 'Hedef eklendi!');
+        savedGoal = await goalsService.create(goalData);
       }
 
       setModalVisible(false);
       loadGoals();
+      // ─── Kaydet sonrası otomatik AI tavsiyesi ───
+      if (savedGoal) fetchGoalAdvice(savedGoal);
     } catch (error) {
       console.error('Hedef kaydetme hatası:', error);
       Alert.alert('❌ Hata', 'Hedef kaydedilirken bir hata oluştu.');
@@ -171,29 +170,21 @@ export default function GoalsScreen() {
     }
   };
 
-  // AI Tavsiye Al
-  const getAIAdvice = async (goal) => {
-    setSelectedGoalForAdvice(goal);
-    setLoadingAdvice(true);
-    setAiAdviceModalVisible(true);
-    setAiAdvice('');
-
+  // AI Tavsiyesi — inline, her hedef için ayrı state
+  const fetchGoalAdvice = async (goal) => {
+    const id = goal.id;
+    setGoalAdvices(prev => ({ ...prev, [id]: { advice: '', loading: true } }));
     try {
-      const goalData = {
+      const result = await aiService.getGoalAdvice({
         title: goal.title,
         currentWeight: goal.current_weight,
         targetWeight: goal.target_weight,
         startDate: goal.start_date,
         targetDate: goal.target_date,
-      };
-
-      const result = await aiService.getGoalAdvice(goalData);
-      setAiAdvice(result.advice);
-    } catch (error) {
-      console.error('AI tavsiye hatası:', error);
-      setAiAdvice('⚠️ Tavsiye alınırken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
-    } finally {
-      setLoadingAdvice(false);
+      });
+      setGoalAdvices(prev => ({ ...prev, [id]: { advice: result.advice, loading: false } }));
+    } catch {
+      setGoalAdvices(prev => ({ ...prev, [id]: { advice: '⚠️ Tavsiye alınamadı.', loading: false } }));
     }
   };
 
@@ -395,22 +386,61 @@ export default function GoalsScreen() {
                       </View>
                     )}
 
-                    {/* AI Tavsiye Butonu */}
-                    <TouchableOpacity
-                      style={styles.aiAdviceButton}
-                      onPress={() => getAIAdvice(goal)}
-                      activeOpacity={0.7}
-                    >
-                      <LinearGradient
-                        colors={[COLORS.accent, COLORS.accentDark]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.aiAdviceGradient}
-                      >
-                        <Ionicons name="sparkles" size={18} color={COLORS.textOnPrimary} />
-                        <Text style={styles.aiAdviceButtonText}>AI Tavsiye Al</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
+                    {/* Inline AI Tavsiye */}
+                    {(() => {
+                      const gAdv = goalAdvices[goal.id];
+                      if (!gAdv) {
+                        return (
+                          <TouchableOpacity
+                            style={styles.aiAdviceButton}
+                            onPress={() => fetchGoalAdvice(goal)}
+                            activeOpacity={0.7}
+                          >
+                            <LinearGradient
+                              colors={[COLORS.accent, COLORS.accentDark]}
+                              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                              style={styles.aiAdviceGradient}
+                            >
+                              <Ionicons name="sparkles" size={18} color={COLORS.textOnPrimary} />
+                              <Text style={styles.aiAdviceButtonText}>AI Tavsiye Al</Text>
+                            </LinearGradient>
+                          </TouchableOpacity>
+                        );
+                      }
+                      return (
+                        <View style={styles.aiInlineCard}>
+                          <LinearGradient
+                            colors={[COLORS.accent, COLORS.accentDark]}
+                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                            style={styles.aiInlineHeader}
+                          >
+                            <View style={styles.aiInlineHeaderRow}>
+                              <View style={styles.aiInlineIconBox}>
+                                <Ionicons name="sparkles" size={15} color={COLORS.accent} />
+                              </View>
+                              <Text style={styles.aiInlineTitle}>AI Tavsiyesi</Text>
+                              <TouchableOpacity
+                                onPress={() => fetchGoalAdvice(goal)}
+                                disabled={gAdv.loading}
+                                style={styles.aiInlineRefresh}
+                              >
+                                <Ionicons name="refresh" size={14} color="rgba(255,255,255,0.9)" />
+                              </TouchableOpacity>
+                            </View>
+                          </LinearGradient>
+                          <View style={styles.aiInlineBody}>
+                            {gAdv.loading ? (
+                              <View style={styles.aiInlineLoading}>
+                                <ActivityIndicator size="small" color={COLORS.accent} />
+                                <Text style={[styles.aiInlineLoadingText, { color: COLORS.accent }]}>Hazırlanıyor...</Text>
+                              </View>
+                            ) : (
+                              <Text style={styles.aiInlineText}>{gAdv.advice}</Text>
+                            )}
+                          </View>
+                        </View>
+                      );
+                    })()}
                   </View>
                 </TouchableOpacity>
               );
@@ -642,87 +672,7 @@ export default function GoalsScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* AI Tavsiye Modal */}
-      <Modal
-        visible={aiAdviceModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setAiAdviceModalVisible(false)}
-      >
-        <View style={styles.aiModalOverlay}>
-          <View style={styles.aiModalContent}>
-            <View style={styles.aiModalHeader}>
-              <View style={styles.modalTitleContainer}>
-                <Ionicons
-                  name="sparkles"
-                  size={24}
-                  color={COLORS.accent}
-                  style={styles.modalIcon}
-                />
-                <Text style={styles.modalTitle}>AI Tavsiyesi</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setAiAdviceModalVisible(false)}
-                style={styles.closeButton}
-              >
-                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              style={styles.aiModalBody}
-              showsVerticalScrollIndicator={false}
-            >
-              {loadingAdvice ? (
-                <View style={styles.aiLoadingContainer}>
-                  <ActivityIndicator size="large" color={COLORS.accent} />
-                  <Text style={styles.aiLoadingText}>
-                    AI tavsiyeniz hazırlanıyor...
-                  </Text>
-                  <Text style={styles.aiLoadingSubtext}>
-                    Bu birkaç saniye sürebilir
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.aiAdviceContainer}>
-                  <LinearGradient
-                    colors={[COLORS.accent, COLORS.accentDark]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.aiAdviceHeader}
-                  >
-                    <Ionicons name="bulb" size={32} color={COLORS.textOnPrimary} />
-                    <Text style={styles.aiAdviceTitle}>
-                      {selectedGoalForAdvice?.title}
-                    </Text>
-                  </LinearGradient>
-                  <View style={styles.aiAdviceContent}>
-                    <Text style={styles.aiAdviceText}>{aiAdvice}</Text>
-                    <View style={styles.disclaimerBox}>
-                      <Ionicons name="information-circle-outline" size={14} color={COLORS.textSecondary} />
-                      <Text style={styles.disclaimerText}>Bu bilgiler tıbbi tavsiye yerine geçmez. Sağlık kararları için bir doktor veya uzman diyetisyene danışınız.</Text>
-                    </View>
-                  </View>
-                </View>
-              )}
-            </ScrollView>
-
-            <View style={styles.aiModalFooter}>
-              <TouchableOpacity
-                style={styles.aiCloseButton}
-                onPress={() => setAiAdviceModalVisible(false)}
-              >
-                <LinearGradient
-                  colors={[COLORS.primary, COLORS.primaryDark]}
-                  style={styles.aiCloseButtonGradient}
-                >
-                  <Text style={styles.aiCloseButtonText}>Kapat</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* AI Modal kaldırıldı — inline gösteriliyor */}
     </View>
   );
 }
@@ -1067,7 +1017,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.textOnPrimary,
   },
-  // AI Tavsiye Stilleri
+  // Inline AI Kart Stilleri
   aiAdviceButton: {
     marginTop: SIZES.md,
     borderRadius: SIZES.radiusMedium,
@@ -1087,102 +1037,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.textOnPrimary,
   },
-  aiModalOverlay: {
-    flex: 1,
-    backgroundColor: COLORS.overlay,
-    justifyContent: 'flex-end',
-  },
-  aiModalContent: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: SIZES.radiusXL,
-    borderTopRightRadius: SIZES.radiusXL,
-    maxHeight: '85%',
-  },
-  aiModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SIZES.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
-  },
-  aiModalBody: {
-    padding: SIZES.lg,
-  },
-  aiLoadingContainer: {
-    alignItems: 'center',
-    paddingVertical: SIZES.xxxl,
-    gap: SIZES.md,
-  },
-  aiLoadingText: {
-    fontSize: SIZES.h4,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  aiLoadingSubtext: {
-    fontSize: SIZES.body,
-    color: COLORS.textSecondary,
-  },
-  aiAdviceContainer: {
+  aiInlineCard: {
+    marginTop: SIZES.md,
     borderRadius: SIZES.radiusLarge,
     overflow: 'hidden',
     ...SHADOWS.medium,
   },
-  aiAdviceHeader: {
-    padding: SIZES.lg,
-    alignItems: 'center',
-    gap: SIZES.sm,
-  },
-  aiAdviceTitle: {
-    fontSize: SIZES.h3,
-    fontWeight: '700',
-    color: COLORS.textOnPrimary,
-    textAlign: 'center',
-  },
-  aiAdviceContent: {
-    backgroundColor: COLORS.surface,
-    padding: SIZES.lg,
-  },
-  aiAdviceText: {
-    fontSize: SIZES.body,
-    color: COLORS.text,
-    lineHeight: 24,
-  },
-  aiModalFooter: {
-    padding: SIZES.lg,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
-    backgroundColor: COLORS.surface,
-  },
-  aiCloseButton: {
-    height: 56,
-    borderRadius: SIZES.radiusMedium,
-    overflow: 'hidden',
-    ...SHADOWS.small,
-  },
-  aiCloseButtonGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  aiCloseButtonText: {
-    fontSize: SIZES.h5,
-    fontWeight: '700',
-    color: COLORS.textOnPrimary,
-  },
-  disclaimerBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-    backgroundColor: COLORS.surfaceAlt,
-    borderRadius: SIZES.radiusSmall,
-    padding: SIZES.sm,
-    marginTop: SIZES.md,
-  },
-  disclaimerText: {
-    flex: 1,
-    fontSize: SIZES.tiny,
-    color: COLORS.textSecondary,
-    lineHeight: 17,
-  },
+  aiInlineHeader: { padding: SIZES.md },
+  aiInlineHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm },
+  aiInlineIconBox: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center' },
+  aiInlineTitle: { flex: 1, fontSize: SIZES.body, fontWeight: '700', color: '#fff' },
+  aiInlineRefresh: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
+  aiInlineBody: { backgroundColor: COLORS.surface, padding: SIZES.md },
+  aiInlineLoading: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm, paddingVertical: SIZES.sm },
+  aiInlineLoadingText: { fontSize: SIZES.small, fontWeight: '600' },
+  aiInlineText: { fontSize: SIZES.body, color: COLORS.text, lineHeight: 22 },
 });

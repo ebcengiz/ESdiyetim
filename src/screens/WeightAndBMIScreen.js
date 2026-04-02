@@ -393,7 +393,6 @@ function BMIPanel({ latestWeight }) {
   const [bodyInfo, setBodyInfo] = useState({ height: '', age: '', gender: 'male' });
   const [existingId, setExistingId] = useState(null);
   const [isSaved, setIsSaved] = useState(false); // VKİ ancak kaydedildikten sonra gösterilir
-  const [aiAdviceModalVisible, setAiAdviceModalVisible] = useState(false);
   const [aiAdvice, setAiAdvice] = useState('');
   const [loadingAdvice, setLoadingAdvice] = useState(false);
 
@@ -425,18 +424,63 @@ function BMIPanel({ latestWeight }) {
     try {
       const data = await bodyInfoService.getLatest();
       if (data) {
-        setBodyInfo({
-          height: data.height?.toString() || '',
-          age: data.age?.toString() || '',
-          gender: data.gender || 'male',
-        });
+        const h = data.height?.toString() || '';
+        const a = data.age?.toString() || '';
+        const g = data.gender || 'male';
+        setBodyInfo({ height: h, age: a, gender: g });
         setExistingId(data.id);
-        setIsSaved(true); // DB'den yüklendi → kaydedilmiş sayılır
+        setIsSaved(true);
+        // DB'den yüklendiyse AI tavsiyesini de otomatik çek
+        if (h && a && latestWeight) {
+          fetchAIAdvice({
+            height: parseFloat(h),
+            age: parseInt(a),
+            gender: g,
+            weight: latestWeight,
+          });
+        }
       }
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // AI tavsiyesini inline çek (modal yok)
+  const fetchAIAdvice = async (params) => {
+    const p = params || {
+      height: parseFloat(bodyInfo.height),
+      weight: effectiveWeight,
+      age: parseInt(bodyInfo.age),
+      gender: bodyInfo.gender,
+    };
+    const currentBMI = computeBMI(p.height?.toString(), p.weight);
+    const cat = (() => {
+      if (!currentBMI) return null;
+      const v = parseFloat(currentBMI);
+      if (v < 18.5) return 'Zayıf';
+      if (v < 25)   return 'Normal';
+      if (v < 30)   return 'Fazla Kilolu';
+      return 'Obez';
+    })();
+    if (!currentBMI || !cat) return;
+    setLoadingAdvice(true);
+    setAiAdvice('');
+    try {
+      const result = await aiService.getBMIAdvice({
+        bmi: parseFloat(currentBMI),
+        category: cat,
+        height: p.height,
+        weight: p.weight,
+        age: p.age,
+        gender: p.gender,
+      });
+      setAiAdvice(result.advice || '');
+    } catch {
+      setAiAdvice('⚠️ Tavsiye alınırken bir hata oluştu.');
+    } finally {
+      setLoadingAdvice(false);
     }
   };
 
@@ -459,40 +503,16 @@ function BMIPanel({ latestWeight }) {
       if (existingId) {
         await bodyInfoService.update(existingId, data);
         setIsSaved(true);
-        Alert.alert('✅ Başarılı', 'Vücut bilgileriniz güncellendi!');
       } else {
         const newInfo = await bodyInfoService.create(data);
         setExistingId(newInfo.id);
         setIsSaved(true);
-        Alert.alert('✅ Başarılı', 'Vücut bilgileriniz kaydedildi!');
       }
+      Alert.alert('✅ Kaydedildi', 'Bilgileriniz güncellendi. AI tavsiyesi hazırlanıyor...');
+      // ─── Kaydet sonrası otomatik AI tavsiyesi ───
+      fetchAIAdvice(data);
     } catch {
       Alert.alert('❌ Hata', 'Vücut bilgileri kaydedilirken bir hata oluştu.');
-    }
-  };
-
-  const getAIAdvice = async () => {
-    if (!bmi || !bmiCategory) {
-      Alert.alert('⚠️ Uyarı', 'Lütfen önce bilgilerinizi girin ve VKİ hesaplansın.');
-      return;
-    }
-    setLoadingAdvice(true);
-    setAiAdviceModalVisible(true);
-    setAiAdvice('');
-    try {
-      const result = await aiService.getBMIAdvice({
-        bmi: parseFloat(bmi),
-        category: bmiCategory.name,
-        height: parseFloat(bodyInfo.height),
-        weight: effectiveWeight,
-        age: parseInt(bodyInfo.age),
-        gender: bodyInfo.gender,
-      });
-      setAiAdvice(result.advice);
-    } catch {
-      setAiAdvice('⚠️ Tavsiye alınırken bir hata oluştu.');
-    } finally {
-      setLoadingAdvice(false);
     }
   };
 
@@ -636,12 +656,42 @@ function BMIPanel({ latestWeight }) {
             ))}
           </View>
 
-          <TouchableOpacity style={[s.saveBtn, { marginTop: SIZES.md }]} onPress={getAIAdvice}>
-            <LinearGradient colors={[COLORS.accent, COLORS.accentDark]} style={s.saveBtnGradient}>
-              <Ionicons name="sparkles" size={18} color={COLORS.textOnPrimary} />
-              <Text style={s.saveBtnText}>AI'dan Detaylı Tavsiye Al</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+          {/* ── Inline AI Tavsiye Kartı ── */}
+          {(loadingAdvice || aiAdvice) && (
+            <View style={s.aiInlineCard}>
+              <LinearGradient
+                colors={[bmiCategory.color, bmiCategory.color + 'BB']}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={s.aiInlineHeader}
+              >
+                <View style={s.aiInlineHeaderRow}>
+                  <View style={s.aiInlineIconBox}>
+                    <Ionicons name="sparkles" size={18} color={bmiCategory.color} />
+                  </View>
+                  <Text style={s.aiInlineTitle}>Yapay Zeka Tavsiyesi</Text>
+                  <TouchableOpacity
+                    onPress={() => fetchAIAdvice()}
+                    disabled={loadingAdvice}
+                    style={s.aiInlineRefresh}
+                  >
+                    <Ionicons name="refresh" size={16} color="rgba(255,255,255,0.9)" />
+                  </TouchableOpacity>
+                </View>
+              </LinearGradient>
+              <View style={s.aiInlineBody}>
+                {loadingAdvice ? (
+                  <View style={s.aiInlineLoading}>
+                    <ActivityIndicator size="small" color={bmiCategory.color} />
+                    <Text style={[s.aiInlineLoadingText, { color: bmiCategory.color }]}>
+                      AI tavsiyeniz hazırlanıyor...
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={s.aiInlineText}>{aiAdvice}</Text>
+                )}
+              </View>
+            </View>
+          )}
         </>
       )}
 
@@ -725,54 +775,7 @@ function BMIPanel({ latestWeight }) {
         ))}
       </View>
 
-      {/* AI Modal */}
-      <Modal visible={aiAdviceModalVisible} animationType="slide" transparent onRequestClose={() => setAiAdviceModalVisible(false)}>
-        <View style={s.aiModalOverlay}>
-          <View style={s.aiModalBox}>
-            <View style={s.aiModalHead}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: SIZES.sm }}>
-                <Ionicons name="sparkles" size={22} color={COLORS.accent} />
-                <Text style={s.modalTitle}>AI VKİ Tavsiyesi</Text>
-              </View>
-              <TouchableOpacity onPress={() => setAiAdviceModalVisible(false)} style={s.closeBtn}>
-                <Ionicons name="close" size={22} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={s.aiModalBody} showsVerticalScrollIndicator={false}>
-              {loadingAdvice ? (
-                <View style={s.aiLoading}>
-                  <ActivityIndicator size="large" color={COLORS.accent} />
-                  <Text style={s.aiLoadingText}>AI tavsiyeniz hazırlanıyor...</Text>
-                </View>
-              ) : (
-                <View style={s.aiAdviceWrap}>
-                  <LinearGradient
-                    colors={bmiCategory ? [bmiCategory.color, bmiCategory.color + 'CC'] : [COLORS.accent, COLORS.accentDark]}
-                    style={s.aiAdviceTop}
-                  >
-                    <Ionicons name="fitness" size={30} color={COLORS.textOnPrimary} />
-                    <Text style={s.aiAdviceTitle}>VKİ: {bmi} — {bmiCategory?.name}</Text>
-                  </LinearGradient>
-                  <View style={s.aiAdviceBody}>
-                    <Text style={s.aiAdviceText}>{aiAdvice}</Text>
-                    <View style={s.disclaimerBox}>
-                      <Ionicons name="information-circle-outline" size={13} color={COLORS.textSecondary} />
-                      <Text style={s.disclaimerText}>Bu bilgiler tıbbi tavsiye yerine geçmez. Sağlık kararları için bir doktor veya uzman diyetisyene danışınız.</Text>
-                    </View>
-                  </View>
-                </View>
-              )}
-            </ScrollView>
-            <View style={s.aiModalFoot}>
-              <TouchableOpacity style={s.aiCloseBtn} onPress={() => setAiAdviceModalVisible(false)}>
-                <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={s.saveBtnGradient}>
-                  <Text style={s.saveBtnText}>Kapat</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* Modal kaldırıldı — AI tavsiyesi artık inline gösteriliyor */}
     </ScrollView>
   );
 }
@@ -1063,4 +1066,15 @@ const s = StyleSheet.create({
   aiAdviceText: { fontSize: SIZES.body, color: COLORS.text, lineHeight: 24 },
   disclaimerBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: COLORS.surfaceAlt, borderRadius: SIZES.radiusSmall, padding: SIZES.sm, marginTop: SIZES.md },
   disclaimerText: { flex: 1, fontSize: SIZES.tiny, color: COLORS.textSecondary, lineHeight: 17 },
+  // ── Inline AI kart
+  aiInlineCard: { borderRadius: SIZES.radiusLarge, overflow: 'hidden', ...SHADOWS.medium, marginTop: SIZES.md },
+  aiInlineHeader: { padding: SIZES.md },
+  aiInlineHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm },
+  aiInlineIconBox: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center' },
+  aiInlineTitle: { flex: 1, fontSize: SIZES.body, fontWeight: '700', color: '#fff' },
+  aiInlineRefresh: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
+  aiInlineBody: { backgroundColor: COLORS.surface, padding: SIZES.md },
+  aiInlineLoading: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm, paddingVertical: SIZES.sm },
+  aiInlineLoadingText: { fontSize: SIZES.small, fontWeight: '600' },
+  aiInlineText: { fontSize: SIZES.body, color: COLORS.text, lineHeight: 24 },
 });

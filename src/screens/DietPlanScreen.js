@@ -37,8 +37,7 @@ export default function DietPlanScreen() {
     total_calories: '',
   });
 
-  // AI Tavsiye state'leri
-  const [aiAdviceModalVisible, setAiAdviceModalVisible] = useState(false);
+  // AI Tavsiye state
   const [aiAdvice, setAiAdvice] = useState('');
   const [loadingAdvice, setLoadingAdvice] = useState(false);
 
@@ -123,6 +122,8 @@ export default function DietPlanScreen() {
 
       setModalVisible(false);
       loadDietPlans();
+      // ─── Kaydet sonrası otomatik AI tavsiyesi ───
+      fetchDietAdvice();
     } catch (error) {
       console.error('Diyet planı kaydetme hatası:', error);
       Alert.alert('❌ Hata', 'Diyet planı kaydedilirken bir hata oluştu.');
@@ -153,30 +154,17 @@ export default function DietPlanScreen() {
     );
   };
 
-  // AI Tavsiye Al
-  const getAIAdvice = async () => {
-    if (!stats || dietPlans.length === 0) {
-      Alert.alert(
-        '⚠️ Yetersiz Veri',
-        'AI tavsiyesi alabilmek için en az bir diyet planı oluşturmalısınız.',
-        [{ text: 'Tamam', style: 'default' }]
-      );
-      return;
-    }
-
+  // AI tavsiyesi inline
+  const fetchDietAdvice = async () => {
+    const currentStats = getStats();
+    if (!currentStats) return;
     setLoadingAdvice(true);
-    setAiAdviceModalVisible(true);
     setAiAdvice('');
-
     try {
-      const dietData = {
-        stats: stats,
-        recentPlans: dietPlans,
-      };
-      const result = await aiService.getDietPlanAdvice(dietData);
-      setAiAdvice(result.advice);
-    } catch (error) {
-      setAiAdvice('⚠️ Tavsiye alınırken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+      const result = await aiService.getDietPlanAdvice({ stats: currentStats, recentPlans: dietPlans });
+      setAiAdvice(result.advice || '');
+    } catch {
+      setAiAdvice('⚠️ Tavsiye alınamadı.');
     } finally {
       setLoadingAdvice(false);
     }
@@ -242,29 +230,46 @@ export default function DietPlanScreen() {
           <StatCard label="Bu Ay" value={stats.monthlyPlans} icon="calendar" />
         </LinearGradient>
       )}
-
-      {/* AI Tavsiye Butonu */}
-      {stats && (
-        <View style={styles.aiButtonContainer}>
-          <TouchableOpacity
-            style={styles.aiButton}
-            onPress={getAIAdvice}
-            activeOpacity={0.8}
-          >
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* AI Tavsiye — Inline Kart */}
+        {stats && (
+          <View style={styles.aiInlineCard}>
             <LinearGradient
               colors={[COLORS.accent, COLORS.accentDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.aiButtonGradient}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={styles.aiInlineHeader}
             >
-              <Ionicons name="sparkles" size={20} color={COLORS.textOnPrimary} />
-              <Text style={styles.aiButtonText}>AI'dan Diyet Tavsiyesi Al</Text>
+              <View style={styles.aiInlineHeaderRow}>
+                <View style={styles.aiInlineIconBox}>
+                  <Ionicons name="sparkles" size={16} color={COLORS.accent} />
+                </View>
+                <Text style={styles.aiInlineTitle}>AI Beslenme Tavsiyesi</Text>
+                <TouchableOpacity
+                  onPress={fetchDietAdvice}
+                  disabled={loadingAdvice}
+                  style={styles.aiInlineRefresh}
+                >
+                  <Ionicons name="refresh" size={16} color="rgba(255,255,255,0.9)" />
+                </TouchableOpacity>
+              </View>
             </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      )}
+            <View style={styles.aiInlineBody}>
+              {loadingAdvice ? (
+                <View style={styles.aiInlineLoading}>
+                  <ActivityIndicator size="small" color={COLORS.accent} />
+                  <Text style={[styles.aiInlineLoadingText, { color: COLORS.accent }]}>Hazırlanıyor...</Text>
+                </View>
+              ) : aiAdvice ? (
+                <Text style={styles.aiInlineText}>{aiAdvice}</Text>
+              ) : (
+                <TouchableOpacity onPress={fetchDietAdvice} activeOpacity={0.7}>
+                  <Text style={[styles.aiInlineText, { color: COLORS.accent, fontWeight: '600' }]}>✨ AI tavsiyesi almak için dokunun</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           {/* Title */}
           <View style={styles.titleContainer}>
@@ -548,86 +553,7 @@ export default function DietPlanScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* AI Tavsiye Modal */}
-      <Modal
-        visible={aiAdviceModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setAiAdviceModalVisible(false)}
-      >
-        <View style={styles.aiModalOverlay}>
-          <View style={styles.aiModalContent}>
-            <View style={styles.aiModalHeader}>
-              <View style={styles.modalTitleContainer}>
-                <Ionicons
-                  name="sparkles"
-                  size={24}
-                  color={COLORS.accent}
-                />
-                <Text style={styles.modalTitle}>AI Diyet Tavsiyesi</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setAiAdviceModalVisible(false)}
-                style={styles.closeButton}
-              >
-                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              style={styles.aiModalBody}
-              showsVerticalScrollIndicator={false}
-            >
-              {loadingAdvice ? (
-                <View style={styles.aiLoadingContainer}>
-                  <ActivityIndicator size="large" color={COLORS.accent} />
-                  <Text style={styles.aiLoadingText}>
-                    Diyet planlarınız analiz ediliyor...
-                  </Text>
-                  <Text style={styles.aiLoadingSubtext}>
-                    Bu birkaç saniye sürebilir
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.aiAdviceContainer}>
-                  <LinearGradient
-                    colors={[COLORS.accent, COLORS.accentDark]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.aiAdviceHeader}
-                  >
-                    <Ionicons name="restaurant" size={32} color={COLORS.textOnPrimary} />
-                    <Text style={styles.aiAdviceTitle}>
-                      Beslenme Analizi
-                    </Text>
-                  </LinearGradient>
-                  <View style={styles.aiAdviceContent}>
-                    <Text style={styles.aiAdviceText}>{aiAdvice}</Text>
-                    <View style={styles.disclaimerBox}>
-                      <Ionicons name="information-circle-outline" size={14} color={COLORS.textSecondary} />
-                      <Text style={styles.disclaimerText}>Bu bilgiler tıbbi tavsiye yerine geçmez. Sağlık kararları için bir doktor veya uzman diyetisyene danışınız.</Text>
-                    </View>
-                  </View>
-                </View>
-              )}
-            </ScrollView>
-
-            <View style={styles.aiModalFooter}>
-              <TouchableOpacity
-                style={styles.aiCloseButton}
-                onPress={() => setAiAdviceModalVisible(false)}
-              >
-                <LinearGradient
-                  colors={[COLORS.primary, COLORS.primaryDark]}
-                  style={styles.aiCloseButtonGradient}
-                >
-                  <Text style={styles.aiCloseButtonText}>Kapat</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* AI Modal kaldırıldı — inline gösteriliyor */}
     </View>
   );
 }
@@ -1039,103 +965,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.textOnPrimary,
   },
-  // AI Modal Stilleri
-  aiModalOverlay: {
-    flex: 1,
-    backgroundColor: COLORS.overlay,
-    justifyContent: 'flex-end',
-  },
-  aiModalContent: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: SIZES.radiusXL,
-    borderTopRightRadius: SIZES.radiusXL,
-    maxHeight: '85%',
-  },
-  aiModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SIZES.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
-  },
-  aiModalBody: {
-    padding: SIZES.lg,
-  },
-  aiLoadingContainer: {
-    alignItems: 'center',
-    paddingVertical: SIZES.xxxl,
-    gap: SIZES.md,
-  },
-  aiLoadingText: {
-    fontSize: SIZES.h4,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  aiLoadingSubtext: {
-    fontSize: SIZES.body,
-    color: COLORS.textSecondary,
-  },
-  aiAdviceContainer: {
+  // Inline AI Kart Stilleri
+  aiInlineCard: {
+    marginHorizontal: SIZES.md,
     borderRadius: SIZES.radiusLarge,
     overflow: 'hidden',
     ...SHADOWS.medium,
+    marginBottom: SIZES.md,
   },
-  aiAdviceHeader: {
-    padding: SIZES.lg,
-    alignItems: 'center',
-    gap: SIZES.sm,
-  },
-  aiAdviceTitle: {
-    fontSize: SIZES.h3,
-    fontWeight: '700',
-    color: COLORS.textOnPrimary,
-    textAlign: 'center',
-  },
-  aiAdviceContent: {
-    backgroundColor: COLORS.surface,
-    padding: SIZES.lg,
-  },
-  aiAdviceText: {
-    fontSize: SIZES.body,
-    color: COLORS.text,
-    lineHeight: 24,
-  },
-  aiModalFooter: {
-    padding: SIZES.lg,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
-    backgroundColor: COLORS.surface,
-  },
-  aiCloseButton: {
-    height: 56,
-    borderRadius: SIZES.radiusMedium,
-    overflow: 'hidden',
-    ...SHADOWS.small,
-  },
-  aiCloseButtonGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  aiCloseButtonText: {
-    fontSize: SIZES.h5,
-    fontWeight: '700',
-    color: COLORS.textOnPrimary,
-  },
-  disclaimerBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-    backgroundColor: COLORS.surfaceAlt,
-    borderRadius: SIZES.radiusSmall,
-    padding: SIZES.sm,
-    marginTop: SIZES.md,
-  },
-  disclaimerText: {
-    flex: 1,
-    fontSize: SIZES.tiny,
-    color: COLORS.textSecondary,
-    lineHeight: 17,
-  },
+  aiInlineHeader: { padding: SIZES.md },
+  aiInlineHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm },
+  aiInlineIconBox: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center' },
+  aiInlineTitle: { flex: 1, fontSize: SIZES.body, fontWeight: '700', color: '#fff' },
+  aiInlineRefresh: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
+  aiInlineBody: { backgroundColor: COLORS.surface, padding: SIZES.md },
+  aiInlineLoading: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm, paddingVertical: SIZES.sm },
+  aiInlineLoadingText: { fontSize: SIZES.small, fontWeight: '600' },
+  aiInlineText: { fontSize: SIZES.body, color: COLORS.text, lineHeight: 24 },
 });
