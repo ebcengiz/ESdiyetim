@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   Animated,
   Dimensions,
 } from 'react-native';
@@ -13,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { aiService } from '../services/aiService';
+import AIAdviceCard from '../components/AIAdviceCard';
 
 const { width } = Dimensions.get('window');
 
@@ -63,7 +63,6 @@ export default function TipsScreen() {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
-  const spinAnim = useRef(new Animated.Value(0)).current;
 
   const currentCat = CATEGORIES.find(c => c.id === selected);
 
@@ -76,20 +75,12 @@ export default function TipsScreen() {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
-  const startSpin = useCallback(() => {
-    spinAnim.setValue(0);
-    Animated.loop(
-      Animated.timing(spinAnim, { toValue: 1, duration: 1000, useNativeDriver: true })
-    ).start();
-  }, [spinAnim]);
-
   const fetchAdvice = useCallback(async (categoryId, force = false) => {
     if (!force && adviceCache[categoryId]) {
       animateIn();
       return;
     }
     setLoading(true);
-    startSpin();
     try {
       const result = await aiService.getHealthTip(categoryId);
       setAdviceCache(prev => ({ ...prev, [categoryId]: result.advice || '' }));
@@ -101,15 +92,12 @@ export default function TipsScreen() {
       }));
     } finally {
       setLoading(false);
-      spinAnim.stopAnimation();
     }
-  }, [adviceCache, animateIn, startSpin, spinAnim]);
+  }, [adviceCache, animateIn]);
 
   useEffect(() => {
     fetchAdvice(selected);
   }, [selected]);
-
-  const spin = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   const currentAdvice = adviceCache[selected] || '';
 
@@ -182,86 +170,36 @@ export default function TipsScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero Kart */}
-        <View style={styles.heroCard}>
-          {/* Gradient Başlık */}
-          <LinearGradient
-            colors={currentCat.gradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroHeader}
-          >
-            {/* Dekoratif daireler */}
-            <View style={styles.decCircle1} />
-            <View style={styles.decCircle2} />
-
-            <View style={styles.heroHeaderContent}>
-              <View style={styles.heroLeft}>
-                <View style={styles.vkiStyleIconBox}>
-                  <Ionicons name="sparkles" size={18} color={currentCat.gradient[0]} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.heroLabel}>Yapay Zeka Tavsiyesi</Text>
-                  <Text style={styles.heroSub}>{currentCat.desc}</Text>
-                </View>
+        <AIAdviceCard
+          visible
+          loading={loading}
+          advice=""
+          gradientColors={currentCat.gradient}
+          iconTint={currentCat.gradient[0]}
+          title="Yapay Zeka Tavsiyesi"
+          subtitle={currentCat.desc}
+          onRefresh={() => fetchAdvice(selected, true)}
+          footerDisclaimer="Bu tavsiye genel bilgilendirme amaçlıdır; tıbbi teşhis ve tedavi yerine geçmez."
+        >
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+            {!!title && (
+              <View style={styles.adviceTitleRow}>
+                <LinearGradient
+                  colors={currentCat.gradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.titleAccent}
+                />
+                <Text style={styles.adviceTitle}>{title}</Text>
               </View>
-              <TouchableOpacity
-                style={styles.refreshBtn}
-                onPress={() => fetchAdvice(selected, true)}
-                disabled={loading}
-                activeOpacity={0.75}
-              >
-                <Animated.View style={{ transform: [{ rotate: loading ? spin : '0deg' }] }}>
-                  <Ionicons name="refresh" size={18} color="rgba(255,255,255,0.95)" />
-                </Animated.View>
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
-
-          {/* İçerik */}
-          <View style={styles.heroBody}>
-            {loading ? (
-              <View style={styles.loadingWrap}>
-                <View style={styles.loadingRowVki}>
-                  <ActivityIndicator size="small" color={currentCat.gradient[0]} />
-                  <Text style={[styles.loadingText, { color: currentCat.gradient[0] }]}>
-                    AI tavsiyeniz hazırlanıyor...
-                  </Text>
-                </View>
-              </View>
-            ) : (
-              <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
-                {/* Başlık */}
-                {!!title && (
-                  <View style={styles.adviceTitleRow}>
-                    <LinearGradient
-                      colors={currentCat.gradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.titleAccent}
-                    />
-                    <Text style={styles.adviceTitle}>{title}</Text>
-                  </View>
-                )}
-
-                {/* Paragraflar */}
-                {paragraphs.map((p, i) => (
-                  <Text key={i} style={styles.adviceParagraph}>{p}</Text>
-                ))}
-
-                {/* Footer */}
-                <View style={styles.cardFooter}>
-                  <View style={[styles.disclaimer, { borderColor: `${currentCat.gradient[0]}25` }]}>
-                    <Ionicons name="shield-checkmark-outline" size={13} color={currentCat.gradient[0]} />
-                    <Text style={styles.disclaimerText}>
-                      Bu tavsiye tıbbi teşhis veya tedavi yerine geçmez.
-                    </Text>
-                  </View>
-                </View>
-              </Animated.View>
             )}
-          </View>
-        </View>
+            {paragraphs.map((p, i) => (
+              <Text key={i} style={styles.adviceParagraph}>
+                {p}
+              </Text>
+            ))}
+          </Animated.View>
+        </AIAdviceCard>
 
         {/* Alt Kartlar: diğer kategorilerin cache'lenmiş tavsiyeleri */}
         {CATEGORIES.filter(c => c.id !== selected && adviceCache[c.id]).length > 0 && (
@@ -343,54 +281,6 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { padding: 16, gap: 12 },
 
-  /* Hero Kart */
-  heroCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: COLORS.surface,
-    ...SHADOWS.large,
-  },
-  heroHeader: { padding: 20, overflow: 'hidden' },
-  decCircle1: {
-    position: 'absolute', width: 120, height: 120, borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.1)', top: -30, right: -20,
-  },
-  decCircle2: {
-    position: 'absolute', width: 80, height: 80, borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.08)', bottom: -20, right: 60,
-  },
-  heroHeaderContent: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-  },
-  heroLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  vkiStyleIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  heroLabel: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  heroSub: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
-  refreshBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center', alignItems: 'center',
-  },
-
-  /* Hero Body */
-  heroBody: { padding: 20 },
-
-  loadingWrap: { paddingVertical: 16, paddingHorizontal: 4 },
-  loadingRowVki: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-  },
-  loadingText: { fontSize: 15, fontWeight: '600', flex: 1 },
-
   /* Advice */
   adviceTitleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 14 },
   titleAccent: { width: 4, borderRadius: 2, minHeight: 20, marginTop: 2 },
@@ -401,18 +291,6 @@ const styles = StyleSheet.create({
   adviceParagraph: {
     fontSize: 15, color: COLORS.textSecondary,
     lineHeight: 24, marginBottom: 10,
-  },
-
-  /* Card Footer */
-  cardFooter: { marginTop: 8 },
-  disclaimer: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 6,
-    backgroundColor: COLORS.surfaceAlt,
-    borderRadius: 10, padding: 10,
-    borderWidth: 1,
-  },
-  disclaimerText: {
-    flex: 1, fontSize: 11, color: COLORS.textLight, lineHeight: 16,
   },
 
   /* Diğer Kategoriler */

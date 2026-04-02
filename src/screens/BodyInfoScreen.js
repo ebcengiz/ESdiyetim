@@ -397,6 +397,7 @@ export default function BodyInfoScreen() {
                 onRefresh={() => fetchBMIAdvice()}
                 gradientColors={[bmiCategory.color, `${bmiCategory.color}BB`]}
                 iconTint={bmiCategory.color}
+                subtitle="VKİ, yaş ve cinsiyete göre kişiselleştirilir"
               />
             )}
           </View>
@@ -408,8 +409,13 @@ export default function BodyInfoScreen() {
             <Text style={styles.sectionTitle}>Öneriler</Text>
             {recommendations.map((recommendation, index) => (
               <View key={index} style={styles.recommendationCard}>
-                <View style={styles.recommendationIcon}>
-                  <Ionicons name="bulb" size={20} color={COLORS.primary} />
+                <View
+                  style={[
+                    styles.recommendationIcon,
+                    { backgroundColor: `${bmiCategory.color}22` },
+                  ]}
+                >
+                  <Ionicons name="sparkles" size={16} color={bmiCategory.color} />
                 </View>
                 <Text style={styles.recommendationText}>{recommendation}</Text>
               </View>
@@ -616,10 +622,9 @@ const styles = StyleSheet.create({
     ...SHADOWS.small,
   },
   recommendationIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.highlight,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
   },

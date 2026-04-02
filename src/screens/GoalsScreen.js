@@ -398,6 +398,8 @@ export default function GoalsScreen() {
                           onRefresh={() => fetchGoalAdvice(goal)}
                           gradientColors={[COLORS.primary, COLORS.primaryLight]}
                           iconTint={COLORS.primary}
+                          subtitle="Hedefinize ve mevcut kilonuza göre kişiselleştirilir"
+                          footerDisclaimer="Bu tavsiye genel bilgilendirme amaçlıdır; tıbbi teşhis ve tedavi yerine geçmez."
                         />
                       );
                     })()}

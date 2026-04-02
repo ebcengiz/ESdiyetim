@@ -349,6 +349,8 @@ export default function WeightTrackerScreen() {
               onRefresh={() => runWeightAdvice()}
               gradientColors={[COLORS.primary, COLORS.primaryLight]}
               iconTint={COLORS.primary}
+              subtitle="Kilo geçmişinize göre kişiselleştirilir"
+              footerDisclaimer="Bu tavsiye genel bilgilendirme amaçlıdır; tıbbi teşhis ve tedavi yerine geçmez."
             />
           </View>
         ) : null}

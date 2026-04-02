@@ -257,6 +257,8 @@ function WeightPanel({ onWeightChange }) {
               onRefresh={() => runWeightAIAdvice()}
               gradientColors={[COLORS.primary, COLORS.primaryLight]}
               iconTint={COLORS.primary}
+              subtitle="Kilo kayıtlarınıza göre kişiselleştirilir"
+              footerDisclaimer="Bu tavsiye genel bilgilendirme amaçlıdır; tıbbi teşhis ve tedavi yerine geçmez."
             />
           </View>
         ) : null}
@@ -371,6 +373,8 @@ function BMIPanel({ latestWeight }) {
   const [isSaved, setIsSaved] = useState(false); // VKİ ancak kaydedildikten sonra gösterilir
   const [aiAdvice, setAiAdvice] = useState('');
   const [loadingAdvice, setLoadingAdvice] = useState(false);
+  const [bulletRecs, setBulletRecs] = useState([]);
+  const [loadingBullets, setLoadingBullets] = useState(false);
 
   const parsedWeight = () => {
     const w = parseFloat(bodyInfo.weight);
@@ -416,12 +420,14 @@ function BMIPanel({ latestWeight }) {
         setIsSaved(true);
         const pw = parseFloat(w);
         if (h && a && Number.isFinite(pw) && pw > 0) {
-          fetchAIAdvice({
+          const payload = {
             height: parseFloat(h),
             age: parseInt(a, 10),
             gender: g,
             weight: pw,
-          });
+          };
+          fetchAIAdvice(payload);
+          fetchBulletRecommendations(payload);
         }
       } else {
         setBodyInfo({
@@ -479,6 +485,50 @@ function BMIPanel({ latestWeight }) {
     }
   };
 
+  const fetchBulletRecommendations = async (params) => {
+    const pw = parsedWeight();
+    const p = params || {
+      height: parseFloat(bodyInfo.height),
+      weight: pw,
+      age: parseInt(bodyInfo.age, 10),
+      gender: bodyInfo.gender,
+    };
+    if (!params && (!pw || !bodyInfo.height)) return;
+    const currentBMI = computeBMI(p.height?.toString(), String(p.weight));
+    const cat = (() => {
+      if (!currentBMI) return null;
+      const v = parseFloat(currentBMI);
+      if (v < 18.5) return 'Zayıf';
+      if (v < 25) return 'Normal';
+      if (v < 30) return 'Fazla Kilolu';
+      return 'Obez';
+    })();
+    if (!currentBMI || !cat || p.weight == null || Number(p.weight) <= 0) return;
+
+    setLoadingBullets(true);
+    setBulletRecs([]);
+    try {
+      const result = await aiService.getBMIBulletRecommendations({
+        bmi: parseFloat(currentBMI),
+        category: cat,
+        height: p.height,
+        weight: p.weight,
+        age: p.age,
+        gender: p.gender,
+      });
+      setBulletRecs(result.bullets || []);
+    } catch {
+      setBulletRecs(aiService.getFallbackBMIBullets(cat));
+    } finally {
+      setLoadingBullets(false);
+    }
+  };
+
+  const refreshBMIInsights = () => {
+    fetchAIAdvice();
+    fetchBulletRecommendations();
+  };
+
   const saveBodyInfo = async () => {
     if (!bodyInfo.height || !bodyInfo.age) {
       Alert.alert('⚠️ Uyarı', 'Lütfen boy ve yaş alanlarını doldurun.');
@@ -507,20 +557,10 @@ function BMIPanel({ latestWeight }) {
 
       Alert.alert('✅ Kaydedildi', 'Bilgileriniz güncellendi. AI tavsiyesi hazırlanıyor...');
       fetchAIAdvice(data);
+      fetchBulletRecommendations(data);
     } catch {
       Alert.alert('❌ Hata', 'Vücut bilgileri kaydedilirken bir hata oluştu.');
     }
-  };
-
-  const getRecommendations = () => {
-    if (!bmiCategory) return [];
-    const map = {
-      'Zayıf':        ['Kalori alımınızı artırın','Protein açısından zengin besinler tüketin','Düzenli kuvvet antrenmanı yapın','Sağlıklı yağlar ekleyin (fındık, avokado)','Günde 5-6 öğün şeklinde beslenin'],
-      'Normal':       ['Harika! Sağlıklı kilonuzu koruyun','Dengeli beslenmeye devam edin','Haftada 150 dk orta yoğunlukta egzersiz yapın','Bol su için','Düzenli uyku düzenine dikkat edin'],
-      'Fazla Kilolu': ['Günlük kalori alımınızı kontrol edin','Porsiyon kontrolüne dikkat edin','Haftada en az 4 gün egzersiz yapın','Şekerli içeceklerden kaçının','Sebze ve meyve tüketiminizi artırın'],
-      'Obez':         ['Bir diyetisyene danışmanızı öneririz','Günlük kalori açığı oluşturun','Düzenli egzersiz programı başlatın','İşlenmiş gıdalardan uzak durun','Stres yönetimi teknikleri uygulayın'],
-    };
-    return map[bmiCategory.name] || [];
   };
 
   if (loading) {
@@ -653,24 +693,48 @@ function BMIPanel({ latestWeight }) {
               visible
               loading={loadingAdvice}
               advice={aiAdvice}
-              onRefresh={() => fetchAIAdvice()}
+              onRefresh={refreshBMIInsights}
               gradientColors={[bmiCategory.color, `${bmiCategory.color}BB`]}
               iconTint={bmiCategory.color}
+              subtitle="VKİ ve profilinize göre kişiselleştirilir"
             />
           )}
         </>
       )}
 
-      {/* Öneriler — sadece kaydedildikten sonra göster */}
-      {isSaved && getRecommendations().length > 0 && (
+      {/* Öneriler — yapay zeka (kısa maddeler) */}
+      {isSaved && bmi && bmiCategory && (
         <>
-          <Text style={[s.sectionTitle, { marginTop: SIZES.xl }]}>Öneriler</Text>
-          {getRecommendations().map((rec, i) => (
-            <View key={i} style={s.recCard}>
-              <View style={s.recIcon}><Ionicons name="bulb" size={18} color={COLORS.primary} /></View>
-              <Text style={s.recText}>{rec}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: SIZES.xl, marginBottom: SIZES.sm }}>
+            <Text style={s.sectionTitle}>Öneriler</Text>
+            <TouchableOpacity
+              onPress={refreshBMIInsights}
+              disabled={loadingBullets || loadingAdvice}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, opacity: loadingBullets || loadingAdvice ? 0.5 : 1 }}
+              hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+            >
+              <Ionicons name="refresh" size={16} color={bmiCategory.color} />
+              <Text style={{ fontSize: SIZES.small, fontWeight: '600', color: bmiCategory.color }}>Yenile</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={{ fontSize: SIZES.tiny, color: COLORS.textSecondary, marginBottom: SIZES.md }}>
+            Yapay zeka ile kişiselleştirilmiş kısa öneriler (tıbbi teşhis değildir).
+          </Text>
+          {loadingBullets ? (
+            <View style={{ paddingVertical: SIZES.lg, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color={bmiCategory.color} />
+              <Text style={{ marginTop: SIZES.sm, fontSize: SIZES.small, color: COLORS.textSecondary }}>Öneriler hazırlanıyor...</Text>
             </View>
-          ))}
+          ) : (
+            bulletRecs.map((rec, i) => (
+              <View key={i} style={s.recCard}>
+                <View style={s.recIcon}>
+                  <Ionicons name="sparkles" size={16} color={bmiCategory.color} />
+                </View>
+                <Text style={s.recText}>{rec}</Text>
+              </View>
+            ))
+          )}
         </>
       )}
 

@@ -311,6 +311,8 @@ export default function DietPlanScreen() {
               onRefresh={() => fetchDietAdvice()}
               gradientColors={[COLORS.primary, COLORS.primaryLight]}
               iconTint={COLORS.primary}
+              subtitle="Planınıza ve kayıtlarınıza göre kişiselleştirilir"
+              footerDisclaimer="Bu tavsiye genel bilgilendirme amaçlıdır; tıbbi teşhis ve tedavi yerine geçmez."
             />
           </View>
         ) : null}

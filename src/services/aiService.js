@@ -490,6 +490,124 @@ VKİ değeriniz obezite kategorisinde. Profesyonel destek almanızı öneririz.
     return adviceMap[category] || adviceMap['Normal'];
   },
 
+  /** VKİ ekranındaki 5 maddelik öneri listesi için (kısa satırlar) */
+  getFallbackBMIBullets(category) {
+    const map = {
+      Zayıf: [
+        'Kalori alımınızı kontrollü şekilde artırmayı düşünün',
+        'Protein ve sağlıklı yağ kaynaklarına yer verin',
+        'Haftada birkaç gün kuvvet antrenmanı planlayın',
+        'Öğün atlamadan düzenli beslenmeye özen gösterin',
+        'Hızlı kilo alımından kaçının; sürece doktorla bakın',
+      ],
+      Normal: [
+        'Dengeli tabak modeli ve çeşitli besinlerle devam edin',
+        'Haftada en az 150 dakika orta tempolu hareket hedefleyin',
+        'Günde yeterli su ve düzenli uyku düzenine dikkat edin',
+        'İşlenmiş gıda ve aşırı şeker tüketimini sınırlayın',
+        'Kilonuzu arada ölçerek koruma hedefinizi gözden geçirin',
+      ],
+      'Fazla Kilolu': [
+        'Günlük enerji dengenizi yumuşak ve sürdürülebilir tutun',
+        'Porsiyon ve öğün zamanlamasına dikkat edin',
+        'Yürüyüş veya yüzme gibi düzenli kardiyo ekleyin',
+        'Şekerli içecekleri azaltıp lifli besinlere ağırlık verin',
+        'Haftalık küçük hedeflerle ilerleyin; acele etmeyin',
+      ],
+      Obez: [
+        'Sağlık profesyoneliyle kişisel plan oluşturmayı değerlendirin',
+        'Günlük hareketi kademeli olarak artırmayı hedefleyin',
+        'İşlenmiş ve yüksek enerjili atıştırmalıkları azaltın',
+        'Uyku ve stres yönetimine özen gösterin',
+        'Küçük sürdürülebilir adımlarla uzun vadeli düşünün',
+      ],
+    };
+    return map[category] || map.Normal;
+  },
+
+  parseBMIBulletLines(text) {
+    if (!text || typeof text !== 'string') return [];
+    const lines = text
+      .split(/\n+/)
+      .map((l) =>
+        l
+          .replace(/^[\s]*[•\-\*‣▪]\s*/, '')
+          .replace(/^\d+[\).]\s*/, '')
+          .trim()
+      )
+      .filter((l) => l.length > 4);
+    const seen = new Set();
+    const out = [];
+    for (const l of lines) {
+      const key = l.slice(0, 40);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(l);
+      if (out.length >= 5) break;
+    }
+    return out;
+  },
+
+  async getBMIBulletRecommendations(bmiData) {
+    try {
+      const { bmi, category, height, weight, age, gender } = bmiData;
+      const gLabel =
+        gender === 'male' || gender === 'Erkek' ? 'Erkek' : 'Kadın';
+
+      const prompt = `Sen bir beslenme ve yaşam tarzı asistanısın (genel bilgi, tıbbi teşhis değil).
+
+Kişi: VKİ ${bmi}, kategori: ${category}. Boy ${height} cm, kilo ${weight} kg, yaş ${age}, cinsiyet: ${gLabel}.
+
+Tam olarak 5 kısa öneri yaz. Kurallar:
+- Her öneri ayrı satırda olsun; satır başında numara, tire veya madde işareti KULLANMA.
+- Her satır en fazla 100 karakter, Türkçe, pratik ve güvenli genel öneri.
+- Başka giriş veya özet yazma; sadece 5 satır.`;
+
+      console.log(`🤖 VKİ madde önerileri (${AI_PROVIDER})...`);
+
+      let raw = '';
+      switch (AI_PROVIDER) {
+        case 'huggingface':
+          raw = await this.getHuggingFaceAdvice(prompt);
+          break;
+        case 'groq':
+          raw = await this.getGroqAdvice(prompt);
+          break;
+        case 'cohere':
+          raw = await this.getCohereAdvice(prompt);
+          break;
+        case 'gemini':
+          raw = await this.getGeminiAdvice(prompt);
+          break;
+        default:
+          throw new Error(`Geçersiz AI provider: ${AI_PROVIDER}`);
+      }
+
+      let bullets = this.parseBMIBulletLines(raw);
+      if (bullets.length < 3) {
+        return {
+          success: false,
+          bullets: this.getFallbackBMIBullets(category),
+          usingFallback: true,
+          provider: AI_PROVIDER,
+        };
+      }
+      return {
+        success: true,
+        bullets: bullets.slice(0, 5),
+        provider: AI_PROVIDER,
+      };
+    } catch (error) {
+      console.error('💥 VKİ madde önerileri hatası:', error.message);
+      return {
+        success: false,
+        bullets: this.getFallbackBMIBullets(bmiData.category),
+        usingFallback: true,
+        error: error.message,
+      };
+    }
+  },
+
   // Kilo Takip Tavsiyesi Al
   async getWeightTrackingAdvice(weightData) {
     try {
