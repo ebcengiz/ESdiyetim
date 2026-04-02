@@ -606,29 +606,29 @@ Cevabını Türkçe, samimi ve cesaretlendirici bir dille yaz. Maksimum 300 keli
     try {
       const { stats, recentPlans } = dietData;
 
-      // Son planları özetle
-      const recentMeals = recentPlans.slice(0, 3).map(plan => {
+      // Tüm son planların (en fazla 7 gün) daha detaylı özeti
+      const recentMeals = recentPlans.slice(0, 7).map(plan => {
         const meals = [];
-        if (plan.breakfast) meals.push('Kahvaltı');
-        if (plan.lunch) meals.push('Öğle');
-        if (plan.dinner) meals.push('Akşam');
-        return meals.join(', ');
-      }).filter(m => m).join(' | ');
+        if (plan.breakfast) meals.push(`Kahvaltı: ${plan.breakfast}`);
+        if (plan.lunch) meals.push(`Öğle: ${plan.lunch}`);
+        if (plan.dinner) meals.push(`Akşam: ${plan.dinner}`);
+        if (plan.total_calories) meals.push(`Kalori: ${plan.total_calories} kcal`);
+        return `[Tarih: ${new Date(plan.date).toLocaleDateString('tr-TR')}] -> ${meals.join(', ')}`;
+      }).filter(m => m).join('\\n');
 
-      const prompt = `Bir kişinin diyet planı bilgileri:
-- Toplam Plan Sayısı: ${stats.totalPlans}
-- Ortalama Kalori: ${stats.avgCalories > 0 ? `${stats.avgCalories} kcal` : 'Belirtilmemiş'}
-- Son 30 Gün: ${stats.monthlyPlans} plan
-${recentMeals ? `- Son Öğünler: ${recentMeals}` : ''}
+      const prompt = `Bir kullanıcının genel diyet ve öğün takip bilgileri:
+- Toplam Eklenen Plan Sayısı: ${stats.totalPlans}
+- Ortalama Kalori Alımı: ${stats.avgCalories > 0 ? `${stats.avgCalories} kcal` : 'Belirtilmemiş'}
+- Son 30 Gün: ${stats.monthlyPlans} adet plan girişi
+${recentMeals ? `\\nKullanıcının sisteme girdiği son öğün detayları (Analiz etmen için):\\n${recentMeals}` : ''}
 
-Lütfen bu kişiye:
-1. Diyet planı takibi hakkında kısa bir değerlendirme yap
-2. Beslenme düzeninin kalitesi hakkında yorum yap
-3. 4-5 pratik beslenme tavsiyesi ver
-4. Diyet planı oluştururken dikkat edilmesi gerekenler
-5. Motivasyon artırıcı bir mesaj ekle
+Lütfen bu kullanıcıya:
+1. Son girdiği öğünlerin besin değerleri ve dengesi üzerinden genel bir analiz yap. Öğün atlamışsa, dengesiz veya çok/az kalorili beslenmişse uyar.
+2. Ortalama kalori alımı ve plan düzenliliğini değerlendir.
+3. Menüsüne ekleyebileceği veya dikkat etmesi gereken 3-4 pratik ve uygulanabilir beslenme tavsiyesi ver.
+4. Motivasyonunu artıracak samimi ve kısa bir kapanış yap.
 
-Cevabını Türkçe, samimi ve cesaretlendirici bir dille yaz. Maksimum 300 kelime kullan.`;
+Cevabını tamamen Türkçe, son derece samimi ve cesaretlendirici bir dille, tıpkı bir diyetisyen gibi yaz. Maksimum 350 kelime kullan.`;
 
       console.log(`🤖 Diyet planı tavsiyesi isteniyor (${AI_PROVIDER})...`);
 

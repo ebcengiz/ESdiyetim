@@ -338,51 +338,6 @@ function WeightPanel({ onWeightChange }) {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* AI Modal */}
-      <Modal visible={aiAdviceModalVisible} animationType="slide" transparent onRequestClose={() => setAiAdviceModalVisible(false)}>
-        <View style={s.aiModalOverlay}>
-          <View style={s.aiModalBox}>
-            <View style={s.aiModalHead}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: SIZES.sm }}>
-                <Ionicons name="sparkles" size={22} color={COLORS.accent} />
-                <Text style={s.modalTitle}>AI Kilo Analizi</Text>
-              </View>
-              <TouchableOpacity onPress={() => setAiAdviceModalVisible(false)} style={s.closeBtn}>
-                <Ionicons name="close" size={22} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={s.aiModalBody} showsVerticalScrollIndicator={false}>
-              {loadingAdvice ? (
-                <View style={s.aiLoading}>
-                  <ActivityIndicator size="large" color={COLORS.accent} />
-                  <Text style={s.aiLoadingText}>Verileriniz analiz ediliyor...</Text>
-                </View>
-              ) : (
-                <View style={s.aiAdviceWrap}>
-                  <LinearGradient colors={[COLORS.accent, COLORS.accentDark]} style={s.aiAdviceTop}>
-                    <Ionicons name="analytics" size={30} color={COLORS.textOnPrimary} />
-                    <Text style={s.aiAdviceTitle}>Kişiselleştirilmiş Analiz</Text>
-                  </LinearGradient>
-                  <View style={s.aiAdviceBody}>
-                    <Text style={s.aiAdviceText}>{aiAdvice}</Text>
-                    <View style={s.disclaimerBox}>
-                      <Ionicons name="information-circle-outline" size={13} color={COLORS.textSecondary} />
-                      <Text style={s.disclaimerText}>Bu bilgiler tıbbi tavsiye yerine geçmez. Sağlık kararları için bir doktor veya uzman diyetisyene danışınız.</Text>
-                    </View>
-                  </View>
-                </View>
-              )}
-            </ScrollView>
-            <View style={s.aiModalFoot}>
-              <TouchableOpacity style={s.aiCloseBtn} onPress={() => setAiAdviceModalVisible(false)}>
-                <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={s.saveBtnGradient}>
-                  <Text style={s.saveBtnText}>Kapat</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }

@@ -155,13 +155,15 @@ export default function DietPlanScreen() {
   };
 
   // AI tavsiyesi inline
-  const fetchDietAdvice = async () => {
-    const currentStats = getStats();
+  const fetchDietAdvice = async (currentPlans) => {
+    // React Native'den gelen event objesini engellemek için
+    const plans = Array.isArray(currentPlans) ? currentPlans : dietPlans;
+    const currentStats = getStatsForPlans(plans);
     if (!currentStats) return;
     setLoadingAdvice(true);
     setAiAdvice('');
     try {
-      const result = await aiService.getDietPlanAdvice({ stats: currentStats, recentPlans: dietPlans });
+      const result = await aiService.getDietPlanAdvice({ stats: currentStats, recentPlans: plans });
       setAiAdvice(result.advice || '');
     } catch {
       setAiAdvice('⚠️ Tavsiye alınamadı.');
@@ -178,21 +180,21 @@ export default function DietPlanScreen() {
     });
   };
 
-  const getStats = () => {
-    if (dietPlans.length === 0) return null;
+  const getStatsForPlans = (plans) => {
+    if (!plans || plans.length === 0) return null;
 
-    const totalPlans = dietPlans.length;
-    const withCalories = dietPlans.filter((p) => p.total_calories).length;
+    const totalPlans = plans.length;
+    const withCalories = plans.filter((p) => p.total_calories).length;
     const avgCalories =
       withCalories > 0
         ? Math.round(
-            dietPlans.reduce((sum, p) => sum + (p.total_calories || 0), 0) / withCalories
+            plans.reduce((sum, p) => sum + (p.total_calories || 0), 0) / withCalories
           )
         : 0;
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const monthlyPlans = dietPlans.filter((p) => new Date(p.date) >= thirtyDaysAgo).length;
+    const monthlyPlans = plans.filter((p) => new Date(p.date) >= thirtyDaysAgo).length;
 
     return {
       totalPlans,
@@ -209,7 +211,7 @@ export default function DietPlanScreen() {
     return meals.length > 0 ? meals.join(' • ') : 'Öğün yok';
   };
 
-  const stats = getStats();
+  const stats = getStatsForPlans(dietPlans);
 
   return (
     <View style={styles.container}>
@@ -231,45 +233,6 @@ export default function DietPlanScreen() {
         </LinearGradient>
       )}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* AI Tavsiye — Inline Kart */}
-        {stats && (
-          <View style={styles.aiInlineCard}>
-            <LinearGradient
-              colors={[COLORS.accent, COLORS.accentDark]}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={styles.aiInlineHeader}
-            >
-              <View style={styles.aiInlineHeaderRow}>
-                <View style={styles.aiInlineIconBox}>
-                  <Ionicons name="sparkles" size={16} color={COLORS.accent} />
-                </View>
-                <Text style={styles.aiInlineTitle}>AI Beslenme Tavsiyesi</Text>
-                <TouchableOpacity
-                  onPress={fetchDietAdvice}
-                  disabled={loadingAdvice}
-                  style={styles.aiInlineRefresh}
-                >
-                  <Ionicons name="refresh" size={16} color="rgba(255,255,255,0.9)" />
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-            <View style={styles.aiInlineBody}>
-              {loadingAdvice ? (
-                <View style={styles.aiInlineLoading}>
-                  <ActivityIndicator size="small" color={COLORS.accent} />
-                  <Text style={[styles.aiInlineLoadingText, { color: COLORS.accent }]}>Hazırlanıyor...</Text>
-                </View>
-              ) : aiAdvice ? (
-                <Text style={styles.aiInlineText}>{aiAdvice}</Text>
-              ) : (
-                <TouchableOpacity onPress={fetchDietAdvice} activeOpacity={0.7}>
-                  <Text style={[styles.aiInlineText, { color: COLORS.accent, fontWeight: '600' }]}>✨ AI tavsiyesi almak için dokunun</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        )}
-
         <View style={styles.content}>
           {/* Title */}
           <View style={styles.titleContainer}>
@@ -335,6 +298,41 @@ export default function DietPlanScreen() {
             ))
           )}
         </View>
+
+        {/* AI Tavsiye — Inline Kart */}
+        {stats && (loadingAdvice || aiAdvice) ? (
+          <View style={[styles.aiInlineCard, { marginBottom: 100 }]}>
+            <LinearGradient
+              colors={[COLORS.accent, COLORS.accentDark]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={styles.aiInlineHeader}
+            >
+              <View style={styles.aiInlineHeaderRow}>
+                <View style={styles.aiInlineIconBox}>
+                  <Ionicons name="sparkles" size={16} color={COLORS.accent} />
+                </View>
+                <Text style={styles.aiInlineTitle}>AI Beslenme Tavsiyesi</Text>
+                <TouchableOpacity
+                  onPress={() => fetchDietAdvice()}
+                  disabled={loadingAdvice}
+                  style={styles.aiInlineRefresh}
+                >
+                  <Ionicons name="refresh" size={16} color="rgba(255,255,255,0.9)" />
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+            <View style={styles.aiInlineBody}>
+              {loadingAdvice ? (
+                <View style={styles.aiInlineLoading}>
+                  <ActivityIndicator size="small" color={COLORS.accent} />
+                  <Text style={[styles.aiInlineLoadingText, { color: COLORS.accent }]}>Hazırlanıyor...</Text>
+                </View>
+              ) : (
+                <Text style={styles.aiInlineText}>{aiAdvice}</Text>
+              )}
+            </View>
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* Add Button */}

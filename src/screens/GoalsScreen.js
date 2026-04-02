@@ -48,6 +48,11 @@ export default function GoalsScreen() {
     try {
       const data = await goalsService.getAll();
       setGoals(data || []);
+      if (data && data.length > 0) {
+        data.forEach(goal => {
+          fetchGoalAdvice(goal);
+        });
+      }
     } catch (error) {
       console.error('Hedefler yükleme hatası:', error);
       Alert.alert('Hata', 'Hedefler yüklenirken bir hata oluştu.');
@@ -389,24 +394,8 @@ export default function GoalsScreen() {
                     {/* Inline AI Tavsiye */}
                     {(() => {
                       const gAdv = goalAdvices[goal.id];
-                      if (!gAdv) {
-                        return (
-                          <TouchableOpacity
-                            style={styles.aiAdviceButton}
-                            onPress={() => fetchGoalAdvice(goal)}
-                            activeOpacity={0.7}
-                          >
-                            <LinearGradient
-                              colors={[COLORS.accent, COLORS.accentDark]}
-                              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                              style={styles.aiAdviceGradient}
-                            >
-                              <Ionicons name="sparkles" size={18} color={COLORS.textOnPrimary} />
-                              <Text style={styles.aiAdviceButtonText}>AI Tavsiye Al</Text>
-                            </LinearGradient>
-                          </TouchableOpacity>
-                        );
-                      }
+                      if (!gAdv) return null;
+                      
                       return (
                         <View style={styles.aiInlineCard}>
                           <LinearGradient
