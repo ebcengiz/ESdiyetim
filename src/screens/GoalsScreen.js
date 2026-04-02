@@ -444,8 +444,8 @@ export default function GoalsScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalKeyboardView}
         >
-          <View style={styles.modalOverlay} onTouchEnd={Keyboard.dismiss}>
-            <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
                   <View style={styles.modalHeader}>
                     <View style={styles.modalTitleContainer}>
                       <Ionicons
@@ -469,6 +469,7 @@ export default function GoalsScreen() {
                   <ScrollView
                     style={styles.modalBody}
                     keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="on-drag"
                     showsVerticalScrollIndicator={false}
                   >
                     <View style={styles.inputGroup}>
@@ -638,7 +639,6 @@ export default function GoalsScreen() {
                   </View>
                 </View>
             </View>
-          </View>
         </KeyboardAvoidingView>
       </Modal>
 

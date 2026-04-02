@@ -251,8 +251,8 @@ function WeightPanel({ onWeightChange }) {
       {/* Kayıt Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          <View style={s.modalOverlay} onTouchEnd={Keyboard.dismiss}>
-            <View style={s.modalBox} onStartShouldSetResponder={() => true}>
+          <View style={s.modalOverlay}>
+            <View style={s.modalBox}>
                   <View style={s.modalHead}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: SIZES.sm }}>
                       <Ionicons name={editingId ? 'create' : 'add-circle'} size={22} color={COLORS.primary} />
@@ -263,7 +263,7 @@ function WeightPanel({ onWeightChange }) {
                     </TouchableOpacity>
                   </View>
 
-                  <ScrollView style={s.modalBody} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                  <ScrollView style={s.modalBody} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
                     <View style={s.inputGroup}>
                       <Text style={s.inputLabel}>Tarih</Text>
                       <TouchableOpacity style={s.dateBtn} onPress={() => setShowDatePicker(true)} activeOpacity={0.7}>
@@ -335,7 +335,6 @@ function WeightPanel({ onWeightChange }) {
                   </View>
               </View>
             </View>
-          </View>
         </KeyboardAvoidingView>
       </Modal>
 

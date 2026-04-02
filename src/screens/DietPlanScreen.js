@@ -10,7 +10,7 @@ import {
   Modal,
   Platform,
   KeyboardAvoidingView,
-
+  Keyboard,
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -357,8 +357,8 @@ export default function DietPlanScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalKeyboardView}
         >
-          <View style={styles.modalOverlay} onTouchEnd={() => { Keyboard.dismiss(); }}>
-            <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
                   <View style={styles.modalHeader}>
                     <View style={styles.modalTitleContainer}>
                       <Ionicons
@@ -382,6 +382,7 @@ export default function DietPlanScreen() {
                   <ScrollView
                     style={styles.modalBody}
                     keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="on-drag"
                     showsVerticalScrollIndicator={false}
                   >
                     {/* Date Input */}
@@ -544,7 +545,6 @@ export default function DietPlanScreen() {
                   </View>
                 </View>
             </View>
-          </View>
         </KeyboardAvoidingView>
       </Modal>
 
