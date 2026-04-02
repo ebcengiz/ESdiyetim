@@ -10,7 +10,7 @@ import {
   Modal,
   Platform,
   KeyboardAvoidingView,
-  TouchableWithoutFeedback,
+
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -357,10 +357,8 @@ export default function DietPlanScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalKeyboardView}
         >
-          <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
-            <View style={styles.modalOverlay}>
-              <TouchableWithoutFeedback>
-                <View style={styles.modalContent}>
+          <View style={styles.modalOverlay} onTouchEnd={() => { Keyboard.dismiss(); }}>
+            <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
                   <View style={styles.modalHeader}>
                     <View style={styles.modalTitleContainer}>
                       <Ionicons
@@ -545,9 +543,8 @@ export default function DietPlanScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
-              </TouchableWithoutFeedback>
             </View>
-          </TouchableWithoutFeedback>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
 

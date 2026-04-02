@@ -298,6 +298,32 @@ export const bodyInfoService = {
     return data;
   },
 
+  // Sadece kilo alanını güncelle (kilo takibinden otomatik senkronizasyon)
+  async syncWeight(weight) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: latest } = await supabase
+        .from('body_info')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (latest) {
+        await supabase
+          .from('body_info')
+          .update({ weight })
+          .eq('id', latest.id)
+          .eq('user_id', user.id);
+      }
+    } catch (_) {
+      // Sessiz hata — kilo takibi bloklamamalı
+    }
+  },
+
   // Vücut bilgisini sil
   async delete(id) {
     const { data: { user } } = await supabase.auth.getUser();

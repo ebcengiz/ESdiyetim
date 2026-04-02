@@ -19,12 +19,12 @@ const iconSize = width < 375 ? 22 : 24;
 // Ekranlar
 import HomeScreen from "../screens/HomeScreen";
 import DietPlanScreen from "../screens/DietPlanScreen";
-import WeightTrackerScreen from "../screens/WeightTrackerScreen";
-import BodyInfoScreen from "../screens/BodyInfoScreen";
+import WeightAndBMIScreen from "../screens/WeightAndBMIScreen";
 import TipsScreen from "../screens/TipsScreen";
 import GoalsScreen from "../screens/GoalsScreen";
 import LoginScreen from "../screens/LoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
+import ProfileScreen from "../screens/ProfileScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -44,8 +44,8 @@ function AuthStack() {
   );
 }
 
-// App Stack (Main App - Tab Navigator)
-function AppStack() {
+// Tab Navigator (inner)
+function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
@@ -113,11 +113,12 @@ function AppStack() {
         }}
       />
       <Tab.Screen
-        name="WeightTracker"
-        component={WeightTrackerScreen}
+        name="WeightAndBMI"
+        component={WeightAndBMIScreen}
         options={{
-          title: "Kilo Takibi",
-          tabBarLabel: "Kilom",
+          title: "Kilo ve VKİ",
+          tabBarLabel: "Kilo & VKİ",
+          headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "fitness" : "fitness-outline"}
@@ -143,21 +144,6 @@ function AppStack() {
         }}
       />
       <Tab.Screen
-        name="BodyInfo"
-        component={BodyInfoScreen}
-        options={{
-          title: "Vücut Bilgilerim",
-          tabBarLabel: "VKİ",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "body" : "body-outline"}
-              size={iconSize}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tab.Screen
         name="Tips"
         component={TipsScreen}
         options={{
@@ -173,6 +159,22 @@ function AppStack() {
         }}
       />
     </Tab.Navigator>
+  );
+}
+
+// App Stack (Tab Navigator + Profile screen)
+function AppStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="MainTabs" component={MainTabs} />
+      <Stack.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          animation: "slide_from_right",
+        }}
+      />
+    </Stack.Navigator>
   );
 }
 

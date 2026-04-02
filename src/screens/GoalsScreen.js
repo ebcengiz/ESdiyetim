@@ -11,7 +11,7 @@ import {
   Dimensions,
   Platform,
   KeyboardAvoidingView,
-  TouchableWithoutFeedback,
+
   Keyboard,
   ActivityIndicator,
 } from 'react-native';
@@ -444,10 +444,8 @@ export default function GoalsScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalKeyboardView}
         >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={styles.modalOverlay}>
-              <TouchableWithoutFeedback>
-                <View style={styles.modalContent}>
+          <View style={styles.modalOverlay} onTouchEnd={Keyboard.dismiss}>
+            <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
                   <View style={styles.modalHeader}>
                     <View style={styles.modalTitleContainer}>
                       <Ionicons
@@ -639,9 +637,8 @@ export default function GoalsScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
-              </TouchableWithoutFeedback>
             </View>
-          </TouchableWithoutFeedback>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
 
