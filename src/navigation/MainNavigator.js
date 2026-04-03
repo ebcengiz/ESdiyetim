@@ -10,7 +10,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS, SIZES, SHADOWS } from "../constants/theme";
+import { COLORS, SIZES, SHADOWS, NavigationTheme } from "../constants/theme";
 import { useAuth } from "../contexts/AuthContext";
 
 const { width } = Dimensions.get("window");
@@ -49,6 +49,7 @@ function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
+        tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textLight,
         tabBarStyle: {
@@ -58,7 +59,7 @@ function MainTabs() {
           paddingBottom: Platform.OS === "ios" ? 20 : 8,
           paddingTop: 8,
           height: Platform.OS === "ios" ? 85 : 65,
-          ...SHADOWS.large,
+          ...SHADOWS.medium,
         },
         tabBarLabelStyle: {
           fontSize: width < 375 ? 9 : 10,
@@ -75,10 +76,12 @@ function MainTabs() {
           elevation: 0,
           shadowOpacity: 0,
         },
+        headerShadowVisible: false,
         headerTintColor: COLORS.textOnPrimary,
         headerTitleStyle: {
           fontWeight: "700",
           fontSize: SIZES.h3,
+          letterSpacing: -0.3,
         },
       }}
     >
@@ -202,7 +205,7 @@ export default function MainNavigator() {
   const { user, loading } = useAuth();
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={NavigationTheme}>
       {loading ? <LoadingScreen /> : user ? <AppStack /> : <AuthStack />}
     </NavigationContainer>
   );

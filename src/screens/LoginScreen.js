@@ -14,10 +14,12 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS, SIZES, SHADOWS } from "../constants/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { COLORS, SIZES, SHADOWS, INPUT_FIELD } from "../constants/theme";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function LoginScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -91,7 +93,7 @@ export default function LoginScreen({ navigation }) {
           colors={[COLORS.primary, COLORS.primaryLight]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.header}
+          style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 16 }]}
         >
           <View style={styles.logoContainer}>
             <View style={styles.logoBadge}>
@@ -226,7 +228,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   header: {
-    paddingTop: 60,
     paddingBottom: 40,
     alignItems: "center",
   },
@@ -249,7 +250,8 @@ const styles = StyleSheet.create({
   },
   appTitle: {
     fontSize: 32,
-    fontWeight: "700",
+    fontWeight: "800",
+    letterSpacing: -0.6,
     color: COLORS.textOnPrimary,
     marginBottom: SIZES.xs,
   },
@@ -275,13 +277,8 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.xl,
   },
   inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.surface,
+    ...INPUT_FIELD,
     borderRadius: SIZES.radiusMedium,
-    marginBottom: SIZES.md,
-    paddingHorizontal: SIZES.md,
-    ...SHADOWS.small,
   },
   inputIconContainer: {
     width: 40,

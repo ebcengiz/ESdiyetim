@@ -13,10 +13,12 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, SHADOWS } from '../constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { COLORS, SIZES, SHADOWS, INPUT_FIELD } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function RegisterScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -108,7 +110,7 @@ export default function RegisterScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 8 }]}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
@@ -274,7 +276,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   header: {
-    paddingTop: 60,
     paddingHorizontal: SIZES.containerPadding,
   },
   backButton: {
@@ -305,7 +306,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: SIZES.h2,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: -0.5,
     color: COLORS.text,
     marginBottom: SIZES.xs,
   },
@@ -315,13 +317,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
+    ...INPUT_FIELD,
     borderRadius: SIZES.radiusMedium,
-    marginBottom: SIZES.md,
-    paddingHorizontal: SIZES.md,
-    ...SHADOWS.small,
   },
   inputIconContainer: {
     width: 40,

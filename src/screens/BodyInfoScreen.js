@@ -13,12 +13,14 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { bodyInfoService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from '../components/AIAdviceCard';
 
 export default function BodyInfoScreen() {
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [bodyInfo, setBodyInfo] = useState({
     height: '',
@@ -225,7 +227,7 @@ export default function BodyInfoScreen() {
         colors={[COLORS.primary, COLORS.primaryLight]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.header}
+        style={[styles.header, { paddingTop: Math.max(insets.top, 12) + SIZES.md }]}
       >
         <Ionicons name="body" size={48} color={COLORS.textOnPrimary} />
         <Text style={styles.headerTitle}>Vücut Bilgileri</Text>
@@ -464,13 +466,13 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: SIZES.containerPadding,
-    paddingTop: SIZES.xl,
     paddingBottom: SIZES.xxl,
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: SIZES.h2,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: -0.45,
     color: COLORS.textOnPrimary,
     marginTop: SIZES.md,
   },
@@ -489,6 +491,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: SIZES.h3,
     fontWeight: '700',
+    letterSpacing: -0.35,
     color: COLORS.text,
     marginBottom: SIZES.md,
   },

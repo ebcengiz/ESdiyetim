@@ -150,7 +150,7 @@ export default function TipsScreen() {
                     end={{ x: 1, y: 1 }}
                     style={styles.tabActive}
                   >
-                    <Ionicons name={cat.activeIcon} size={15} color="#fff" />
+                    <Ionicons name={cat.activeIcon} size={15} color={COLORS.textOnPrimary} />
                     <Text style={styles.tabTextActive}>{cat.name}</Text>
                   </LinearGradient>
                 ) : (
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: COLORS.surfaceAlt,
   },
-  tabTextActive: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  tabTextActive: { fontSize: 13, fontWeight: '700', color: COLORS.textOnPrimary },
   tabText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
 
   /* Scroll */

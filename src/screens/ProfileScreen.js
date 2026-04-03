@@ -11,11 +11,13 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { bodyInfoService } from '../services/supabase';
 
 export default function ProfileScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const { user, signOut, deleteAccount, updateProfile } = useAuth();
   const [bodyInfo, setBodyInfo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -117,7 +119,7 @@ export default function ProfileScreen({ navigation }) {
         colors={[COLORS.primary, COLORS.primaryLight]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.header}
+        style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 12 }]}
       >
         {/* Avatar */}
         <View style={styles.avatarContainer}>
@@ -293,7 +295,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    paddingTop: 60,
     paddingBottom: SIZES.xl,
     paddingHorizontal: SIZES.containerPadding,
     alignItems: 'center',
@@ -362,6 +363,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: SIZES.h4,
     fontWeight: '700',
+    letterSpacing: -0.3,
     color: COLORS.text,
   },
   statsGrid: {

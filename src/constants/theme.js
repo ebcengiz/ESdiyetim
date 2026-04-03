@@ -1,3 +1,5 @@
+import { DefaultTheme } from '@react-navigation/native';
+
 // ESdiyet — Modern yeşil + beyaz tasarım sistemi (tek kaynak)
 export const COLORS = {
   // Ana yeşil — Emerald / wellness (okunabilir, güncel)
@@ -102,6 +104,38 @@ export const FONTS = {
   semiBold: 'System',
 };
 
+/** Başlık ve gövde — ekranlarda spread ile kullanılabilir */
+export const TYPOGRAPHY = {
+  hero: {
+    fontSize: SIZES.h1,
+    fontWeight: '800',
+    color: COLORS.text,
+    letterSpacing: -0.8,
+  },
+  screenTitle: {
+    fontSize: SIZES.h2,
+    fontWeight: '700',
+    color: COLORS.text,
+    letterSpacing: -0.4,
+  },
+  sectionTitle: {
+    fontSize: SIZES.h3,
+    fontWeight: '700',
+    color: COLORS.text,
+    letterSpacing: -0.35,
+  },
+  body: {
+    fontSize: SIZES.body,
+    color: COLORS.text,
+    lineHeight: 24,
+  },
+  caption: {
+    fontSize: SIZES.small,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+  },
+};
+
 const shadow = (opacity, radius, elevation, offsetY) => ({
   shadowColor: COLORS.shadowColor,
   shadowOffset: { width: 0, height: offsetY },
@@ -122,6 +156,42 @@ export const SHADOWS = {
   medium: shadow(0.12, 12, 4, 4),
   large: shadow(0.16, 20, 8, 8),
   xl: shadow(0.18, 28, 12, 12),
+};
+
+/** Giriş / form alanları — ince çerçeve + gölge */
+export const INPUT_FIELD = {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: COLORS.surface,
+  borderRadius: SIZES.radiusLarge,
+  marginBottom: SIZES.md,
+  paddingHorizontal: SIZES.md,
+  borderWidth: 1,
+  borderColor: COLORS.border,
+  ...SHADOWS.small,
+};
+
+/** Kart yüzeyi — bölüm içi kutular */
+export const CARD_SURFACE = {
+  backgroundColor: COLORS.surface,
+  borderRadius: SIZES.radiusLarge,
+  borderWidth: 1,
+  borderColor: COLORS.borderLight,
+  ...SHADOWS.small,
+};
+
+/** React Navigation — liste ve arka plan renkleri */
+export const NavigationTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: COLORS.primary,
+    background: COLORS.background,
+    card: COLORS.surface,
+    text: COLORS.text,
+    border: COLORS.border,
+    notification: COLORS.primary,
+  },
 };
 
 export const ANIMATION = {

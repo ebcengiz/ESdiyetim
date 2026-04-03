@@ -146,8 +146,8 @@ const styles = StyleSheet.create({
   title: {
     fontSize: SIZES.body + 1,
     fontWeight: '800',
-    color: '#fff',
-    letterSpacing: -0.2,
+    color: COLORS.textOnPrimary,
+    letterSpacing: -0.25,
   },
   subtitle: {
     marginTop: 3,

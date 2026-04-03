@@ -18,6 +18,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { weightService, bodyInfoService } from '../services/supabase';
 import { aiService } from '../services/aiService';
@@ -812,6 +813,7 @@ function BMIPanel({ latestWeight }) {
 
 // ─── Ana Ekran (Segment Control + Panel Yönetimi) ─────────────────────────────
 export default function WeightAndBMIScreen() {
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState('weight');
   // Kilo takibinden gelen en son kilo — her iki panel bu değeri paylaşır
   const [latestWeight, setLatestWeight] = useState(null);
@@ -837,7 +839,7 @@ export default function WeightAndBMIScreen() {
       <LinearGradient
         colors={[COLORS.primary, COLORS.primaryLight]}
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={s.header}
+        style={[s.header, { paddingTop: Math.max(insets.top, 8) + 10 }]}
       >
         <Text style={s.headerTitle}>Kilo ve VKİ</Text>
         <View style={s.segmentWrap}>
@@ -883,13 +885,12 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
 
   header: {
-    paddingTop: 16,
     paddingBottom: 16,
     paddingHorizontal: SIZES.containerPadding,
     alignItems: 'center',
     gap: SIZES.md,
   },
-  headerTitle: { fontSize: SIZES.h3, fontWeight: '700', color: COLORS.textOnPrimary },
+  headerTitle: { fontSize: SIZES.h3, fontWeight: '800', letterSpacing: -0.35, color: COLORS.textOnPrimary },
 
   segmentWrap: {
     flexDirection: 'row',
