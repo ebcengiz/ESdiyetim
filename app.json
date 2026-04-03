@@ -19,12 +19,21 @@
           "photosPermission": "Kalori tahmini için galeriden yemek fotoğrafı seçmeniz gerekir.",
           "cameraPermission": "Kalori tahmini için yemek fotoğrafı çekebilmeniz gerekir."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1",
+            "buildReactNativeFromSource": true
+          }
+        }
       ]
     ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.esdiyet.app",
-      "buildNumber": "12",
+      "buildNumber": "13",
       "infoPlist": {
         "NSCameraUsageDescription": "Profil ve kalori tahmini için kamera kullanılır.",
         "NSPhotoLibraryUsageDescription": "Profil ve kalori tahmini için galeriden fotoğraf seçilir."
