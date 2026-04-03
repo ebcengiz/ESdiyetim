@@ -111,7 +111,7 @@ export default function ProfileScreen({ navigation }) {
   const handleDeleteAccount = () => {
     Alert.alert(
       'Hesabı Sil',
-      'Hesabınızı ve tüm verilerinizi (diyet planları, kilo kayıtları, hedefler) kalıcı olarak silmek istediğinize emin misiniz?',
+      'Hesabınız ve uygulamadaki tüm verileriniz (diyet planları, kilo kayıtları, vücut bilgileri, hedefler) kalıcı olarak silinir. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?',
       [
         { text: 'İptal', style: 'cancel' },
         {
@@ -137,7 +137,11 @@ export default function ProfileScreen({ navigation }) {
 
   if (!user && isGuest) {
     return (
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 12) + 28 }}
+        showsVerticalScrollIndicator={false}
+      >
         <LinearGradient
           colors={[COLORS.primary, COLORS.primaryLight]}
           start={{ x: 0, y: 0 }}
@@ -178,7 +182,11 @@ export default function ProfileScreen({ navigation }) {
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 12) + 28 }}
+      showsVerticalScrollIndicator={false}
+    >
       {/* Header */}
       <LinearGradient
         colors={[COLORS.primary, COLORS.primaryLight]}
@@ -370,14 +378,28 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Hesap İşlemleri */}
+        {/* Hesap — Apple 5.1.1(v): hesap silme uygulama içinde başlatılır */}
         <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="person-remove-outline" size={20} color={COLORS.text} />
+            <Text style={styles.sectionTitle}>Hesap ve veriler</Text>
+          </View>
+          <Text style={styles.accountPolicyHint}>
+            Hesabınızı silmek, sunucudaki profilinizi ve bu hesaba bağlı kayıtları kaldırır (pasifleştirme değil, kalıcı silme).
+          </Text>
+
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
             <Ionicons name="log-out-outline" size={20} color={COLORS.primary} />
             <Text style={styles.logoutText}>Çıkış Yap</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.deleteBtn} onPress={handleDeleteAccount} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.deleteBtn}
+            onPress={handleDeleteAccount}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Hesabı ve tüm verileri kalıcı olarak sil"
+          >
             <Ionicons name="trash-outline" size={20} color={COLORS.error} />
             <Text style={styles.deleteText}>Hesabımı ve Tüm Verilerimi Sil</Text>
           </TouchableOpacity>
@@ -515,6 +537,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.3,
     color: COLORS.text,
+  },
+  accountPolicyHint: {
+    fontSize: SIZES.small,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+    marginBottom: SIZES.md,
+    marginTop: -SIZES.xs,
   },
   statsGrid: {
     flexDirection: 'row',
