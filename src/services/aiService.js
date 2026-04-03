@@ -13,6 +13,166 @@ const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY || ""; // https://cons
 const COHERE_API_KEY = process.env.EXPO_PUBLIC_COHERE_API_KEY || ""; // https://dashboard.cohere.com/api-keys
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || "";
 
+const GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+
+function parseJsonObjectFromLlmText(text) {
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    const match = String(text).match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("Kalori verisi ayrıştırılamadı.");
+    parsed = JSON.parse(match[0]);
+  }
+  return parsed;
+}
+
+function mealCalorieResultFromParsed(parsed, provider) {
+  const estimatedCalories = Number(parsed.estimatedCalories);
+  if (Number.isNaN(estimatedCalories)) {
+    throw new Error("Tahmini kalori sayısı alınamadı.");
+  }
+  return {
+    success: true,
+    mealName: String(parsed.mealName || "Yemek"),
+    estimatedCalories,
+    confidence: parsed.confidence || "orta",
+    items: Array.isArray(parsed.items) ? parsed.items : [],
+    notes: String(parsed.notes || ""),
+    provider,
+  };
+}
+
+async function fetchMealCaloriesGroqVision(dataUrl, prompt) {
+  if (!GROQ_API_KEY) {
+    throw new Error("Groq API key tanımlı değil");
+  }
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${GROQ_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: GROQ_VISION_MODEL,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: dataUrl } },
+          ],
+        },
+      ],
+      temperature: 0.35,
+      max_completion_tokens: 1024,
+      response_format: { type: "json_object" },
+    }),
+  });
+  const rawText = await response.text();
+  if (!response.ok) {
+    throw new Error(`Groq ${response.status}: ${rawText.slice(0, 400)}`);
+  }
+  const data = JSON.parse(rawText);
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error("Groq boş yanıt verdi.");
+  const parsed = parseJsonObjectFromLlmText(content);
+  return mealCalorieResultFromParsed(parsed, "groq-vision");
+}
+
+async function fetchMealCaloriesGeminiVision(cleanMime, cleanB64, prompt) {
+  if (!GEMINI_API_KEY) {
+    throw new Error(
+      "Gemini API anahtarı yok. .env içinde EXPO_PUBLIC_GEMINI_API_KEY tanımlayın (Google AI Studio)."
+    );
+  }
+  const visionModels = [
+    "gemini-2.0-flash",
+    "gemini-1.5-flash-002",
+    "gemini-2.5-flash",
+  ];
+  const body = {
+    contents: [
+      {
+        parts: [
+          {
+            inline_data: {
+              mime_type: cleanMime,
+              data: cleanB64,
+            },
+          },
+          { text: prompt },
+        ],
+      },
+    ],
+    generationConfig: {
+      temperature: 0.35,
+      maxOutputTokens: 1024,
+    },
+  };
+
+  let lastErr = "";
+  let lastStatus = 0;
+
+  for (const model of visionModels) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const rawText = await response.text();
+    lastStatus = response.status;
+
+    if (!response.ok) {
+      try {
+        const errJson = JSON.parse(rawText);
+        lastErr = errJson?.error?.message || rawText;
+      } catch {
+        lastErr = rawText;
+      }
+      if (response.status === 404 || response.status === 429) {
+        continue;
+      }
+      console.error("Gemini vision error:", rawText);
+      throw new Error(
+        `Gemini API (${response.status}). ${lastErr || "Anahtar veya kota kontrol edin."}`
+      );
+    }
+
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      throw new Error("Sunucu yanıtı okunamadı.");
+    }
+
+    const text =
+      data.candidates?.[0]?.content?.parts?.[0]?.text ||
+      data.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text;
+
+    if (!text) {
+      const reason = data.promptFeedback?.blockReason || data.candidates?.[0]?.finishReason;
+      throw new Error(reason ? `İstek reddedildi: ${reason}` : "Model yanıt üretemedi.");
+    }
+
+    const parsed = parseJsonObjectFromLlmText(text);
+    return mealCalorieResultFromParsed(parsed, "gemini-vision");
+  }
+
+  if (lastStatus === 429 || String(lastErr).includes("quota")) {
+    throw new Error(
+      "Gemini ücretsiz kota veya dakika limiti dolmuş olabilir. Bir süre bekleyin veya Groq anahtarını kullanın (EXPO_PUBLIC_GROQ_API_KEY)."
+    );
+  }
+  if (lastStatus === 404) {
+    throw new Error(
+      `Gemini görsel modeli bulunamadı. ${lastErr || "Anahtar veya bölge kontrol edin."}`
+    );
+  }
+  throw new Error(`Gemini API (${lastStatus || "?"}). ${lastErr || "Bilinmeyen hata."}`);
+}
+
 export const aiService = {
   // Hedef için AI tavsiyesi al
   async getGoalAdvice(goalData) {
@@ -886,5 +1046,57 @@ Cevabını tamamen Türkçe, son derece samimi ve cesaretlendirici bir dille, t�
     advice += `💪 Başarılar! Düzenli olarak ilerlemenizi takip edin.`;
 
     return advice;
+  },
+
+  /**
+   * Yemek fotoğrafından tahmini kalori.
+   * Önce Groq Vision (hızlı, ücretsiz katman) — EXPO_PUBLIC_GROQ_API_KEY.
+   * Başarısızsa Google Gemini — EXPO_PUBLIC_GEMINI_API_KEY.
+   */
+  async getMealCaloriesFromImage({ base64, mimeType = "image/jpeg" }) {
+    if (!base64 || typeof base64 !== "string") {
+      throw new Error("Görsel verisi bulunamadı.");
+    }
+
+    const cleanMime = mimeType && mimeType.includes("/") ? mimeType : "image/jpeg";
+    const cleanB64 = base64.replace(/^data:image\/\w+;base64,/, "");
+    const dataUrl = `data:${cleanMime};base64,${cleanB64}`;
+
+    const prompt = `Bu fotoğraftaki yemeği veya yemekleri incele. Tıbbi teşhis değil; sadece genel tahmindir.
+
+Yanıtını SADECE geçerli bir JSON nesnesi olarak ver, başka metin veya markdown kullanma. Şema:
+{
+  "mealName": "kısa Türkçe öğün adı (ör. Izgara tavuk ve pilav)",
+  "estimatedCalories": sayı (tahmini toplam kcal, tam sayı),
+  "confidence": "düşük" | "orta" | "yüksek",
+  "items": [ { "name": "madde adı Türkçe", "estimatedKcal": sayı } ],
+  "notes": "tek cümle Türkçe uyarı veya ipucu (porsiyon belirsizse belirt)"
+}
+
+Kurallar: items en fazla 8 eleman; estimatedCalories makul bir aralıkta olsun; emin değilsen confidence düşük yap.`;
+
+    let groqError = null;
+    if (GROQ_API_KEY) {
+      try {
+        return await fetchMealCaloriesGroqVision(dataUrl, prompt);
+      } catch (e) {
+        groqError = e;
+        console.warn("Groq vision (kalori):", e?.message || e);
+      }
+    }
+
+    if (GEMINI_API_KEY) {
+      return await fetchMealCaloriesGeminiVision(cleanMime, cleanB64, prompt);
+    }
+
+    if (groqError) {
+      throw groqError instanceof Error
+        ? groqError
+        : new Error(String(groqError));
+    }
+
+    throw new Error(
+      "Görsel analiz için .env içinde en az biri gerekli: EXPO_PUBLIC_GROQ_API_KEY (önerilen, hızlı) veya EXPO_PUBLIC_GEMINI_API_KEY."
+    );
   },
 };

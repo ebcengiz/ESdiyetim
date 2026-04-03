@@ -12,13 +12,22 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Kalori tahmini için galeriden yemek fotoğrafı seçmeniz gerekir.",
+          "cameraPermission": "Kalori tahmini için yemek fotoğrafı çekebilmeniz gerekir."
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.esdiyet.app",
       "buildNumber": "11",
       "infoPlist": {
-        "NSCameraUsageDescription": "Bu uygulama profil fotoğrafı eklemek için kameraya ihtiyaç duyar.",
-        "NSPhotoLibraryUsageDescription": "Bu uygulama profil fotoğrafı seçmek için galeriye ihtiyaç duyar."
+        "NSCameraUsageDescription": "Profil ve kalori tahmini için kamera kullanılır.",
+        "NSPhotoLibraryUsageDescription": "Profil ve kalori tahmini için galeriden fotoğraf seçilir."
       },
       "config": {
         "usesNonExemptEncryption": false

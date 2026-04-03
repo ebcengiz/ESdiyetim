@@ -25,6 +25,7 @@ import GoalsScreen from "../screens/GoalsScreen";
 import LoginScreen from "../screens/LoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
 import ProfileScreen from "../screens/ProfileScreen";
+import MealCalorieScreen from "../screens/MealCalorieScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -182,11 +183,27 @@ function MainTabs() {
   );
 }
 
-// App Stack (Tab Navigator)
+// App Stack (Tab Navigator + modallar / tam ekran yardımcılar)
 function AppStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MainTabs" component={MainTabs} />
+      <Stack.Screen
+        name="MealCalorie"
+        component={MealCalorieScreen}
+        options={{
+          headerShown: true,
+          title: "Fotoğraftan kalori",
+          headerStyle: { backgroundColor: COLORS.primary },
+          headerTintColor: COLORS.textOnPrimary,
+          headerTitleStyle: {
+            fontWeight: "700",
+            fontSize: SIZES.h3,
+            letterSpacing: -0.3,
+          },
+          headerShadowVisible: false,
+        }}
+      />
     </Stack.Navigator>
   );
 }

@@ -174,6 +174,21 @@ export default function HomeScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
+          <TouchableOpacity
+            style={styles.calorieCta}
+            onPress={() => navigation.navigate('MealCalorie')}
+            activeOpacity={0.82}
+          >
+            <View style={styles.calorieCtaIcon}>
+              <Ionicons name="camera" size={22} color={COLORS.primary} />
+            </View>
+            <View style={styles.calorieCtaText}>
+              <Text style={styles.calorieCtaTitle}>Fotoğraftan kalori</Text>
+              <Text style={styles.calorieCtaSub}>Yemeğin fotoğrafıyla tahmini kcal alın</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+          </TouchableOpacity>
+
           {/* Today's Diet Section */}
           {todayDiet && (
             <View style={styles.section}>
@@ -377,7 +392,40 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     gap: SIZES.md,
+    marginBottom: SIZES.md,
+  },
+  calorieCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusLarge,
+    padding: SIZES.md,
     marginBottom: SIZES.sectionSpacing,
+    gap: SIZES.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.small,
+  },
+  calorieCtaIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.highlight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calorieCtaText: {
+    flex: 1,
+  },
+  calorieCtaTitle: {
+    fontSize: SIZES.body,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  calorieCtaSub: {
+    fontSize: SIZES.small,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
   statCard: {
     height: 140,

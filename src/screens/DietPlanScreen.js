@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -21,6 +22,7 @@ import { aiService } from '../services/aiService';
 import AIAdviceCard from '../components/AIAdviceCard';
 
 export default function DietPlanScreen() {
+  const navigation = useNavigation();
   const [dietPlans, setDietPlans] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -242,6 +244,21 @@ export default function DietPlanScreen() {
             <Text style={styles.title}>Diyet Planlarım</Text>
             <Text style={styles.subtitle}>{dietPlans.length} plan</Text>
           </View>
+
+          <TouchableOpacity
+            style={styles.caloriePhotoCard}
+            onPress={() => navigation.navigate('MealCalorie')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.caloriePhotoIcon}>
+              <Ionicons name="camera" size={22} color={COLORS.primary} />
+            </View>
+            <View style={styles.caloriePhotoText}>
+              <Text style={styles.caloriePhotoTitle}>Fotoğraftan kalori tahmini</Text>
+              <Text style={styles.caloriePhotoSub}>Yemeğin fotoğrafından tahmini kalori</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+          </TouchableOpacity>
 
           {/* Info Message */}
           {dietPlans.length > 0 && (
@@ -613,6 +630,39 @@ const styles = StyleSheet.create({
     fontSize: SIZES.small,
     color: COLORS.textSecondary,
     marginTop: SIZES.xs,
+  },
+  caloriePhotoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusLarge,
+    padding: SIZES.md,
+    marginBottom: SIZES.md,
+    gap: SIZES.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.small,
+  },
+  caloriePhotoIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.highlight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  caloriePhotoText: {
+    flex: 1,
+  },
+  caloriePhotoTitle: {
+    fontSize: SIZES.body,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  caloriePhotoSub: {
+    fontSize: SIZES.tiny,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
   infoMessage: {
     flexDirection: 'row',
