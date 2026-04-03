@@ -740,12 +740,12 @@ function BMIPanel({ latestWeight }) {
 
       {/* Tıbbi Uyarı — Modern Banner */}
       <LinearGradient
-        colors={['#FFFBEB', '#FEF3C7']}
+        colors={[COLORS.disclaimerBackground, COLORS.disclaimerBackgroundEnd]}
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={s.disclaimerBanner}
       >
         <View style={s.disclaimerIconWrap}>
-          <Ionicons name="shield-checkmark" size={20} color="#92400E" />
+          <Ionicons name="shield-checkmark" size={20} color={COLORS.disclaimerIcon} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={s.disclaimerBannerTitle}>Tıbbi Uyarı</Text>
@@ -770,21 +770,21 @@ function BMIPanel({ latestWeight }) {
             label: 'Obezite ve VKİ Sınıflandırması',
             url: 'https://www.who.int/news-room/fact-sheets/detail/obesity-and-overweight',
             icon: 'globe-outline',
-            color: '#0369A1',
+            color: COLORS.primaryDark,
           },
           {
             org: 'Sağlık Bakanlığı',
             label: 'Türkiye Beslenme Rehberi (TÜBER)',
             url: 'https://hsgm.saglik.gov.tr/tr/beslenme',
             icon: 'medkit-outline',
-            color: '#059669',
+            color: COLORS.primary,
           },
           {
             org: 'NIH',
             label: 'Body Mass Index Classification',
             url: 'https://www.nhlbi.nih.gov/health/educational/lose_wt/BMI/bmicalc.htm',
             icon: 'flask-outline',
-            color: '#7C3AED',
+            color: COLORS.info,
           },
         ].map(({ org, label, url, icon, color }, i, arr) => (
           <View key={org}>
@@ -1007,8 +1007,8 @@ const s = StyleSheet.create({
   recIcon: { width: 30, height: 30, borderRadius: 15, backgroundColor: COLORS.highlight, justifyContent: 'center', alignItems: 'center' },
   recText: { flex: 1, fontSize: SIZES.body, color: COLORS.text, lineHeight: 22 },
 
-  warningBox: { flexDirection: 'row', alignItems: 'flex-start', gap: SIZES.sm, backgroundColor: '#FFFBEB', borderRadius: SIZES.radiusMedium, padding: SIZES.md, marginTop: SIZES.xl, marginBottom: SIZES.md, borderWidth: 1, borderColor: '#FDE68A' },
-  warningText: { flex: 1, fontSize: SIZES.tiny, color: '#92400E', lineHeight: 18 },
+  warningBox: { flexDirection: 'row', alignItems: 'flex-start', gap: SIZES.sm, backgroundColor: COLORS.disclaimerBackground, borderRadius: SIZES.radiusMedium, padding: SIZES.md, marginTop: SIZES.xl, marginBottom: SIZES.md, borderWidth: 1, borderColor: COLORS.disclaimerBorder },
+  warningText: { flex: 1, fontSize: SIZES.tiny, color: COLORS.disclaimerText, lineHeight: 18 },
   citationsBox: { backgroundColor: COLORS.surface, borderRadius: SIZES.radiusMedium, padding: SIZES.md, marginBottom: SIZES.xl, gap: SIZES.xs, ...SHADOWS.small },
   citationsTitle: { fontSize: SIZES.small, fontWeight: '700', color: COLORS.textSecondary, marginBottom: SIZES.xs },
   citationLink: { fontSize: SIZES.tiny, color: COLORS.info, lineHeight: 20, textDecorationLine: 'underline' },
@@ -1018,16 +1018,16 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-start', gap: SIZES.md,
     borderRadius: SIZES.radiusLarge, padding: SIZES.md,
     marginTop: SIZES.xl, marginBottom: SIZES.md,
-    borderWidth: 1, borderColor: '#FDE68A',
+    borderWidth: 1, borderColor: COLORS.disclaimerBorder,
     ...SHADOWS.small,
   },
   disclaimerIconWrap: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(146,64,14,0.12)',
+    backgroundColor: COLORS.overlayLight,
     justifyContent: 'center', alignItems: 'center',
   },
-  disclaimerBannerTitle: { fontSize: SIZES.small, fontWeight: '700', color: '#92400E', marginBottom: 3 },
-  disclaimerBannerText: { fontSize: SIZES.tiny, color: '#78350F', lineHeight: 18 },
+  disclaimerBannerTitle: { fontSize: SIZES.small, fontWeight: '700', color: COLORS.disclaimerTitle, marginBottom: 3 },
+  disclaimerBannerText: { fontSize: SIZES.tiny, color: COLORS.disclaimerText, lineHeight: 18 },
 
   // Modern Kaynaklar Kartı
   sourcesCard: {

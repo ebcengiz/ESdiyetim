@@ -425,7 +425,7 @@ export default function BodyInfoScreen() {
 
         {/* Tıbbi Sorumluluk Reddi */}
         <View style={styles.mainDisclaimerBox}>
-          <Ionicons name="information-circle-outline" size={16} color="#92400E" />
+          <Ionicons name="information-circle-outline" size={16} color={COLORS.disclaimerIcon} />
           <Text style={styles.mainDisclaimerText}>
             Bu uygulama kişisel takip ve genel bilgilendirme amaçlıdır. Sunulan VKİ hesaplamaları ve öneriler tıbbi teşhis veya tedavi yerine geçmez. Sağlığınıza ilişkin kararlar için mutlaka bir doktor veya uzman diyetisyene danışınız.
           </Text>
@@ -638,17 +638,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: SIZES.sm,
-    backgroundColor: '#FFFBEB',
+    backgroundColor: COLORS.disclaimerBackground,
     borderRadius: SIZES.radiusMedium,
     padding: SIZES.md,
     marginBottom: SIZES.xl,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: COLORS.disclaimerBorder,
   },
   mainDisclaimerText: {
     flex: 1,
     fontSize: SIZES.tiny,
-    color: '#92400E',
+    color: COLORS.disclaimerText,
     lineHeight: 18,
   },
   citationsBox: {

@@ -53,7 +53,8 @@ function MainTabs() {
         tabBarInactiveTintColor: COLORS.textLight,
         tabBarStyle: {
           backgroundColor: COLORS.surface,
-          borderTopWidth: 0,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: COLORS.border,
           paddingBottom: Platform.OS === "ios" ? 20 : 8,
           paddingTop: 8,
           height: Platform.OS === "ios" ? 85 : 65,

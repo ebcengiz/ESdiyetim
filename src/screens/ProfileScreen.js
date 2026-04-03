@@ -260,8 +260,8 @@ export default function ProfileScreen({ navigation }) {
               onPress={() => navigation.navigate('Goals')}
             >
               <View style={styles.menuLeft}>
-                <View style={[styles.menuIcon, { backgroundColor: '#EFF6FF' }]}>
-                  <Ionicons name="trophy-outline" size={18} color={COLORS.info} />
+                <View style={[styles.menuIcon, { backgroundColor: COLORS.highlight }]}>
+                  <Ionicons name="trophy-outline" size={18} color={COLORS.primaryDark} />
                 </View>
                 <Text style={styles.menuText}>Hedeflerim</Text>
               </View>

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -138,7 +139,7 @@ export default function HomeScreen({ navigation }) {
               activeOpacity={0.7}
             >
               <LinearGradient
-                colors={[COLORS.secondary, COLORS.accent]}
+                colors={[COLORS.primaryDark, COLORS.primary]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.statGradient}
@@ -245,19 +246,19 @@ export default function HomeScreen({ navigation }) {
               <QuickActionButton
                 icon="add-circle"
                 label="Kilo Ekle"
-                color={COLORS.secondary}
+                color={COLORS.primaryDark}
                 onPress={() => navigation.navigate('WeightAndBMI')}
               />
               <QuickActionButton
                 icon="bulb-outline"
                 label="Tavsiyeler"
-                color={COLORS.accentDark}
+                color={COLORS.primaryMuted}
                 onPress={() => navigation.navigate('Tips')}
               />
               <QuickActionButton
                 icon="trophy-outline"
                 label="Hedefler"
-                color={COLORS.info}
+                color={COLORS.primaryLight}
                 onPress={() => navigation.navigate('Goals')}
               />
             </View>
