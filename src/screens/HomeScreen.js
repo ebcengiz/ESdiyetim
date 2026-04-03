@@ -50,13 +50,6 @@ export default function HomeScreen({ navigation }) {
     setRefreshing(false);
   };
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Günaydın';
-    if (hour < 18) return 'İyi günler';
-    return 'İyi akşamlar';
-  };
-
   return (
     <View style={styles.container}>
       <ScrollView
@@ -79,10 +72,6 @@ export default function HomeScreen({ navigation }) {
         >
           <View style={styles.headerContent}>
             <View>
-              <View style={styles.greetingRow}>
-                <Text style={styles.greeting}>{getGreeting()}</Text>
-                <Ionicons name="hand-right" size={20} color={COLORS.textOnPrimary} style={styles.greetingIcon} />
-              </View>
               <Text style={styles.appName}>ESdiyet</Text>
               {user?.user_metadata?.full_name && (
                 <Text style={styles.userName}>{user.user_metadata.full_name}</Text>
@@ -326,19 +315,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  greetingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  greeting: {
-    fontSize: SIZES.body,
-    color: COLORS.textOnPrimary,
-    opacity: 0.9,
-  },
-  greetingIcon: {
-    marginLeft: SIZES.xs,
   },
   appName: {
     fontSize: SIZES.h1,
