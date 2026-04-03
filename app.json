@@ -31,12 +31,13 @@
       ]
     ],
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.esdiyet.app",
-      "buildNumber": "13",
+      "buildNumber": "16",
       "infoPlist": {
         "NSCameraUsageDescription": "Profil ve kalori tahmini için kamera kullanılır.",
-        "NSPhotoLibraryUsageDescription": "Profil ve kalori tahmini için galeriden fotoğraf seçilir."
+        "NSPhotoLibraryUsageDescription": "Profil ve kalori tahmini için galeriden fotoğraf seçilir.",
+        "UIDeviceFamily": [1]
       },
       "config": {
         "usesNonExemptEncryption": false

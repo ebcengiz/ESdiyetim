@@ -18,7 +18,7 @@ import { bodyInfoService } from '../services/supabase';
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { user, signOut, deleteAccount, updateProfile } = useAuth();
+  const { user, signOut, deleteAccount, updateProfile, leaveGuestMode, isGuest } = useAuth();
   const [bodyInfo, setBodyInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editingName, setEditingName] = useState(false);
@@ -26,14 +26,19 @@ export default function ProfileScreen({ navigation }) {
   const [savingName, setSavingName] = useState(false);
 
   useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     loadBodyInfo();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     setFullName(user?.user_metadata?.full_name || '');
   }, [user?.user_metadata?.full_name]);
 
   const loadBodyInfo = async () => {
+    if (!user) return;
     try {
       const data = await bodyInfoService.getLatest();
       setBodyInfo(data);
@@ -114,7 +119,13 @@ export default function ProfileScreen({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             const { error } = await deleteAccount();
-            if (error) Alert.alert('Hata', 'Hesap silinirken bir hata oluştu.');
+            if (error) {
+              Alert.alert(
+                'Hesap silinemedi',
+                error.message ||
+                  'Sunucu hesap silme işlemini reddetti. Supabase Edge Function (delete-account) dağıtıldı mı kontrol edin.'
+              );
+            }
           },
         },
       ]
@@ -123,6 +134,48 @@ export default function ProfileScreen({ navigation }) {
 
   const bmi = getBMI();
   const bmiCategory = getBMICategory(bmi);
+
+  if (!user && isGuest) {
+    return (
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <LinearGradient
+          colors={[COLORS.primary, COLORS.primaryLight]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 12 }]}
+        >
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>M</Text>
+            </View>
+          </View>
+          <Text style={styles.userName}>Misafir</Text>
+          <Text style={styles.userEmail}>Hesap olmadan geziniyorsunuz</Text>
+        </LinearGradient>
+        <View style={styles.content}>
+          <Text style={styles.guestExplainer}>
+            Yalnızca sağlık ipuçları hesap olmadan kullanılabilir. Fotoğraftan kalori, diyet planı, kilo
+            takibi, VKİ ve hedefler için giriş yapın veya kayıt olun.
+          </Text>
+          <TouchableOpacity
+            style={styles.guestPrimaryBtn}
+            onPress={() => leaveGuestMode()}
+            activeOpacity={0.88}
+          >
+            <LinearGradient
+              colors={[COLORS.primary, COLORS.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.guestPrimaryGrad}
+            >
+              <Ionicons name="log-in-outline" size={22} color={COLORS.textOnPrimary} />
+              <Text style={styles.guestPrimaryText}>Giriş yap veya kayıt ol</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -622,5 +675,28 @@ const styles = StyleSheet.create({
     fontSize: SIZES.body,
     fontWeight: '600',
     color: COLORS.error,
+  },
+  guestExplainer: {
+    fontSize: SIZES.body,
+    color: COLORS.textSecondary,
+    lineHeight: 24,
+    marginBottom: SIZES.xl,
+  },
+  guestPrimaryBtn: {
+    borderRadius: SIZES.radiusMedium,
+    overflow: 'hidden',
+    ...SHADOWS.medium,
+  },
+  guestPrimaryGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SIZES.sm,
+    paddingVertical: SIZES.md + 2,
+  },
+  guestPrimaryText: {
+    fontSize: SIZES.h5,
+    fontWeight: '700',
+    color: COLORS.textOnPrimary,
   },
 });

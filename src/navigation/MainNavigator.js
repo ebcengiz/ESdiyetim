@@ -221,11 +221,13 @@ function LoadingScreen() {
 
 // Main Navigator
 export default function MainNavigator() {
-  const { user, loading } = useAuth();
+  const { user, loading, isGuest } = useAuth();
+
+  const showMainApp = !!user || isGuest;
 
   return (
     <NavigationContainer theme={NavigationTheme}>
-      {loading ? <LoadingScreen /> : user ? <AppStack /> : <AuthStack />}
+      {loading ? <LoadingScreen /> : showMainApp ? <AppStack /> : <AuthStack />}
     </NavigationContainer>
   );
 }

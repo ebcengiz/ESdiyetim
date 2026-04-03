@@ -4,8 +4,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Supabase yapılandırması
 // NOT: Bu bilgileri kendi Supabase proje bilgilerinizle değiştirin
-const SUPABASE_URL = "https://qyfagnhmhovhlpbllioq.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5ZmFnbmhtaG92aGxwYmxsaW9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTA5NzksImV4cCI6MjA4OTE4Njk3OX0.pa7V7a3aHN11fXeHQZBFLokuJUo_0n4fuCBvP7QF-0A";
+export const SUPABASE_URL = "https://qyfagnhmhovhlpbllioq.supabase.co";
+export const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5ZmFnbmhtaG92aGxwYmxsaW9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTA5NzksImV4cCI6MjA4OTE4Njk3OX0.pa7V7a3aHN11fXeHQZBFLokuJUo_0n4fuCBvP7QF-0A";
 
 // Supabase client oluştur
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

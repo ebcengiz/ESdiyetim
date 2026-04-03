@@ -19,6 +19,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { aiService } from '../services/aiService';
+import HealthSourcesCard from '../components/HealthSourcesCard';
+import GuestGateBanner from '../components/GuestGateBanner';
+import { useAuth } from '../contexts/AuthContext';
 
 const DISCLAIMER_STORAGE_KEY = 'mealCalorieHealthDisclaimerV1';
 
@@ -30,6 +33,7 @@ Yapay zeka hata yapabilir; sonuçları tek başına sağlık kararı için kulla
 
 export default function MealCalorieScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const [imageUri, setImageUri] = useState(null);
   const [base64, setBase64] = useState(null);
   const [mimeType, setMimeType] = useState('image/jpeg');
@@ -38,6 +42,7 @@ export default function MealCalorieScreen({ navigation }) {
   const [disclaimerModalVisible, setDisclaimerModalVisible] = useState(false);
 
   useEffect(() => {
+    if (!user) return;
     let cancelled = false;
     (async () => {
       try {
@@ -50,7 +55,7 @@ export default function MealCalorieScreen({ navigation }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user]);
 
   const acceptDisclaimer = useCallback(async () => {
     try {
@@ -129,6 +134,25 @@ export default function MealCalorieScreen({ navigation }) {
     }
   };
 
+  if (!user) {
+    return (
+      <View style={[styles.root, { paddingTop: insets.top }]}>
+        <ScrollView
+          contentContainerStyle={{
+            paddingHorizontal: SIZES.containerPadding,
+            paddingBottom: Math.max(insets.bottom, 24),
+            paddingTop: SIZES.md,
+          }}
+        >
+          <GuestGateBanner
+            navigation={navigation}
+            message="Fotoğraftan kalori tahmini hesabınıza bağlıdır. Giriş yaparak veya kayıt olarak kullanabilirsiniz."
+          />
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.root}>
       <Modal
@@ -194,6 +218,8 @@ export default function MealCalorieScreen({ navigation }) {
             <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
           </Pressable>
         </View>
+
+        <HealthSourcesCard variant="meal" style={{ marginBottom: SIZES.lg }} />
 
         <View style={styles.stepsRow}>
           <View style={styles.stepChip}>

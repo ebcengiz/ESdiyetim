@@ -24,7 +24,7 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, continueAsGuest } = useAuth();
 
   const handleLogin = async () => {
     // Validation
@@ -84,7 +84,12 @@ export default function LoginScreen({ navigation }) {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingBottom: Math.max(insets.bottom, 16) + 32,
+          },
+        ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -203,7 +208,22 @@ export default function LoginScreen({ navigation }) {
             <View style={styles.dividerLine} />
           </View>
 
-          {/* Register Link */}
+          <TouchableOpacity
+            style={styles.guestButton}
+            onPress={async () => {
+              await continueAsGuest();
+            }}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="phone-portrait-outline" size={20} color={COLORS.primary} />
+            <Text style={styles.guestButtonText}>Hesap olmadan devam et</Text>
+          </TouchableOpacity>
+          <Text style={styles.guestHint}>
+            Sağlık ipuçları hesap olmadan kullanılabilir. Diyet planı, kilo takibi, fotoğraftan kalori ve
+            hedefler için giriş gerekir.
+          </Text>
+
           <View style={styles.registerContainer}>
             <Text style={styles.registerText}>Hesabınız yok mu? </Text>
             <TouchableOpacity
@@ -261,7 +281,6 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   formContainer: {
-    flex: 1,
     paddingHorizontal: SIZES.containerPadding,
     paddingTop: SIZES.xl,
   },
@@ -333,10 +352,38 @@ const styles = StyleSheet.create({
     fontSize: SIZES.bodySmall,
     color: COLORS.textSecondary,
   },
+  guestButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: SIZES.sm,
+    paddingVertical: SIZES.md,
+    borderRadius: SIZES.radiusMedium,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.surface,
+  },
+  guestButtonText: {
+    fontSize: SIZES.body,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  guestHint: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    textAlign: "center",
+    lineHeight: 20,
+    marginTop: SIZES.md,
+    marginBottom: SIZES.lg,
+    paddingHorizontal: SIZES.sm,
+  },
   registerContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
+    flexWrap: "wrap",
+    marginTop: SIZES.xs,
+    paddingBottom: 4,
   },
   registerText: {
     fontSize: SIZES.body,

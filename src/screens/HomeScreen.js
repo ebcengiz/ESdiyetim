@@ -15,12 +15,13 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { weightService, dietPlanService, tipsService } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import GuestGateBanner from '../components/GuestGateBanner';
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
   const [latestWeight, setLatestWeight] = useState(null);
   const [todayDiet, setTodayDiet] = useState(null);
   const [randomTip, setRandomTip] = useState(null);
@@ -28,22 +29,30 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [user]);
 
   const loadData = async () => {
     try {
+      const tip = await tipsService.getRandom();
+      setRandomTip(tip);
+
+      if (!user) {
+        setLatestWeight(null);
+        setTodayDiet(null);
+        return;
+      }
+
       const weight = await weightService.getLatest();
       setLatestWeight(weight);
 
       const today = new Date().toISOString().split('T')[0];
       const diet = await dietPlanService.getByDate(today);
       setTodayDiet(diet);
-
-      const tip = await tipsService.getRandom();
-      setRandomTip(tip);
     } catch (error) {
       console.error('Veri yükleme hatası:', error);
-      Alert.alert('Hata', 'Veriler yüklenirken bir hata oluştu.');
+      if (user) {
+        Alert.alert('Hata', 'Veriler yüklenirken bir hata oluştu.');
+      }
     }
   };
 
@@ -51,6 +60,21 @@ export default function HomeScreen({ navigation }) {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
+  };
+
+  const openMealCalorieOrPrompt = () => {
+    if (!user) {
+      Alert.alert(
+        'Giriş gerekli',
+        'Fotoğraftan kalori tahmini için hesap oluşturun veya giriş yapın.',
+        [
+          { text: 'İptal', style: 'cancel' },
+          { text: 'Profil', onPress: () => navigation.navigate('Profile') },
+        ]
+      );
+      return;
+    }
+    navigation.navigate('MealCalorie');
   };
 
   const headerTopPad = Math.max(insets.top, 12) + 16;
@@ -71,9 +95,11 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.headerContent}>
             <View>
               <Text style={styles.appName}>ESdiyet</Text>
-              {user?.user_metadata?.full_name && (
+              {!user && isGuest ? (
+                <Text style={styles.userName}>Misafir</Text>
+              ) : user?.user_metadata?.full_name ? (
                 <Text style={styles.userName}>{user.user_metadata.full_name}</Text>
-              )}
+              ) : null}
             </View>
             <View style={styles.headerActions}>
               <TouchableOpacity
@@ -82,15 +108,17 @@ export default function HomeScreen({ navigation }) {
                 activeOpacity={0.7}
               >
                 <Text style={styles.avatarText}>
-                  {user?.user_metadata?.full_name
-                    ? user.user_metadata.full_name
-                        .trim()
-                        .split(' ')
-                        .map(w => w[0])
-                        .slice(0, 2)
-                        .join('')
-                        .toUpperCase()
-                    : user?.email?.[0]?.toUpperCase() || '?'}
+                  {!user && isGuest
+                    ? 'M'
+                    : user?.user_metadata?.full_name
+                      ? user.user_metadata.full_name
+                          .trim()
+                          .split(' ')
+                          .map(w => w[0])
+                          .slice(0, 2)
+                          .join('')
+                          .toUpperCase()
+                      : user?.email?.[0]?.toUpperCase() || '?'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -112,6 +140,13 @@ export default function HomeScreen({ navigation }) {
         }
       >
         <View style={styles.content}>
+          {!user && isGuest ? (
+            <GuestGateBanner
+              navigation={navigation}
+              message="Diyet planı, kilo kaydı, fotoğraftan kalori ve kişisel hedefler hesabınıza bağlıdır. Sağlık ipuçları hesap olmadan kullanılabilir."
+            />
+          ) : null}
+
           {/* Stats Cards Row */}
           <View style={styles.statsRow}>
             {/* Weight Card */}
@@ -175,8 +210,8 @@ export default function HomeScreen({ navigation }) {
           </View>
 
           <TouchableOpacity
-            style={styles.calorieCta}
-            onPress={() => navigation.navigate('MealCalorie')}
+            style={[styles.calorieCta, !user && styles.calorieCtaGuest]}
+            onPress={openMealCalorieOrPrompt}
             activeOpacity={0.82}
           >
             <View style={styles.calorieCtaIcon}>
@@ -184,9 +219,17 @@ export default function HomeScreen({ navigation }) {
             </View>
             <View style={styles.calorieCtaText}>
               <Text style={styles.calorieCtaTitle}>Fotoğraftan kalori</Text>
-              <Text style={styles.calorieCtaSub}>Yemeğin fotoğrafıyla tahmini kcal alın</Text>
+              <Text style={styles.calorieCtaSub}>
+                {user
+                  ? 'Yemeğin fotoğrafıyla tahmini kcal alın'
+                  : 'Kullanmak için giriş yapın — dokunun'}
+              </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+            <Ionicons
+              name={user ? 'chevron-forward' : 'lock-closed-outline'}
+              size={20}
+              color={COLORS.textLight}
+            />
           </TouchableOpacity>
 
           {/* Today's Diet Section */}
@@ -405,6 +448,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     ...SHADOWS.small,
+  },
+  calorieCtaGuest: {
+    opacity: 0.92,
+    borderStyle: 'dashed',
   },
   calorieCtaIcon: {
     width: 48,

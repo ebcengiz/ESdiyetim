@@ -20,9 +20,13 @@ import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { dietPlanService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from '../components/AIAdviceCard';
+import HealthSourcesCard from '../components/HealthSourcesCard';
+import GuestGateBanner from '../components/GuestGateBanner';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function DietPlanScreen() {
   const navigation = useNavigation();
+  const { user } = useAuth();
   const [dietPlans, setDietPlans] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -44,10 +48,17 @@ export default function DietPlanScreen() {
   const [loadingAdvice, setLoadingAdvice] = useState(false);
 
   useEffect(() => {
+    if (!user) {
+      setDietPlans([]);
+      setAiAdvice('');
+      setLoadingAdvice(false);
+      return;
+    }
     loadDietPlans();
-  }, []);
+  }, [user]);
 
   const loadDietPlans = async () => {
+    if (!user) return;
     try {
       const data = await dietPlanService.getAll();
       setDietPlans(data || []);
@@ -63,6 +74,12 @@ export default function DietPlanScreen() {
   };
 
   const openAddModal = () => {
+    if (!user) {
+      Alert.alert('Giriş gerekli', 'Diyet planı oluşturmak için hesap açın veya giriş yapın.', [
+        { text: 'Tamam', onPress: () => navigation.navigate('Profile') },
+      ]);
+      return;
+    }
     setEditingId(null);
     setSelectedDate(new Date());
     setDietPlan({
@@ -239,6 +256,12 @@ export default function DietPlanScreen() {
       )}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
+          {!user ? (
+            <GuestGateBanner
+              navigation={navigation}
+              message="Diyet planlarınız bulutta saklanır ve hesabınıza bağlıdır. Hesap oluşturarak veya giriş yaparak kullanabilirsiniz."
+            />
+          ) : null}
           {/* Title */}
           <View style={styles.titleContainer}>
             <Text style={styles.title}>Diyet Planlarım</Text>
@@ -246,8 +269,21 @@ export default function DietPlanScreen() {
           </View>
 
           <TouchableOpacity
-            style={styles.caloriePhotoCard}
-            onPress={() => navigation.navigate('MealCalorie')}
+            style={[styles.caloriePhotoCard, !user && styles.caloriePhotoCardGuest]}
+            onPress={() => {
+              if (!user) {
+                Alert.alert(
+                  'Giriş gerekli',
+                  'Fotoğraftan kalori tahmini için hesap oluşturun veya giriş yapın.',
+                  [
+                    { text: 'İptal', style: 'cancel' },
+                    { text: 'Profil', onPress: () => navigation.navigate('Profile') },
+                  ]
+                );
+                return;
+              }
+              navigation.navigate('MealCalorie');
+            }}
             activeOpacity={0.85}
           >
             <View style={styles.caloriePhotoIcon}>
@@ -255,9 +291,15 @@ export default function DietPlanScreen() {
             </View>
             <View style={styles.caloriePhotoText}>
               <Text style={styles.caloriePhotoTitle}>Fotoğraftan kalori tahmini</Text>
-              <Text style={styles.caloriePhotoSub}>Yemeğin fotoğrafından tahmini kalori</Text>
+              <Text style={styles.caloriePhotoSub}>
+                {user ? 'Yemeğin fotoğrafından tahmini kalori' : 'Kullanmak için giriş yapın'}
+              </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+            <Ionicons
+              name={user ? 'chevron-forward' : 'lock-closed-outline'}
+              size={20}
+              color={COLORS.textLight}
+            />
           </TouchableOpacity>
 
           {/* Info Message */}
@@ -320,7 +362,7 @@ export default function DietPlanScreen() {
         </View>
 
         {stats && (loadingAdvice || aiAdvice) ? (
-          <View style={{ marginBottom: 100 }}>
+          <View style={{ marginBottom: SIZES.lg }}>
             <AIAdviceCard
               visible
               loading={loadingAdvice}
@@ -333,6 +375,10 @@ export default function DietPlanScreen() {
             />
           </View>
         ) : null}
+
+        <View style={{ paddingHorizontal: SIZES.containerPadding, marginBottom: 100 }}>
+          <HealthSourcesCard variant="general" />
+        </View>
       </ScrollView>
 
       {/* Add Button */}
@@ -642,6 +688,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     ...SHADOWS.small,
+  },
+  caloriePhotoCardGuest: {
+    opacity: 0.92,
+    borderStyle: 'dashed',
   },
   caloriePhotoIcon: {
     width: 48,

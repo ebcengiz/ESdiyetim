@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -23,6 +24,8 @@ import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { weightService, bodyInfoService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from '../components/AIAdviceCard';
+import GuestGateBanner from '../components/GuestGateBanner';
+import { useAuth } from '../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -813,16 +816,23 @@ function BMIPanel({ latestWeight }) {
 
 // ─── Ana Ekran (Segment Control + Panel Yönetimi) ─────────────────────────────
 export default function WeightAndBMIScreen() {
+  const navigation = useNavigation();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState('weight');
   // Kilo takibinden gelen en son kilo — her iki panel bu değeri paylaşır
   const [latestWeight, setLatestWeight] = useState(null);
 
   useEffect(() => {
+    if (!user) {
+      setLatestWeight(null);
+      return;
+    }
     loadLatestWeight();
-  }, []);
+  }, [user]);
 
   const loadLatestWeight = async () => {
+    if (!user) return;
     try {
       const record = await weightService.getLatest();
       setLatestWeight(record ? record.weight : null);
@@ -862,11 +872,18 @@ export default function WeightAndBMIScreen() {
         </View>
       </LinearGradient>
 
-      {/* Panel */}
-      {activeTab === 'weight'
-        ? <WeightPanel onWeightChange={handleWeightChange} />
-        : <BMIPanel latestWeight={latestWeight} />
-      }
+      {!user ? (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: SIZES.containerPadding, paddingBottom: 40 }}>
+          <GuestGateBanner
+            navigation={navigation}
+            message="Kilo takibi ve VKİ kayıtları hesabınıza bağlıdır. Kaydetmek ve yapay zeka önerileri almak için giriş yapın."
+          />
+        </ScrollView>
+      ) : activeTab === 'weight' ? (
+        <WeightPanel onWeightChange={handleWeightChange} />
+      ) : (
+        <BMIPanel latestWeight={latestWeight} />
+      )}
     </View>
   );
 }

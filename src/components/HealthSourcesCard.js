@@ -1,0 +1,159 @@
+import React from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Linking,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS, SIZES, SHADOWS } from '../constants/theme';
+
+const VARIANTS = {
+  meal: {
+    title: 'Bilimsel ve resmî kaynaklar',
+    headerIcon: 'library-outline',
+    headerIconSize: 18,
+    intro:
+      'Tahmini kalori görüntüye dayalı yapay zeka çıkarımıdır. Besin enerjisi ve dengeli beslenme hakkında doğrulanabilir bilgi için:',
+    links: [
+      {
+        label: 'USDA FoodData Central — besin bileşimi ve enerji',
+        url: 'https://fdc.nal.usda.gov/',
+      },
+      {
+        label: 'WHO — sağlıklı beslenme',
+        url: 'https://www.who.int/news-room/fact-sheets/detail/healthy-diet',
+      },
+      {
+        label: 'T.C. Sağlık Bakanlığı — Türkiye Beslenme Rehberi (TÜBER)',
+        url: 'https://hsgm.saglik.gov.tr/tr/beslenme',
+      },
+    ],
+  },
+  tips: {
+    title: 'Kaynaklar',
+    headerIcon: 'book-outline',
+    headerIconSize: 16,
+    intro:
+      'Aşağıdaki bağlantılar genel sağlık ve beslenme bilgisinin resmî kaynaklarıdır. Yapay zeka metinleri bu kaynakların yerine geçmez.',
+    links: [
+      {
+        label: 'WHO — sağlıklı beslenme',
+        url: 'https://www.who.int/news-room/fact-sheets/detail/healthy-diet',
+      },
+      {
+        label: 'WHO — fiziksel aktivite',
+        url: 'https://www.who.int/news-room/fact-sheets/detail/physical-activity',
+      },
+      {
+        label: 'T.C. Sağlık Bakanlığı — TÜBER',
+        url: 'https://hsgm.saglik.gov.tr/tr/beslenme',
+      },
+    ],
+  },
+  general: {
+    title: 'Bilimsel ve resmî kaynaklar',
+    headerIcon: 'library-outline',
+    headerIconSize: 18,
+    intro:
+      'Yapay zeka önerileri ve uygulama içi bilgiler genel bilgilendirme amaçlıdır. Beslenme, kilo ve VKİ ile ilgili doğrulanabilir bilgi için:',
+    links: [
+      {
+        label: 'WHO — sağlıklı beslenme',
+        url: 'https://www.who.int/news-room/fact-sheets/detail/healthy-diet',
+      },
+      {
+        label: 'WHO — obezite ve VKİ sınıflandırması',
+        url: 'https://www.who.int/news-room/fact-sheets/detail/obesity-and-overweight',
+      },
+      {
+        label: 'NIH — Body Mass Index (VKİ)',
+        url: 'https://www.nhlbi.nih.gov/health/educational/lose_wt/BMI/bmicalc.htm',
+      },
+      {
+        label: 'T.C. Sağlık Bakanlığı — TÜBER',
+        url: 'https://hsgm.saglik.gov.tr/tr/beslenme',
+      },
+    ],
+  },
+};
+
+/**
+ * App Store 1.4.1: sağlık/medikal içerik için uygulama içi kaynak bağlantıları.
+ * @param {'meal'|'tips'|'general'} variant
+ */
+export default function HealthSourcesCard({ variant = 'general', style }) {
+  const cfg = VARIANTS[variant] || VARIANTS.general;
+
+  return (
+    <View style={[styles.card, style]}>
+      <View style={styles.header}>
+        <Ionicons name={cfg.headerIcon} size={cfg.headerIconSize} color={COLORS.primary} />
+        <Text style={styles.title}>{cfg.title}</Text>
+      </View>
+      <Text style={styles.intro}>{cfg.intro}</Text>
+      {cfg.links.map(({ label, url }, idx) => (
+        <TouchableOpacity
+          key={url}
+          style={[styles.row, idx === 0 && styles.rowFirst]}
+          onPress={() => Linking.openURL(url)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.linkText}>{label}</Text>
+          <Ionicons name="open-outline" size={16} color={COLORS.info} />
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusLarge,
+    padding: SIZES.md + 2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.small,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SIZES.sm,
+    marginBottom: SIZES.sm,
+  },
+  title: {
+    fontSize: SIZES.h5,
+    fontWeight: '800',
+    color: COLORS.text,
+    letterSpacing: -0.3,
+    flex: 1,
+  },
+  intro: {
+    fontSize: SIZES.small,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+    marginBottom: SIZES.md,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SIZES.sm,
+    paddingVertical: SIZES.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.border,
+  },
+  rowFirst: {
+    borderTopWidth: 0,
+    paddingTop: 0,
+  },
+  linkText: {
+    flex: 1,
+    fontSize: SIZES.small,
+    fontWeight: '600',
+    color: COLORS.info,
+    lineHeight: 20,
+  },
+});

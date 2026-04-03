@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -21,10 +22,15 @@ import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { goalsService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from '../components/AIAdviceCard';
+import HealthSourcesCard from '../components/HealthSourcesCard';
+import GuestGateBanner from '../components/GuestGateBanner';
+import { useAuth } from '../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 export default function GoalsScreen() {
+  const navigation = useNavigation();
+  const { user } = useAuth();
   const [goals, setGoals] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedStartDate, setSelectedStartDate] = useState(new Date());
@@ -41,10 +47,16 @@ export default function GoalsScreen() {
   const [goalAdvices, setGoalAdvices] = useState({});
 
   useEffect(() => {
+    if (!user) {
+      setGoals([]);
+      setGoalAdvices({});
+      return;
+    }
     loadGoals();
-  }, []);
+  }, [user]);
 
   const loadGoals = async () => {
+    if (!user) return;
     try {
       const data = await goalsService.getAll();
       setGoals(data || []);
@@ -60,6 +72,12 @@ export default function GoalsScreen() {
   };
 
   const openAddModal = () => {
+    if (!user) {
+      Alert.alert('Giriş gerekli', 'Hedef oluşturmak için hesap açın veya giriş yapın.', [
+        { text: 'Tamam', onPress: () => navigation.navigate('Profile') },
+      ]);
+      return;
+    }
     setEditingId(null);
     setTitle('');
     setCurrentWeight('');
@@ -245,6 +263,12 @@ export default function GoalsScreen() {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
+          {!user ? (
+            <GuestGateBanner
+              navigation={navigation}
+              message="Kilo hedefleri hesabınıza bağlıdır. Oluşturmak ve senkronize etmek için giriş yapın."
+            />
+          ) : null}
           {/* Title */}
           <View style={styles.titleContainer}>
             <Text style={styles.title}>Hedeflerim</Text>
@@ -408,6 +432,10 @@ export default function GoalsScreen() {
               );
             })
           )}
+        </View>
+
+        <View style={{ paddingHorizontal: SIZES.containerPadding, marginBottom: 100 }}>
+          <HealthSourcesCard variant="general" />
         </View>
       </ScrollView>
 

@@ -26,7 +26,7 @@ export default function RegisterScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signUp } = useAuth();
+  const { signUp, continueAsGuest } = useAuth();
 
   const handleRegister = async () => {
     // Validation
@@ -80,17 +80,26 @@ export default function RegisterScreen({ navigation }) {
         return;
       }
 
-      // Başarılı kayıt
-      Alert.alert(
-        'Kayıt Başarılı!',
-        'Hesabınız oluşturuldu. Artık giriş yapabilirsiniz.',
-        [
-          {
-            text: 'Tamam',
-            onPress: () => navigation.navigate('Login'),
-          },
-        ]
-      );
+      // Oturum hemen açıldıysa (e-posta doğrulaması kapalı vb.) kök navigator zaten ana uygulamaya geçer;
+      // bu durumda Login ekranı yoktur — navigate('Login') hata verir.
+      if (data?.session) {
+        Alert.alert(
+          'Kayıt Başarılı!',
+          'Hesabınız oluşturuldu. Hoş geldiniz!',
+          [{ text: 'Tamam' }]
+        );
+      } else {
+        Alert.alert(
+          'Kayıt Başarılı!',
+          'Hesabınız oluşturuldu. E-posta doğrulaması isteniyorsa gelen kutunuzu kontrol edin; ardından giriş yapabilirsiniz.',
+          [
+            {
+              text: 'Tamam',
+              onPress: () => navigation.navigate('Login'),
+            },
+          ]
+        );
+      }
     } catch (error) {
       Alert.alert('Hata', 'Beklenmeyen bir hata oluştu.');
       console.error('Register error:', error);
@@ -105,7 +114,10 @@ export default function RegisterScreen({ navigation }) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(insets.bottom, 16) + 32 },
+        ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -251,6 +263,27 @@ export default function RegisterScreen({ navigation }) {
             </LinearGradient>
           </TouchableOpacity>
 
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>veya</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <TouchableOpacity
+            style={styles.guestButton}
+            onPress={async () => {
+              await continueAsGuest();
+            }}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="phone-portrait-outline" size={20} color={COLORS.primary} />
+            <Text style={styles.guestButtonText}>Hesap olmadan devam et</Text>
+          </TouchableOpacity>
+          <Text style={styles.guestHint}>
+            Sağlık ipuçları hesap olmadan kullanılabilir; diğer özellikler için giriş gerekir.
+          </Text>
+
           {/* Login Link */}
           <View style={styles.loginContainer}>
             <Text style={styles.loginText}>Zaten hesabınız var mı? </Text>
@@ -288,7 +321,6 @@ const styles = StyleSheet.create({
     ...SHADOWS.small,
   },
   formContainer: {
-    flex: 1,
     paddingHorizontal: SIZES.containerPadding,
     paddingTop: SIZES.lg,
   },
@@ -342,7 +374,46 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radiusMedium,
     overflow: 'hidden',
     ...SHADOWS.medium,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: SIZES.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.border,
+  },
+  dividerText: {
+    marginHorizontal: SIZES.md,
+    fontSize: SIZES.bodySmall,
+    color: COLORS.textSecondary,
+  },
+  guestButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SIZES.sm,
+    paddingVertical: SIZES.md,
+    borderRadius: SIZES.radiusMedium,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.surface,
+  },
+  guestButtonText: {
+    fontSize: SIZES.body,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  guestHint: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginTop: SIZES.md,
     marginBottom: SIZES.lg,
+    paddingHorizontal: SIZES.sm,
   },
   registerButtonDisabled: {
     opacity: 0.7,
@@ -363,7 +434,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: SIZES.xl,
+    flexWrap: 'wrap',
+    marginBottom: SIZES.md,
+    paddingBottom: 4,
   },
   loginText: {
     fontSize: SIZES.body,

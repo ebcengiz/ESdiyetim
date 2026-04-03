@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from '../components/AIAdviceCard';
+import HealthSourcesCard from '../components/HealthSourcesCard';
 
 const { width } = Dimensions.get('window');
 
@@ -244,6 +245,8 @@ export default function TipsScreen() {
             })}
           </>
         )}
+
+        <HealthSourcesCard variant="tips" style={{ marginTop: SIZES.md }} />
 
         <View style={{ height: 32 }} />
       </ScrollView>
