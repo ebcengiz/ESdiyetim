@@ -1,51 +1,51 @@
 // ESdiyet - Modern Renk Paleti ve Tema Sabitleri
 export const COLORS = {
-  // Ana renkler - Beyaz ve yeşil tonları (Modern Palette)
-  primary: '#10B981',      // Modern Emerald Green
-  primaryLight: '#34D399', // Light Emerald
-  primaryDark: '#059669',  // Dark Emerald
+  // Ana renkler — Sage Viridian (2025 Premium Wellness Palette)
+  primary: '#0BBF7B',       // Vibrant Sage Green
+  primaryLight: '#2DD694',  // Fresh Bright Green
+  primaryDark: '#089660',   // Rich Deep Green
 
-  secondary: '#6EE7B7',    // Mint Green
-  accent: '#A7F3D0',       // Light Mint
-  accentDark: '#047857',   // Deep Green
+  secondary: '#73E8BC',     // Soft Mint
+  accent: '#E6FBF3',        // Ultra-light mint surface
+  accentDark: '#065C3A',    // Deep Anchor Green
 
   // Gradient renkleri
-  gradientStart: '#10B981',
-  gradientMiddle: '#34D399',
-  gradientEnd: '#6EE7B7',
+  gradientStart: '#0BBF7B',
+  gradientMiddle: '#2DD694',
+  gradientEnd: '#73E8BC',
 
-  // Arkaplan ve yüzeyler
-  background: '#F9FAFB',   // Subtle Gray Background
-  backgroundLight: '#FFFFFF', // Pure White
-  surface: '#FFFFFF',      // White Surface
-  surfaceAlt: '#F3F4F6',   // Alternative Surface
-  card: '#FFFFFF',         // Card Background
+  // Arkaplan ve yüzeyler — sıcak yeşil-tinted white
+  background: '#F4FBF7',    // Warm White (subtle green tint)
+  backgroundLight: '#FFFFFF',
+  surface: '#FFFFFF',
+  surfaceAlt: '#EDF7F1',    // Soft green-tinted alt surface
+  card: '#FFFFFF',
 
-  // Metin renkleri
-  text: '#111827',         // Almost Black
-  textSecondary: '#6B7280',// Gray
-  textLight: '#9CA3AF',    // Light Gray
-  textOnPrimary: '#FFFFFF',// White on colored bg
+  // Metin renkleri — yeşil-tinted, daha sıcak
+  text: '#0C1F16',          // Deep Green-Black
+  textSecondary: '#4A6959', // Muted Green-Gray
+  textLight: '#8AABA0',     // Soft Green-Gray
+  textOnPrimary: '#FFFFFF',
 
   // Durum renkleri
-  success: '#10B981',      // Success Green
-  warning: '#F59E0B',      // Amber Warning
-  error: '#EF4444',        // Red Error
-  info: '#3B82F6',         // Blue Info
+  success: '#0BBF7B',
+  warning: '#F59E0B',
+  error: '#EF4444',
+  info: '#3B82F6',
 
   // Çizgiler ve kenarlıklar
-  border: '#E5E7EB',       // Light Border
-  borderLight: '#F3F4F6',  // Very Light Border
-  divider: '#F3F4F6',      // Divider
+  border: '#D4EDE3',        // Soft green-tinted border
+  borderLight: '#EDF7F1',
+  divider: '#EDF7F1',
 
   // Şeffaflık
-  overlay: 'rgba(0, 0, 0, 0.4)',
-  overlayLight: 'rgba(0, 0, 0, 0.2)',
-  shadowColor: '#000000',
+  overlay: 'rgba(6, 25, 16, 0.45)',
+  overlayLight: 'rgba(6, 25, 16, 0.15)',
+  shadowColor: '#0BBF7B',
 
   // Özel renkler
-  shimmer: '#E5E7EB',
-  highlight: '#ECFDF5',    // Light green highlight
+  shimmer: '#D4EDE3',
+  highlight: '#E6FBF3',     // Mint highlight
 };
 
 export const SIZES = {
@@ -107,43 +107,31 @@ export const SHADOWS = {
     elevation: 0,
   },
   small: {
-    shadowColor: COLORS.shadowColor,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowColor: '#0BBF7B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.10,
+    shadowRadius: 6,
     elevation: 2,
   },
   medium: {
-    shadowColor: COLORS.shadowColor,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowColor: '#0BBF7B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
     elevation: 4,
   },
   large: {
-    shadowColor: COLORS.shadowColor,
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
+    shadowColor: '#0BBF7B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
     elevation: 8,
   },
   xl: {
-    shadowColor: COLORS.shadowColor,
-    shadowOffset: {
-      width: 0,
-      height: 12,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
+    shadowColor: '#0BBF7B',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.22,
+    shadowRadius: 28,
     elevation: 12,
   },
 };
