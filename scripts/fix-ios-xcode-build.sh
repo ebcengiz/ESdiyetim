@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Xcode "module map not found", RNScreens Fabric (ShadowNode / ComponentDescriptors) ve benzeri
-# native hatalar için temiz kurulum.
+# Xcode "module map not found", RNScreens Fabric, fmt consteval (Xcode 16.4+) ve benzeri
+# native hatalar için temiz kurulum. fmt yaması: app.json → plugins/with-ios-fmt-consteval-fix.js
 #
 # Kullanım:
 #   bash scripts/fix-ios-xcode-build.sh           # mevcut ios/ + pod install
