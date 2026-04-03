@@ -16,6 +16,7 @@ import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { weightService, dietPlanService, tipsService } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import GuestGateBanner from '../components/GuestGateBanner';
+import HealthSourcesCard from '../components/HealthSourcesCard';
 
 const { width } = Dimensions.get('window');
 
@@ -333,6 +334,8 @@ export default function HomeScreen({ navigation }) {
             </View>
           </View>
 
+          {/* App Store 1.4.1: ana sayfadaki tavsiye metni için uygulama içi kaynak bağlantıları */}
+          <HealthSourcesCard variant="tips" style={{ marginTop: SIZES.md }} />
         </View>
       </ScrollView>
     </SafeAreaView>
