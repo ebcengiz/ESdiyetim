@@ -29,6 +29,10 @@ export default function ProfileScreen({ navigation }) {
     loadBodyInfo();
   }, []);
 
+  useEffect(() => {
+    setFullName(user?.user_metadata?.full_name || '');
+  }, [user?.user_metadata?.full_name]);
+
   const loadBodyInfo = async () => {
     try {
       const data = await bodyInfoService.getLatest();
@@ -62,7 +66,10 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const handleSaveName = async () => {
-    if (!fullName.trim()) return;
+    if (!fullName.trim()) {
+      Alert.alert('Uyarı', 'Lütfen adınızı ve soyadınızı girin.');
+      return;
+    }
     setSavingName(true);
     const { error } = await updateProfile({ full_name: fullName.trim() });
     setSavingName(false);
@@ -71,6 +78,11 @@ export default function ProfileScreen({ navigation }) {
     } else {
       setEditingName(false);
     }
+  };
+
+  const cancelEditName = () => {
+    setFullName(user?.user_metadata?.full_name || '');
+    setEditingName(false);
   };
 
   const handleLogout = () => {
@@ -128,33 +140,9 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Name */}
-        {editingName ? (
-          <View style={styles.nameEditRow}>
-            <TextInput
-              style={styles.nameInput}
-              value={fullName}
-              onChangeText={setFullName}
-              autoFocus
-              placeholder="Adınız Soyadınız"
-              placeholderTextColor="rgba(255,255,255,0.6)"
-            />
-            <TouchableOpacity onPress={handleSaveName} disabled={savingName}>
-              {savingName
-                ? <ActivityIndicator size="small" color={COLORS.textOnPrimary} />
-                : <Ionicons name="checkmark-circle" size={28} color={COLORS.textOnPrimary} />
-              }
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity style={styles.nameRow} onPress={() => setEditingName(true)}>
-            <Text style={styles.userName}>
-              {user?.user_metadata?.full_name || 'İsim Ekle'}
-            </Text>
-            <Ionicons name="pencil" size={14} color="rgba(255,255,255,0.8)" style={{ marginLeft: 6 }} />
-          </TouchableOpacity>
-        )}
-
+        <Text style={styles.userName}>
+          {user?.user_metadata?.full_name || 'İsim Ekle'}
+        </Text>
         <Text style={styles.userEmail}>{user?.email}</Text>
       </LinearGradient>
 
@@ -216,6 +204,63 @@ export default function ProfileScreen({ navigation }) {
           </View>
 
           <View style={styles.infoCard}>
+            <View style={styles.nameBlock}>
+              <View style={styles.nameBlockHeader}>
+                <View style={styles.nameBlockTitleRow}>
+                  <Ionicons name="person-outline" size={18} color={COLORS.textSecondary} />
+                  <Text style={styles.infoLabel}>Ad Soyad</Text>
+                </View>
+                {!editingName ? (
+                  <TouchableOpacity
+                    onPress={() => setEditingName(true)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.editLink}>Düzenle</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              {editingName ? (
+                <View style={styles.nameEditBox}>
+                  <TextInput
+                    style={styles.nameFieldInput}
+                    value={fullName}
+                    onChangeText={setFullName}
+                    placeholder="Adınız ve soyadınız"
+                    placeholderTextColor={COLORS.textLight}
+                    autoCapitalize="words"
+                    editable={!savingName}
+                  />
+                  <View style={styles.nameEditActions}>
+                    <TouchableOpacity
+                      style={styles.nameBtnSecondary}
+                      onPress={cancelEditName}
+                      disabled={savingName}
+                    >
+                      <Text style={styles.nameBtnSecondaryText}>İptal</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.nameBtnPrimary}
+                      onPress={handleSaveName}
+                      disabled={savingName}
+                    >
+                      {savingName ? (
+                        <ActivityIndicator size="small" color={COLORS.textOnPrimary} />
+                      ) : (
+                        <Text style={styles.nameBtnPrimaryText}>Kaydet</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <Text style={styles.nameDisplay}>
+                  {user?.user_metadata?.full_name?.trim() || 'Henüz eklenmedi'}
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.divider} />
+
             <View style={styles.infoRow}>
               <Ionicons name="mail-outline" size={18} color={COLORS.textSecondary} />
               <View style={styles.infoContent}>
@@ -317,36 +362,88 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.textOnPrimary,
   },
-  nameRow: {
+  nameBlock: {
+    paddingVertical: SIZES.sm,
+  },
+  nameBlockHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SIZES.xs,
+    justifyContent: 'space-between',
+    marginBottom: SIZES.sm,
   },
-  nameEditRow: {
+  nameBlockTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SIZES.sm,
-    marginBottom: SIZES.xs,
   },
-  nameInput: {
-    fontSize: SIZES.h4,
+  editLink: {
+    fontSize: SIZES.small,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  nameDisplay: {
+    fontSize: SIZES.body,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  nameEditBox: {
+    gap: SIZES.md,
+  },
+  nameFieldInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: SIZES.radiusSmall,
+    paddingHorizontal: SIZES.md,
+    paddingVertical: SIZES.sm + 2,
+    fontSize: SIZES.body,
+    fontWeight: '500',
+    color: COLORS.text,
+    backgroundColor: COLORS.surfaceAlt,
+  },
+  nameEditActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: SIZES.sm,
+  },
+  nameBtnSecondary: {
+    paddingVertical: SIZES.sm,
+    paddingHorizontal: SIZES.md,
+    borderRadius: SIZES.radiusSmall,
+    backgroundColor: COLORS.surfaceAlt,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  nameBtnSecondaryText: {
+    fontSize: SIZES.small,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  nameBtnPrimary: {
+    paddingVertical: SIZES.sm,
+    paddingHorizontal: SIZES.lg,
+    borderRadius: SIZES.radiusSmall,
+    backgroundColor: COLORS.primary,
+    minWidth: 88,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nameBtnPrimaryText: {
+    fontSize: SIZES.small,
     fontWeight: '700',
     color: COLORS.textOnPrimary,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.5)',
-    paddingVertical: 4,
-    minWidth: 180,
-    textAlign: 'center',
   },
   userName: {
     fontSize: SIZES.h4,
     fontWeight: '700',
     color: COLORS.textOnPrimary,
+    marginBottom: SIZES.xs,
+    textAlign: 'center',
   },
   userEmail: {
     fontSize: SIZES.small,
     color: COLORS.textOnPrimary,
-    opacity: 0.8,
+    opacity: 0.85,
+    textAlign: 'center',
   },
   content: {
     padding: SIZES.containerPadding,

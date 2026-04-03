@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { weightService, dietPlanService, tipsService } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -53,26 +53,21 @@ export default function HomeScreen({ navigation }) {
     setRefreshing(false);
   };
 
+  const headerTopPad = Math.max(insets.top, 12) + 16;
+
   return (
-    <View style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[COLORS.primary]}
-            tintColor={COLORS.primary}
-          />
-        }
+    <SafeAreaView style={styles.root} edges={['left', 'right']}>
+      {/*
+        Başlık ScrollView dışında: çekince / yenileyince üstte açılan alan yeşil kalır
+        (ScrollView arka planı + durum çubuğu boşluğu birleşmez).
+      */}
+      <LinearGradient
+        colors={[COLORS.primary, COLORS.primaryLight]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerGradient}
       >
-        {/* Modern Header with Gradient */}
-        <LinearGradient
-          colors={[COLORS.primary, COLORS.primaryLight]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 16 }]}
-        >
+        <View style={[styles.headerInner, { paddingTop: headerTopPad }]}>
           <View style={styles.headerContent}>
             <View>
               <Text style={styles.appName}>ESdiyet</Text>
@@ -100,8 +95,22 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
             </View>
           </View>
-        </LinearGradient>
+        </View>
+      </LinearGradient>
 
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
+          />
+        }
+      >
         <View style={styles.content}>
           {/* Stats Cards Row */}
           <View style={styles.statsRow}>
@@ -268,7 +277,7 @@ export default function HomeScreen({ navigation }) {
 
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -305,13 +314,24 @@ const QuickActionButton = ({ icon, label, color, onPress }) => (
 );
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+  },
+  headerGradient: {
+    width: '100%',
+  },
+  headerInner: {
+    paddingBottom: 30,
+    paddingHorizontal: SIZES.containerPadding,
+  },
+  scroll: {
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  header: {
-    paddingBottom: 30,
-    paddingHorizontal: SIZES.containerPadding,
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 24,
   },
   headerContent: {
     flexDirection: 'row',
