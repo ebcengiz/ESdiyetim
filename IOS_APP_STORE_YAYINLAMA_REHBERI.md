@@ -12,6 +12,7 @@ Bu rehber, ESdiyet uygulamasını Xcode üzerinden App Store'da yayınlamak içi
 4. [App Store Connect Ayarları](#app-store-connect-ayarları)
 5. [Archive Oluşturma ve Yükleme](#archive-oluşturma-ve-yükleme)
 6. [App Store Metadata Hazırlama](#app-store-metadata-hazırlama)
+   - **Sağlık / Yapay Zeka / Gizlilik Etiketi:** Ayrıntılı rehber → [`APP_STORE_HEALTH_AI_NOTLARI.md`](./APP_STORE_HEALTH_AI_NOTLARI.md)
 7. [İncelemeye Gönderme](#incelemeye-gönderme)
 8. [Sorun Giderme](#sorun-giderme)
 
@@ -269,6 +270,8 @@ Xcode otomatik olarak signing yapacak:
 ---
 
 ## 📝 App Store Metadata Hazırlama
+
+> **Fotoğraftan kalori, yapay zeka ve App Privacy soruları** için adım adım notlar: [`APP_STORE_HEALTH_AI_NOTLARI.md`](./APP_STORE_HEALTH_AI_NOTLARI.md)
 
 Build yüklendikten sonra App Store Connect'e geri dönün.
 

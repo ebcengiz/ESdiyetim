@@ -16,6 +16,15 @@ ESdiyet aşağıdaki verileri toplar:
 - **Diyet Planları** — Öğün takibi için kullanıcı tarafından girilen veriler
 - **Kilo Kayıtları** — Kilo takibi için kullanıcı tarafından girilen veriler
 - **Hedefler** — Kullanıcının belirlediği kişisel sağlık hedefleri
+- **Kamera ve fotoğraf galerisi** — Yalnızca siz izin verdiğinizde; profil fotoğrafı ve isteğe bağlı olarak **yemek fotoğrafı** seçimi veya çekimi için
+
+## Yemek fotoğrafı ve yapay zeka (kalori tahmini)
+
+İsterseniz yemek fotoğrafı yükleyerek tahmini kalori özeti alabilirsiniz. Bu özellik şu şekilde çalışır:
+
+- Fotoğraf **siz “Tahmini kaloriyi hesapla” dediğinizde** cihazınızdan çıkar ve üçüncü taraf yapay zeka hizmetlerine (**Groq** ve/veya **Google Gemini**) analiz için iletilir.
+- **ESdiyet sunucularında (Supabase) yemek görüntüsü kalıcı olarak saklanmaz.** Görsel, tahmin üretmek için yalnızca ilgili API’ye gönderilir; bu sağlayıcıların kendi gizlilik politikaları geçerlidir ([Groq](https://groq.com/privacy-policy/), [Google AI](https://policies.google.com/privacy)).
+- Tahmin sonuçları tıbbi ölçüm değildir; yaklaşık ve bilgilendirme amaçlıdır.
 
 ## Verilerin Kullanımı
 
@@ -43,11 +52,14 @@ Uygulama içinden **"Hesap Yönetimi → Hesabımı ve Tüm Verilerimi Sil"** se
 ESdiyet aşağıdaki altyapı hizmetlerini kullanmaktadır:
 
 - **Supabase** — Veritabanı ve kimlik doğrulama altyapısı
-- **Groq AI** — Yapay zeka destekli sağlık tavsiyeleri (anonim prompt, kişisel veri gönderilmez)
+- **Groq** — Metin tabanlı diyet/hedef tavsiyeleri; ayrıca isteğe bağlı **görsel analiz** (yemek fotoğrafı) için multimodal API
+- **Google (Gemini API)** — Groq kullanılamadığında veya yedek olarak **görsel analiz** (yemek fotoğrafı) için
+
+> **Not:** Apple HealthKit veya benzeri sistem sağlık verilerine doğrudan erişim bu politikanın kapsamındaki temel özelliklerde zorunlu tutulmamıştır; uygulama işlevleri açıklamalarda belirtildiği şekildedir.
 
 ## Tıbbi Sorumluluk Reddi
 
-Bu uygulama kişisel takip ve genel bilgilendirme amaçlıdır. Sunulan bilgiler ve yapay zeka tavsiyeleri tıbbi teşhis veya tedavi yerine geçmez. Sağlık kararları için bir doktor veya uzman diyetisyene danışınız.
+Bu uygulama kişisel takip ve genel bilgilendirme amaçlıdır. Sunulan bilgiler, yapay zeka tavsiyeleri ve **fotoğraftan üretilen kalori tahminleri** tıbbi teşhis veya tedavi yerine geçmez. Sağlık kararları için bir doktor veya uzman diyetisyene danışınız.
 
 ## İletişim
 

@@ -194,6 +194,8 @@ function AppStack() {
         options={{
           headerShown: true,
           title: "Fotoğraftan kalori",
+          // Sadece sol ok — "Geri" yazılı geniş hap görünümünü kaldırır (iOS Human Interface)
+          headerBackButtonDisplayMode: "minimal",
           headerStyle: { backgroundColor: COLORS.primary },
           headerTintColor: COLORS.textOnPrimary,
           headerTitleStyle: {
