@@ -158,22 +158,31 @@ function MainTabs() {
           ),
         }}
       />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          title: "Profilim",
+          tabBarLabel: "Profil",
+          headerShown: false,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "person" : "person-outline"}
+              size={iconSize}
+              color={color}
+            />
+          ),
+        }}
+      />
     </Tab.Navigator>
   );
 }
 
-// App Stack (Tab Navigator + Profile screen)
+// App Stack (Tab Navigator)
 function AppStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MainTabs" component={MainTabs} />
-      <Stack.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{
-          animation: "slide_from_right",
-        }}
-      />
     </Stack.Navigator>
   );
 }

@@ -119,10 +119,6 @@ export default function ProfileScreen({ navigation }) {
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={24} color={COLORS.textOnPrimary} />
-        </TouchableOpacity>
-
         {/* Avatar */}
         <View style={styles.avatarContainer}>
           <View style={styles.avatar}>
@@ -202,7 +198,7 @@ export default function ProfileScreen({ navigation }) {
           ) : (
             <TouchableOpacity
               style={styles.emptyCard}
-              onPress={() => { navigation.goBack(); navigation.navigate('WeightAndBMI'); }}
+              onPress={() => navigation.navigate('WeightAndBMI')}
             >
               <Ionicons name="add-circle-outline" size={24} color={COLORS.primary} />
               <Text style={styles.emptyText}>Vücut bilgilerini ekle</Text>
@@ -246,7 +242,7 @@ export default function ProfileScreen({ navigation }) {
           <View style={styles.menuCard}>
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => { navigation.goBack(); navigation.navigate('WeightAndBMI'); }}
+              onPress={() => navigation.navigate('WeightAndBMI')}
             >
               <View style={styles.menuLeft}>
                 <View style={[styles.menuIcon, { backgroundColor: COLORS.highlight }]}>
@@ -261,7 +257,7 @@ export default function ProfileScreen({ navigation }) {
 
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => { navigation.goBack(); navigation.navigate('Goals'); }}
+              onPress={() => navigation.navigate('Goals')}
             >
               <View style={styles.menuLeft}>
                 <View style={[styles.menuIcon, { backgroundColor: '#EFF6FF' }]}>
@@ -300,17 +296,6 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: SIZES.xl,
     paddingHorizontal: SIZES.containerPadding,
-    alignItems: 'center',
-  },
-  backButton: {
-    position: 'absolute',
-    top: 60,
-    left: SIZES.containerPadding,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
     alignItems: 'center',
   },
   avatarContainer: {
