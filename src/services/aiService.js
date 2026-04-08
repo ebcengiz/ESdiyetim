@@ -1,214 +1,26 @@
-// AI Tavsiyeleri - Birden fazla ücretsiz seçenek
-// Seçenekler:
-// 1. Hugging Face (En Kolay) - https://huggingface.co/settings/tokens
-// 2. Groq (En Hızlı) - https://console.groq.com/keys
-// 3. Cohere (İyi Türkçe) - https://dashboard.cohere.com/api-keys
-
+// AI Servis Orchestrator
+// Provider implementasyonları: src/services/ai/providers.js
 // HANGİ AI KULLANILACAK? ('huggingface', 'groq', 'cohere' veya 'gemini')
-const AI_PROVIDER = "groq"; // BURADAN DEĞİŞTİRİN
 
-// API Keys - .env dosyasından okunur (.env git'e dahil edilmez!)
-const HUGGINGFACE_API_KEY = process.env.EXPO_PUBLIC_HUGGINGFACE_API_KEY || ""; // https://huggingface.co/settings/tokens
-const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY || ""; // https://console.groq.com/keys
-const COHERE_API_KEY = process.env.EXPO_PUBLIC_COHERE_API_KEY || ""; // https://dashboard.cohere.com/api-keys
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || "";
+import { callProvider, callGroqVision, callGeminiVision, GROQ_API_KEY, GEMINI_API_KEY } from './ai/providers';
 
-const GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+const AI_PROVIDER = 'groq'; // BURADAN DEĞİŞTİRİN
 
-function parseJsonObjectFromLlmText(text) {
-  let parsed;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    const match = String(text).match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("Kalori verisi ayrıştırılamadı.");
-    parsed = JSON.parse(match[0]);
-  }
-  return parsed;
-}
+const call = (prompt) => callProvider(AI_PROVIDER, prompt);
 
-function mealCalorieResultFromParsed(parsed, provider) {
-  const estimatedCalories = Number(parsed.estimatedCalories);
-  if (Number.isNaN(estimatedCalories)) {
-    throw new Error("Tahmini kalori sayısı alınamadı.");
-  }
-  return {
-    success: true,
-    mealName: String(parsed.mealName || "Yemek"),
-    estimatedCalories,
-    confidence: parsed.confidence || "orta",
-    items: Array.isArray(parsed.items) ? parsed.items : [],
-    notes: String(parsed.notes || ""),
-    provider,
-  };
-}
+// ─── Prompt Builder'lar ───────────────────────────────────────────────────────
 
-async function fetchMealCaloriesGroqVision(dataUrl, prompt) {
-  if (!GROQ_API_KEY) {
-    throw new Error("Groq API key tanımlı değil");
-  }
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${GROQ_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: GROQ_VISION_MODEL,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            { type: "image_url", image_url: { url: dataUrl } },
-          ],
-        },
-      ],
-      temperature: 0.35,
-      max_completion_tokens: 1024,
-      response_format: { type: "json_object" },
-    }),
-  });
-  const rawText = await response.text();
-  if (!response.ok) {
-    throw new Error(`Groq ${response.status}: ${rawText.slice(0, 400)}`);
-  }
-  const data = JSON.parse(rawText);
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) throw new Error("Groq boş yanıt verdi.");
-  const parsed = parseJsonObjectFromLlmText(content);
-  return mealCalorieResultFromParsed(parsed, "groq-vision");
-}
-
-async function fetchMealCaloriesGeminiVision(cleanMime, cleanB64, prompt) {
-  if (!GEMINI_API_KEY) {
-    throw new Error(
-      "Gemini API anahtarı yok. .env içinde EXPO_PUBLIC_GEMINI_API_KEY tanımlayın (Google AI Studio)."
-    );
-  }
-  const visionModels = [
-    "gemini-2.0-flash",
-    "gemini-1.5-flash-002",
-    "gemini-2.5-flash",
-  ];
-  const body = {
-    contents: [
-      {
-        parts: [
-          {
-            inline_data: {
-              mime_type: cleanMime,
-              data: cleanB64,
-            },
-          },
-          { text: prompt },
-        ],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.35,
-      maxOutputTokens: 1024,
-    },
-  };
-
-  let lastErr = "";
-  let lastStatus = 0;
-
-  for (const model of visionModels) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const rawText = await response.text();
-    lastStatus = response.status;
-
-    if (!response.ok) {
-      try {
-        const errJson = JSON.parse(rawText);
-        lastErr = errJson?.error?.message || rawText;
-      } catch {
-        lastErr = rawText;
-      }
-      if (response.status === 404 || response.status === 429) {
-        continue;
-      }
-      console.error("Gemini vision error:", rawText);
-      throw new Error(
-        `Gemini API (${response.status}). ${lastErr || "Anahtar veya kota kontrol edin."}`
-      );
-    }
-
-    let data;
-    try {
-      data = JSON.parse(rawText);
-    } catch {
-      throw new Error("Sunucu yanıtı okunamadı.");
-    }
-
-    const text =
-      data.candidates?.[0]?.content?.parts?.[0]?.text ||
-      data.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text;
-
-    if (!text) {
-      const reason = data.promptFeedback?.blockReason || data.candidates?.[0]?.finishReason;
-      throw new Error(reason ? `İstek reddedildi: ${reason}` : "Model yanıt üretemedi.");
-    }
-
-    const parsed = parseJsonObjectFromLlmText(text);
-    return mealCalorieResultFromParsed(parsed, "gemini-vision");
-  }
-
-  if (lastStatus === 429 || String(lastErr).includes("quota")) {
-    throw new Error(
-      "Gemini ücretsiz kota veya dakika limiti dolmuş olabilir. Bir süre bekleyin veya Groq anahtarını kullanın (EXPO_PUBLIC_GROQ_API_KEY)."
-    );
-  }
-  if (lastStatus === 404) {
-    throw new Error(
-      `Gemini görsel modeli bulunamadı. ${lastErr || "Anahtar veya bölge kontrol edin."}`
-    );
-  }
-  throw new Error(`Gemini API (${lastStatus || "?"}). ${lastErr || "Bilinmeyen hata."}`);
-}
-
-export const aiService = {
-  // Hedef için AI tavsiyesi al
-  async getGoalAdvice(goalData) {
-    try {
-      const { title, currentWeight, targetWeight, startDate, targetDate } =
-        goalData;
-
-      // Gün sayısını hesapla
-      const start = new Date(startDate);
-      const target = new Date(targetDate);
-      const diffTime = Math.abs(target - start);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-      // Kilo farkını hesapla
-      const weightDiff =
-        currentWeight && targetWeight
-          ? Math.abs(currentWeight - targetWeight)
-          : null;
-
-      const weightGoal =
-        currentWeight && targetWeight
-          ? currentWeight > targetWeight
-            ? "kilo vermek"
-            : "kilo almak"
-          : "hedefe ulaşmak";
-
-      // Prompt oluştur
-      const prompt = `Bir kişi şu diyet hedefini belirledi:
+function buildGoalPrompt({ title, currentWeight, targetWeight, startDate, targetDate }) {
+  const diffDays = Math.ceil(Math.abs(new Date(targetDate) - new Date(startDate)) / (1000 * 60 * 60 * 24));
+  const weightDiff = currentWeight && targetWeight ? Math.abs(currentWeight - targetWeight) : null;
+  const weightGoal = currentWeight && targetWeight
+    ? (currentWeight > targetWeight ? 'kilo vermek' : 'kilo almak')
+    : 'hedefe ulaşmak';
+  return `Bir kişi şu diyet hedefini belirledi:
 - Hedef: ${title}
-${currentWeight ? `- Mevcut Kilo: ${currentWeight} kg` : ""}
+${currentWeight ? `- Mevcut Kilo: ${currentWeight} kg` : ''}
 - Hedef Kilo: ${targetWeight} kg
-${
-  weightDiff
-    ? `- Hedeflenen Değişim: ${weightDiff.toFixed(1)} kg ${weightGoal}`
-    : ""
-}
+${weightDiff ? `- Hedeflenen Değişim: ${weightDiff.toFixed(1)} kg ${weightGoal}` : ''}
 - Süre: ${diffDays} gün (${Math.ceil(diffDays / 7)} hafta)
 
 Lütfen bu kişiye:
@@ -218,318 +30,36 @@ Lütfen bu kişiye:
 4. Motivasyon için kısa bir mesaj ekle
 
 Cevabını Türkçe, samimi ve cesaretlendirici bir dille yaz. Maksimum 300 kelime kullan.`;
+}
 
-      console.log(`🤖 AI tavsiyesi isteniyor (${AI_PROVIDER})...`);
+function buildWeightTrackingPrompt({ weights, stats }) {
+  let trend = 'stabil';
+  if (stats.totalChange > 1) trend = 'artış';
+  else if (stats.totalChange < -1) trend = 'azalış';
+  const recentWeights = weights.slice(0, Math.min(3, weights.length));
+  const recentChanges = recentWeights.slice(0, -1).map((w, i) =>
+    (w.weight - recentWeights[i + 1].weight).toFixed(1)
+  );
+  return `Bir kişinin kilo takip bilgileri:
+- Mevcut Kilo: ${stats.latest} kg
+- Başlangıç Kilosu: ${stats.oldest} kg
+- Toplam Değişim: ${stats.totalChange.toFixed(1)} kg
+- Ortalama Kilo: ${stats.average} kg
+- Kayıt Sayısı: ${weights.length}
+- Trend: ${trend}
+${recentChanges.length > 0 ? `- Son Değişimler: ${recentChanges.join(' kg, ')} kg` : ''}
 
-      // Provider'a göre API çağrısı yap
-      let advice = "";
+Lütfen bu kişiye:
+1. Kilo takip süreci hakkında kısa bir değerlendirme yap
+2. Trend analizi yap (ilerleme durumu nasıl?)
+3. 4-5 pratik tavsiye ver (beslenme, egzersiz, motivasyon)
+4. Devam etmesi gereken olumlu davranışları vurgula
 
-      switch (AI_PROVIDER) {
-        case "huggingface":
-          advice = await aiService.getHuggingFaceAdvice(prompt);
-          break;
-        case "groq":
-          advice = await aiService.getGroqAdvice(prompt);
-          break;
-        case "cohere":
-          advice = await aiService.getCohereAdvice(prompt);
-          break;
-        case "gemini":
-          advice = await aiService.getGeminiAdvice(prompt);
-          break;
-        default:
-          throw new Error(`Geçersiz AI provider: ${AI_PROVIDER}`);
-      }
+Cevabını Türkçe, samimi ve cesaretlendirici bir dille yaz. Maksimum 300 kelime kullan.`;
+}
 
-      console.log("✅ AI yanıt alındı");
-      return {
-        success: true,
-        advice: advice,
-        provider: AI_PROVIDER,
-      };
-    } catch (error) {
-      console.error("💥 AI tavsiye hatası:", error.message);
-
-      // Fallback: API çalışmazsa varsayılan tavsiyeler
-      return {
-        success: false,
-        advice: aiService.getFallbackAdvice(goalData),
-        error: error.message,
-        usingFallback: true,
-      };
-    }
-  },
-
-  // Hugging Face API
-  async getHuggingFaceAdvice(prompt) {
-    if (!HUGGINGFACE_API_KEY) {
-      throw new Error("Hugging Face API key tanımlı değil");
-    }
-
-    const response = await fetch(
-      "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${HUGGINGFACE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: {
-            max_new_tokens: 512,
-            temperature: 0.7,
-            top_p: 0.9,
-            return_full_text: false,
-          },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error("❌ Hugging Face Error:", error);
-      throw new Error(`Hugging Face API hatası (${response.status})`);
-    }
-
-    const data = await response.json();
-
-    if (data[0]?.generated_text) {
-      return data[0].generated_text;
-    } else if (data.error) {
-      throw new Error(data.error);
-    } else {
-      throw new Error("Yanıt alınamadı");
-    }
-  },
-
-  // Groq API (Çok hızlı!)
-  async getGroqAdvice(prompt) {
-    if (!GROQ_API_KEY) {
-      throw new Error("Groq API key tanımlı değil");
-    }
-
-    const response = await fetch(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${GROQ_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "llama-3.1-8b-instant",
-          messages: [
-            {
-              role: "system",
-              content:
-                "Sen bir diyet ve sağlık danışmanısın. Türkçe, samimi ve cesaretlendirici bir dille tavsiye veriyorsun.",
-            },
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-          temperature: 0.7,
-          max_tokens: 512,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error("❌ Groq Error:", error);
-      throw new Error(`Groq API hatası (${response.status})`);
-    }
-
-    const data = await response.json();
-
-    if (data.choices && data.choices[0]?.message?.content) {
-      return data.choices[0].message.content;
-    } else {
-      throw new Error("Yanıt alınamadı");
-    }
-  },
-
-  // Cohere API
-  async getCohereAdvice(prompt) {
-    if (!COHERE_API_KEY) {
-      throw new Error("Cohere API key tanımlı değil");
-    }
-
-    const response = await fetch("https://api.cohere.ai/v1/generate", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${COHERE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "command",
-        prompt: prompt,
-        max_tokens: 512,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error("❌ Cohere Error:", error);
-      throw new Error(`Cohere API hatası (${response.status})`);
-    }
-
-    const data = await response.json();
-
-    if (data.generations && data.generations[0]?.text) {
-      return data.generations[0].text;
-    } else {
-      throw new Error("Yanıt alınamadı");
-    }
-  },
-
-  // Gemini API (Eski)
-  async getGeminiAdvice(prompt) {
-    if (!GEMINI_API_KEY) {
-      throw new Error("Gemini API key tanımlı değil");
-    }
-
-    const GEMINI_API_URL =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
-
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 1024,
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("❌ Gemini Error:", errorText);
-      throw new Error(`Gemini API hatası (${response.status})`);
-    }
-
-    const data = await response.json();
-
-    if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-      return data.candidates[0].content.parts[0].text;
-    } else {
-      throw new Error("Yanıt alınamadı");
-    }
-  },
-
-  // Sağlık Tavsiyesi Al
-  async getHealthTip(category = 'genel') {
-    try {
-      const categoryInfo = {
-        genel: 'genel sağlık ve yaşam tarzı',
-        beslenme: 'sağlıklı beslenme ve diyet',
-        egzersiz: 'egzersiz ve fiziksel aktivite',
-        motivasyon: 'motivasyon ve zihinsel sağlık'
-      };
-
-      const prompt = `${categoryInfo[category] || 'sağlıklı yaşam'} konusunda kısa, pratik ve uygulanabilir bir tavsiye ver.
-
-Tavsiye şunları içermeli:
-1. Bir başlık (kısa ve çarpıcı)
-2. Açıklama (2-3 cümle)
-3. Pratik bir öneri veya ipucu
-
-Cevabını Türkçe, samimi ve cesaretlendirici bir dille yaz. Maksimum 150 kelime kullan.`;
-
-      console.log(`🤖 Sağlık tavsiyesi isteniyor (${AI_PROVIDER}, ${category})...`);
-
-      let advice = "";
-
-      switch (AI_PROVIDER) {
-        case "huggingface":
-          advice = await this.getHuggingFaceAdvice(prompt);
-          break;
-        case "groq":
-          advice = await this.getGroqAdvice(prompt);
-          break;
-        case "cohere":
-          advice = await this.getCohereAdvice(prompt);
-          break;
-        case "gemini":
-          advice = await this.getGeminiAdvice(prompt);
-          break;
-        default:
-          throw new Error(`Geçersiz AI provider: ${AI_PROVIDER}`);
-      }
-
-      console.log("✅ Sağlık tavsiyesi alındı");
-      return {
-        success: true,
-        advice: advice,
-        category: category,
-        provider: AI_PROVIDER,
-      };
-    } catch (error) {
-      console.error("💥 Sağlık tavsiyesi hatası:", error.message);
-
-      return {
-        success: false,
-        advice: this.getFallbackHealthTip(category),
-        error: error.message,
-        usingFallback: true,
-      };
-    }
-  },
-
-  // API çalışmazsa varsayılan sağlık tavsiyeleri
-  getFallbackHealthTip(category) {
-    const tips = {
-      genel: `💡 Günlük Sağlık İpucu
-
-Su içmeyi unutmayın! Günde en az 2-3 litre su içmek metabolizmanızı hızlandırır, cildinizi güzelleştirir ve enerji seviyenizi yüksek tutar.
-
-✨ İpucu: Her sabah kalktığınızda bir bardak ılık su içerek güne başlayın.`,
-
-      beslenme: `🥗 Beslenme Tavsiyesi
-
-Tabak metodunu uygulayın! Tabağınızın yarısı sebze, çeyreği protein, çeyreği de karmaşık karbonhidratlardan oluşsun. Bu dengeli beslenmenin anahtarıdır.
-
-✨ İpucu: Her öğünde farklı renkte sebzeler tüketmeye çalışın - her renk farklı besin değeri sunar.`,
-
-      egzersiz: `💪 Egzersiz Önerisi
-
-Küçük adımlarla başlayın! Günde sadece 10 dakikalık yürüyüş bile fark yaratır. Önemli olan düzenli olmak, uzun süreler değil.
-
-✨ İpucu: Merdiven kullanmayı tercih edin, kısa mesafelerde yürüyün ve hareketi hayatınızın bir parçası yapın.`,
-
-      motivasyon: `🌟 Motivasyon Desteği
-
-Küçük başarılarınızı kutlayın! Her adım önemlidir. Kendinize karşı nazik olun ve ilerlemenizi not alın. Mükemmel olmak zorunda değilsiniz.
-
-✨ İpucu: Her gün bir başarınızı yazın, bu pozitif bir bakış açısı geliştirir.`
-    };
-
-    return tips[category] || tips.genel;
-  },
-
-  // VKİ Tavsiyesi Al
-  async getBMIAdvice(bmiData) {
-    try {
-      const { bmi, category, height, weight, age, gender } = bmiData;
-
-      const prompt = `Bir kişinin vücut kitle indeksi (VKİ) bilgileri:
+function buildBMIPrompt({ bmi, category, height, weight, age, gender }) {
+  return `Bir kişinin vücut kitle indeksi (VKİ) bilgileri:
 - VKİ: ${bmi}
 - Kategori: ${category}
 - Boy: ${height} cm
@@ -544,158 +74,187 @@ Lütfen bu kişiye:
 4. Hedef kilo aralığı öner (varsa)
 
 Cevabını Türkçe, samimi ve cesaretlendirici bir dille yaz. Maksimum 250 kelime kullan.`;
+}
 
-      console.log(`🤖 VKİ tavsiyesi isteniyor (${AI_PROVIDER})...`);
+function buildBMIBulletsPrompt({ bmi, category, height, weight, age, gender }) {
+  const gLabel = gender === 'male' || gender === 'Erkek' ? 'Erkek' : 'Kadın';
+  return `Sen bir beslenme ve yaşam tarzı asistanısın (genel bilgi, tıbbi teşhis değil).
 
-      let advice = "";
+Kişi: VKİ ${bmi}, kategori: ${category}. Boy ${height} cm, kilo ${weight} kg, yaş ${age}, cinsiyet: ${gLabel}.
 
-      switch (AI_PROVIDER) {
-        case "huggingface":
-          advice = await this.getHuggingFaceAdvice(prompt);
-          break;
-        case "groq":
-          advice = await this.getGroqAdvice(prompt);
-          break;
-        case "cohere":
-          advice = await this.getCohereAdvice(prompt);
-          break;
-        case "gemini":
-          advice = await this.getGeminiAdvice(prompt);
-          break;
-        default:
-          throw new Error(`Geçersiz AI provider: ${AI_PROVIDER}`);
-      }
+Tam olarak 5 kısa öneri yaz. Kurallar:
+- Her öneri ayrı satırda olsun; satır başında numara, tire veya madde işareti KULLANMA.
+- Her satır en fazla 100 karakter, Türkçe, pratik ve güvenli genel öneri.
+- Başka giriş veya özet yazma; sadece 5 satır.`;
+}
 
-      console.log("✅ VKİ tavsiyesi alındı");
-      return {
-        success: true,
-        advice: advice,
-        provider: AI_PROVIDER,
-      };
+function buildHealthTipPrompt(category) {
+  const categoryInfo = {
+    genel: 'genel sağlık ve yaşam tarzı',
+    beslenme: 'sağlıklı beslenme ve diyet',
+    egzersiz: 'egzersiz ve fiziksel aktivite',
+    motivasyon: 'motivasyon ve zihinsel sağlık',
+  };
+  return `${categoryInfo[category] || 'sağlıklı yaşam'} konusunda kısa, pratik ve uygulanabilir bir tavsiye ver.
+
+Tavsiye şunları içermeli:
+1. Bir başlık (kısa ve çarpıcı)
+2. Açıklama (2-3 cümle)
+3. Pratik bir öneri veya ipucu
+
+Cevabını Türkçe, samimi ve cesaretlendirici bir dille yaz. Maksimum 150 kelime kullan.`;
+}
+
+function buildDietPlanPrompt({ stats, recentPlans }) {
+  const recentMeals = recentPlans.slice(0, 7).map((plan) => {
+    const meals = [];
+    if (plan.breakfast) meals.push(`Kahvaltı: ${plan.breakfast}`);
+    if (plan.lunch) meals.push(`Öğle: ${plan.lunch}`);
+    if (plan.dinner) meals.push(`Akşam: ${plan.dinner}`);
+    if (plan.total_calories) meals.push(`Kalori: ${plan.total_calories} kcal`);
+    return `[Tarih: ${new Date(plan.date).toLocaleDateString('tr-TR')}] -> ${meals.join(', ')}`;
+  }).filter(Boolean).join('\n');
+
+  return `Bir kullanıcının genel diyet ve öğün takip bilgileri:
+- Toplam Eklenen Plan Sayısı: ${stats.totalPlans}
+- Ortalama Kalori Alımı: ${stats.avgCalories > 0 ? `${stats.avgCalories} kcal` : 'Belirtilmemiş'}
+- Son 30 Gün: ${stats.monthlyPlans} adet plan girişi
+${recentMeals ? `\nKullanıcının sisteme girdiği son öğün detayları:\n${recentMeals}` : ''}
+
+Lütfen bu kullanıcıya:
+1. Son girdiği öğünlerin besin değerleri ve dengesi üzerinden genel bir analiz yap.
+2. Ortalama kalori alımı ve plan düzenliliğini değerlendir.
+3. 3-4 pratik beslenme tavsiyesi ver.
+4. Motivasyonunu artıracak samimi bir kapanış yap.
+
+Cevabını Türkçe, diyetisyen gibi yaz. Maksimum 350 kelime kullan.`;
+}
+
+// ─── Fallback verileri ────────────────────────────────────────────────────────
+
+const FALLBACK_HEALTH_TIPS = {
+  genel: `💡 Günlük Sağlık İpucu\n\nSu içmeyi unutmayın! Günde en az 2-3 litre su içmek metabolizmanızı hızlandırır, cildinizi güzelleştirir ve enerji seviyenizi yüksek tutar.\n\n✨ İpucu: Her sabah kalktığınızda bir bardak ılık su içerek güne başlayın.`,
+  beslenme: `🥗 Beslenme Tavsiyesi\n\nTabak metodunu uygulayın! Tabağınızın yarısı sebze, çeyreği protein, çeyreği de karmaşık karbonhidratlardan oluşsun.\n\n✨ İpucu: Her öğünde farklı renkte sebzeler tüketmeye çalışın.`,
+  egzersiz: `💪 Egzersiz Önerisi\n\nKüçük adımlarla başlayın! Günde sadece 10 dakikalık yürüyüş bile fark yaratır.\n\n✨ İpucu: Merdiven kullanmayı tercih edin, kısa mesafelerde yürüyün.`,
+  motivasyon: `🌟 Motivasyon Desteği\n\nKüçük başarılarınızı kutlayın! Her adım önemlidir.\n\n✨ İpucu: Her gün bir başarınızı yazın, bu pozitif bir bakış açısı geliştirir.`,
+};
+
+const FALLBACK_BMI_ADVICE = {
+  Zayıf: `🏥 VKİ Analizi\n\nVKİ değeriniz normal aralığın altında. Sağlıklı kilo almak için profesyonel destek alabilirsiniz.\n\n📝 Tavsiyeler:\n• Günlük kalori alımınızı artırın\n• Protein açısından zengin besinler tüketin\n• Sağlıklı yağlar ekleyin\n• Günde 5-6 öğün şeklinde beslenin`,
+  Normal: `✅ VKİ Analizi\n\nHarika! Sağlıklı bir kilo aralığındasınız. Bu dengeyi korumak önemli.\n\n📝 Tavsiyeler:\n• Dengeli beslenmeye devam edin\n• Haftada 150 dakika egzersiz yapın\n• Bol su için\n• Yeterli uyuyun (7-8 saat)`,
+  'Fazla Kilolu': `⚠️ VKİ Analizi\n\nVKİ değeriniz normalin üzerinde.\n\n📝 Tavsiyeler:\n• Günlük kalori alımınızı kontrol edin\n• Haftada en az 4-5 gün egzersiz yapın\n• Şekerli içeceklerden kaçının\n• Sebze ve meyve tüketiminizi artırın`,
+  Obez: `🏥 VKİ Analizi\n\nVKİ değeriniz obezite kategorisinde. Profesyonel destek almanızı öneririz.\n\n📝 Tavsiyeler:\n• Bir diyetisyen ve doktor ile çalışın\n• Düzenli egzersiz programı başlatın\n• İşlenmiş gıdalardan uzak durun\n• Porsiyon kontrolü yapın`,
+};
+
+const FALLBACK_BMI_BULLETS = {
+  Zayıf: ['Kalori alımınızı kontrollü şekilde artırmayı düşünün', 'Protein ve sağlıklı yağ kaynaklarına yer verin', 'Haftada birkaç gün kuvvet antrenmanı planlayın', 'Öğün atlamadan düzenli beslenmeye özen gösterin', 'Hızlı kilo alımından kaçının; sürece doktorla bakın'],
+  Normal: ['Dengeli tabak modeli ve çeşitli besinlerle devam edin', 'Haftada en az 150 dakika orta tempolu hareket hedefleyin', 'Günde yeterli su ve düzenli uyku düzenine dikkat edin', 'İşlenmiş gıda ve aşırı şeker tüketimini sınırlayın', 'Kilonuzu arada ölçerek koruma hedefinizi gözden geçirin'],
+  'Fazla Kilolu': ['Günlük enerji dengenizi yumuşak ve sürdürülebilir tutun', 'Porsiyon ve öğün zamanlamasına dikkat edin', 'Yürüyüş veya yüzme gibi düzenli kardiyo ekleyin', 'Şekerli içecekleri azaltıp lifli besinlere ağırlık verin', 'Haftalık küçük hedeflerle ilerleyin; acele etmeyin'],
+  Obez: ['Sağlık profesyoneliyle kişisel plan oluşturmayı değerlendirin', 'Günlük hareketi kademeli olarak artırmayı hedefleyin', 'İşlenmiş ve yüksek enerjili atıştırmalıkları azaltın', 'Uyku ve stres yönetimine özen gösterin', 'Küçük sürdürülebilir adımlarla uzun vadeli düşünün'],
+};
+
+// ─── Ana servis nesnesi ───────────────────────────────────────────────────────
+
+export const aiService = {
+  async getGoalAdvice(goalData) {
+    try {
+      const advice = await call(buildGoalPrompt(goalData));
+      return { success: true, advice, provider: AI_PROVIDER };
     } catch (error) {
-      console.error("💥 VKİ tavsiyesi hatası:", error.message);
-
-      return {
-        success: false,
-        advice: this.getFallbackBMIAdvice(bmiData),
-        error: error.message,
-        usingFallback: true,
-      };
+      console.error('💥 AI hedef tavsiyesi hatası:', error.message);
+      return { success: false, advice: this.getFallbackAdvice(goalData), error: error.message, usingFallback: true };
     }
   },
 
-  // API çalışmazsa varsayılan VKİ tavsiyeleri
-  getFallbackBMIAdvice(bmiData) {
-    const { category, bmi } = bmiData;
-
-    const adviceMap = {
-      'Zayıf': `🏥 VKİ Analizi: ${bmi}
-
-VKİ değeriniz normal aralığın altında. Sağlıklı kilo almak için profesyonel destek alabilirsiniz.
-
-📝 Tavsiyeler:
-• Günlük kalori alımınızı artırın (yavaş ve kontrollü)
-• Protein açısından zengin besinler tüketin (tavuk, balık, yumurta, baklagiller)
-• Sağlıklı yağlar ekleyin (fındık, ceviz, avokado, zeytinyağı)
-• Günde 5-6 öğün şeklinde beslenin
-• Kuvvet antrenmanı yaparak kas kütlenizi artırın
-• Düzenli kan tahlilleri yaptırın
-
-💪 Hedef: Normal VKİ aralığına (18.5-24.9) ulaşmayı hedefleyin. Bir diyetisyenle çalışmanız faydalı olabilir.`,
-
-      'Normal': `✅ VKİ Analizi: ${bmi}
-
-Harika! Sağlıklı bir kilo aralığındasınız. Bu dengeyi korumak önemli.
-
-📝 Tavsiyeler:
-• Dengeli ve çeşitli beslenmeye devam edin
-• Haftada 150 dakika orta yoğunlukta egzersiz yapın
-• Bol su için (günde 2-3 litre)
-• Yeterli ve kaliteli uyuyun (7-8 saat)
-• Stres yönetimi teknikleri uygulayın
-• Düzenli sağlık kontrollerine gidin
-
-💚 Hedef: Mevcut sağlıklı kilonuzu koruyun. Düzenli egzersiz ve dengeli beslenme alışkanlıklarınızı sürdürün.`,
-
-      'Fazla Kilolu': `⚠️ VKİ Analizi: ${bmi}
-
-VKİ değeriniz normalin üzerinde. Sağlıklı kilo verme planı yapabilirsiniz.
-
-📝 Tavsiyeler:
-• Günlük kalori alımınızı kontrol edin (aşırıya kaçmadan azaltın)
-• Porsiyon kontrolüne dikkat edin
-• Haftada en az 4-5 gün egzersiz yapın (kardiyo + kuvvet)
-• Şekerli içecek ve atıştırmalıklardan kaçının
-• Sebze ve meyve tüketiminizi artırın
-• Su içmeyi ihmal etmeyin
-
-🎯 Hedef: Haftada 0.5-1 kg vererek normal VKİ aralığına (18.5-24.9) ulaşmayı hedefleyin.`,
-
-      'Obez': `🏥 VKİ Analizi: ${bmi}
-
-VKİ değeriniz obezite kategorisinde. Profesyonel destek almanızı öneririz.
-
-📝 Tavsiyeler:
-• Bir diyetisyen ve doktor ile çalışın
-• Günlük kalori açığı oluşturun (sağlıklı şekilde)
-• Düzenli egzersiz programı başlatın (yavaş başlayın, artırın)
-• İşlenmiş gıdalardan tamamen uzak durun
-• Porsiyon kontrolü yapın
-• Stres yönetimi ve uyku düzeninize önem verin
-• Düzenli kan değerlerinizi takip edin
-
-🎯 Hedef: Haftada 0.5-1 kg vererek kademeli olarak sağlıklı kiloya ulaşın. Sabırlı olun, bu bir maraton!`
-    };
-
-    return adviceMap[category] || adviceMap['Normal'];
+  async getHealthTip(category = 'genel') {
+    try {
+      const advice = await call(buildHealthTipPrompt(category));
+      return { success: true, advice, category, provider: AI_PROVIDER };
+    } catch (error) {
+      console.error('💥 Sağlık tavsiyesi hatası:', error.message);
+      return { success: false, advice: FALLBACK_HEALTH_TIPS[category] || FALLBACK_HEALTH_TIPS.genel, error: error.message, usingFallback: true };
+    }
   },
 
-  /** VKİ ekranındaki 5 maddelik öneri listesi için (kısa satırlar) */
-  getFallbackBMIBullets(category) {
-    const map = {
-      Zayıf: [
-        'Kalori alımınızı kontrollü şekilde artırmayı düşünün',
-        'Protein ve sağlıklı yağ kaynaklarına yer verin',
-        'Haftada birkaç gün kuvvet antrenmanı planlayın',
-        'Öğün atlamadan düzenli beslenmeye özen gösterin',
-        'Hızlı kilo alımından kaçının; sürece doktorla bakın',
-      ],
-      Normal: [
-        'Dengeli tabak modeli ve çeşitli besinlerle devam edin',
-        'Haftada en az 150 dakika orta tempolu hareket hedefleyin',
-        'Günde yeterli su ve düzenli uyku düzenine dikkat edin',
-        'İşlenmiş gıda ve aşırı şeker tüketimini sınırlayın',
-        'Kilonuzu arada ölçerek koruma hedefinizi gözden geçirin',
-      ],
-      'Fazla Kilolu': [
-        'Günlük enerji dengenizi yumuşak ve sürdürülebilir tutun',
-        'Porsiyon ve öğün zamanlamasına dikkat edin',
-        'Yürüyüş veya yüzme gibi düzenli kardiyo ekleyin',
-        'Şekerli içecekleri azaltıp lifli besinlere ağırlık verin',
-        'Haftalık küçük hedeflerle ilerleyin; acele etmeyin',
-      ],
-      Obez: [
-        'Sağlık profesyoneliyle kişisel plan oluşturmayı değerlendirin',
-        'Günlük hareketi kademeli olarak artırmayı hedefleyin',
-        'İşlenmiş ve yüksek enerjili atıştırmalıkları azaltın',
-        'Uyku ve stres yönetimine özen gösterin',
-        'Küçük sürdürülebilir adımlarla uzun vadeli düşünün',
-      ],
-    };
-    return map[category] || map.Normal;
+  async getBMIAdvice(bmiData) {
+    try {
+      const advice = await call(buildBMIPrompt(bmiData));
+      return { success: true, advice, provider: AI_PROVIDER };
+    } catch (error) {
+      console.error('💥 VKİ tavsiyesi hatası:', error.message);
+      return { success: false, advice: FALLBACK_BMI_ADVICE[bmiData.category] || FALLBACK_BMI_ADVICE.Normal, error: error.message, usingFallback: true };
+    }
   },
 
+  async getBMIBulletRecommendations(bmiData) {
+    try {
+      const raw = await call(buildBMIBulletsPrompt(bmiData));
+      const bullets = this.parseBMIBulletLines(raw);
+      if (bullets.length < 3) return { success: false, bullets: FALLBACK_BMI_BULLETS[bmiData.category] || FALLBACK_BMI_BULLETS.Normal, usingFallback: true, provider: AI_PROVIDER };
+      return { success: true, bullets: bullets.slice(0, 5), provider: AI_PROVIDER };
+    } catch (error) {
+      console.error('💥 VKİ madde önerileri hatası:', error.message);
+      return { success: false, bullets: FALLBACK_BMI_BULLETS[bmiData.category] || FALLBACK_BMI_BULLETS.Normal, usingFallback: true, error: error.message };
+    }
+  },
+
+  async getWeightTrackingAdvice(weightData) {
+    try {
+      const advice = await call(buildWeightTrackingPrompt(weightData));
+      return { success: true, advice, provider: AI_PROVIDER };
+    } catch (error) {
+      console.error('💥 Kilo takip tavsiyesi hatası:', error.message);
+      return { success: false, advice: this.getFallbackWeightTrackingAdvice(weightData), error: error.message, usingFallback: true };
+    }
+  },
+
+  async getDietPlanAdvice(dietData) {
+    try {
+      const advice = await call(buildDietPlanPrompt(dietData));
+      return { success: true, advice, provider: AI_PROVIDER };
+    } catch (error) {
+      console.error('💥 Diyet planı tavsiyesi hatası:', error.message);
+      return { success: false, advice: this.getFallbackDietPlanAdvice(dietData), error: error.message, usingFallback: true };
+    }
+  },
+
+  async getMealCaloriesFromImage({ base64, mimeType = 'image/jpeg' }) {
+    if (!base64 || typeof base64 !== 'string') throw new Error('Görsel verisi bulunamadı.');
+    const cleanMime = mimeType?.includes('/') ? mimeType : 'image/jpeg';
+    const cleanB64 = base64.replace(/^data:image\/\w+;base64,/, '');
+    const dataUrl = `data:${cleanMime};base64,${cleanB64}`;
+    const prompt = `Bu fotoğraftaki yemeği veya yemekleri incele. Tıbbi teşhis değil; sadece genel tahmindir.
+
+Yanıtını SADECE geçerli bir JSON nesnesi olarak ver, başka metin veya markdown kullanma. Şema:
+{
+  "mealName": "kısa Türkçe öğün adı",
+  "estimatedCalories": sayı,
+  "confidence": "düşük" | "orta" | "yüksek",
+  "items": [ { "name": "madde adı Türkçe", "estimatedKcal": sayı } ],
+  "notes": "tek cümle Türkçe uyarı veya ipucu"
+}
+
+Kurallar: items en fazla 8 eleman; emin değilsen confidence düşük yap.`;
+
+    let groqError = null;
+    if (GROQ_API_KEY) {
+      try { return await callGroqVision(dataUrl, prompt); } catch (e) { groqError = e; console.warn('Groq vision (kalori):', e?.message || e); }
+    }
+    if (GEMINI_API_KEY) return await callGeminiVision(cleanMime, cleanB64, prompt);
+    if (groqError) throw groqError instanceof Error ? groqError : new Error(String(groqError));
+    throw new Error('Görsel analiz için .env içinde en az biri gerekli: EXPO_PUBLIC_GROQ_API_KEY veya EXPO_PUBLIC_GEMINI_API_KEY.');
+  },
+
+  // ─── Deprecated provider wrappers (geriye uyumluluk) ──────────────────────
+  async getHuggingFaceAdvice(prompt) { const { callHuggingFace } = await import('./ai/providers'); return callHuggingFace(prompt); },
+  async getGroqAdvice(prompt) { const { callGroq } = await import('./ai/providers'); return callGroq(prompt); },
+  async getCohereAdvice(prompt) { const { callCohere } = await import('./ai/providers'); return callCohere(prompt); },
+  async getGeminiAdvice(prompt) { const { callGemini } = await import('./ai/providers'); return callGemini(prompt); },
+
+  // ─── Yardımcı & fallback fonksiyonlar ─────────────────────────────────────
   parseBMIBulletLines(text) {
     if (!text || typeof text !== 'string') return [];
-    const lines = text
-      .split(/\n+/)
-      .map((l) =>
-        l
-          .replace(/^[\s]*[•\-\*‣▪]\s*/, '')
-          .replace(/^\d+[\).]\s*/, '')
-          .trim()
-      )
-      .filter((l) => l.length > 4);
+    const lines = text.split(/\n+/).map((l) => l.replace(/^[\s]*[•\-\*‣▪]\s*/, '').replace(/^\d+[\).]\s*/, '').trim()).filter((l) => l.length > 4);
     const seen = new Set();
     const out = [];
     for (const l of lines) {
@@ -708,395 +267,44 @@ VKİ değeriniz obezite kategorisinde. Profesyonel destek almanızı öneririz.
     return out;
   },
 
-  async getBMIBulletRecommendations(bmiData) {
-    try {
-      const { bmi, category, height, weight, age, gender } = bmiData;
-      const gLabel =
-        gender === 'male' || gender === 'Erkek' ? 'Erkek' : 'Kadın';
-
-      const prompt = `Sen bir beslenme ve yaşam tarzı asistanısın (genel bilgi, tıbbi teşhis değil).
-
-Kişi: VKİ ${bmi}, kategori: ${category}. Boy ${height} cm, kilo ${weight} kg, yaş ${age}, cinsiyet: ${gLabel}.
-
-Tam olarak 5 kısa öneri yaz. Kurallar:
-- Her öneri ayrı satırda olsun; satır başında numara, tire veya madde işareti KULLANMA.
-- Her satır en fazla 100 karakter, Türkçe, pratik ve güvenli genel öneri.
-- Başka giriş veya özet yazma; sadece 5 satır.`;
-
-      console.log(`🤖 VKİ madde önerileri (${AI_PROVIDER})...`);
-
-      let raw = '';
-      switch (AI_PROVIDER) {
-        case 'huggingface':
-          raw = await this.getHuggingFaceAdvice(prompt);
-          break;
-        case 'groq':
-          raw = await this.getGroqAdvice(prompt);
-          break;
-        case 'cohere':
-          raw = await this.getCohereAdvice(prompt);
-          break;
-        case 'gemini':
-          raw = await this.getGeminiAdvice(prompt);
-          break;
-        default:
-          throw new Error(`Geçersiz AI provider: ${AI_PROVIDER}`);
-      }
-
-      let bullets = this.parseBMIBulletLines(raw);
-      if (bullets.length < 3) {
-        return {
-          success: false,
-          bullets: this.getFallbackBMIBullets(category),
-          usingFallback: true,
-          provider: AI_PROVIDER,
-        };
-      }
-      return {
-        success: true,
-        bullets: bullets.slice(0, 5),
-        provider: AI_PROVIDER,
-      };
-    } catch (error) {
-      console.error('💥 VKİ madde önerileri hatası:', error.message);
-      return {
-        success: false,
-        bullets: this.getFallbackBMIBullets(bmiData.category),
-        usingFallback: true,
-        error: error.message,
-      };
-    }
+  getFallbackBMIBullets(category) {
+    return FALLBACK_BMI_BULLETS[category] || FALLBACK_BMI_BULLETS.Normal;
   },
 
-  // Kilo Takip Tavsiyesi Al
-  async getWeightTrackingAdvice(weightData) {
-    try {
-      const { weights, stats } = weightData;
-
-      // Trend analizi
-      let trend = 'stabil';
-      if (stats.totalChange > 1) trend = 'artış';
-      else if (stats.totalChange < -1) trend = 'azalış';
-
-      // Son 3 kaydı analiz et (varsa)
-      const recentWeights = weights.slice(0, Math.min(3, weights.length));
-      const recentChanges = recentWeights.slice(0, -1).map((w, i) =>
-        (w.weight - recentWeights[i + 1].weight).toFixed(1)
-      );
-
-      const prompt = `Bir kişinin kilo takip bilgileri:
-- Mevcut Kilo: ${stats.latest} kg
-- Başlangıç Kilosi: ${stats.oldest} kg
-- Toplam Değişim: ${stats.totalChange.toFixed(1)} kg
-- Ortalama Kilo: ${stats.average} kg
-- Kayıt Sayısı: ${weights.length}
-- Trend: ${trend}
-${recentChanges.length > 0 ? `- Son Değişimler: ${recentChanges.join(' kg, ')} kg` : ''}
-
-Lütfen bu kişiye:
-1. Kilo takip süreci hakkında kısa bir değerlendirme yap
-2. Trend analizi yap (ilerleme durumu nasıl?)
-3. 4-5 pratik tavsiye ver (beslenme, egzersiz, motivasyon)
-4. Devam etmesi gereken olumlu davranışları vurgula
-
-Cevabını Türkçe, samimi ve cesaretlendirici bir dille yaz. Maksimum 300 kelime kullan.`;
-
-      console.log(`🤖 Kilo takip tavsiyesi isteniyor (${AI_PROVIDER})...`);
-
-      let advice = "";
-
-      switch (AI_PROVIDER) {
-        case "huggingface":
-          advice = await this.getHuggingFaceAdvice(prompt);
-          break;
-        case "groq":
-          advice = await this.getGroqAdvice(prompt);
-          break;
-        case "cohere":
-          advice = await this.getCohereAdvice(prompt);
-          break;
-        case "gemini":
-          advice = await this.getGeminiAdvice(prompt);
-          break;
-        default:
-          throw new Error(`Geçersiz AI provider: ${AI_PROVIDER}`);
-      }
-
-      console.log("✅ Kilo takip tavsiyesi alındı");
-      return {
-        success: true,
-        advice: advice,
-        provider: AI_PROVIDER,
-      };
-    } catch (error) {
-      console.error("💥 Kilo takip tavsiyesi hatası:", error.message);
-
-      return {
-        success: false,
-        advice: this.getFallbackWeightTrackingAdvice(weightData),
-        error: error.message,
-        usingFallback: true,
-      };
-    }
+  getFallbackBMIAdvice(bmiData) {
+    return FALLBACK_BMI_ADVICE[bmiData.category] || FALLBACK_BMI_ADVICE.Normal;
   },
 
-  // API çalışmazsa varsayılan kilo takip tavsiyeleri
-  getFallbackWeightTrackingAdvice(weightData) {
-    const { stats } = weightData;
-    const { totalChange, latest, average } = stats;
-
-    let advice = `📊 Kilo Takip Analizi\n\n`;
-
-    if (totalChange < -2) {
-      advice += `🎉 Harika İlerleme!\n\nToplam ${Math.abs(totalChange).toFixed(1)} kg verdiniz. Bu gerçekten harika bir başarı!\n\n`;
-      advice += `📝 Tavsiyeler:\n`;
-      advice += `• Devam edin! Yaptığınız şey işe yarıyor\n`;
-      advice += `• Protein alımınızı yüksek tutun (kas kaybını önler)\n`;
-      advice += `• Haftada en az 3 gün egzersiz yapın\n`;
-      advice += `• Kendinizi ödüllendirin (yemek dışı şeylerle)\n`;
-      advice += `• Bu tempoyu koruyun, acele etmeyin\n\n`;
-      advice += `💪 Unutmayın: Düzenli takip, başarının anahtarıdır!`;
-    } else if (totalChange > 2) {
-      advice += `📈 Kilo Artışı Tespit Edildi\n\nToplam ${totalChange.toFixed(1)} kg aldınız. Eğer hedefiniz buysa tebrikler!\n\n`;
-      advice += `📝 Tavsiyeler:\n`;
-      advice += `• Hedeflerinizi gözden geçirin\n`;
-      advice += `• Günlük kalori alımınızı kontrol edin\n`;
-      advice += `• Porsiyon kontrolüne dikkat edin\n`;
-      advice += `• Düzenli egzersiz rutini oluşturun\n`;
-      advice += `• Su tüketiminizi artırın\n\n`;
-      advice += `💪 Çözüm: Küçük değişiklikler büyük fark yaratır. Yavaş ve kararlı adımlar atın.`;
-    } else {
-      advice += `⚖️ Kilonuz Stabil\n\nMevcut kilonuzu koruyorsunuz (${latest} kg). Bu da bir başarı!\n\n`;
-      advice += `📝 Tavsiyeler:\n`;
-      advice += `• Dengeli beslenmenize devam edin\n`;
-      advice += `• Egzersiz rutininizi sürdürün\n`;
-      advice += `• Eğer hedefleriniz varsa, planınızı gözden geçirin\n`;
-      advice += `• Metabolizmanızı hareketli tutun\n`;
-      advice += `• Küçük değişiklikler deneyin (egzersiz artışı, diyet ayarı)\n\n`;
-      advice += `💪 Hedef: Bir sonraki adımı planlayın. Nereye gitmek istiyorsunuz?`;
-    }
-
-    return advice;
+  getFallbackHealthTip(category) {
+    return FALLBACK_HEALTH_TIPS[category] || FALLBACK_HEALTH_TIPS.genel;
   },
 
-  // Diyet Planı Tavsiyesi Al
-  async getDietPlanAdvice(dietData) {
-    try {
-      const { stats, recentPlans } = dietData;
-
-      // Tüm son planların (en fazla 7 gün) daha detaylı özeti
-      const recentMeals = recentPlans.slice(0, 7).map(plan => {
-        const meals = [];
-        if (plan.breakfast) meals.push(`Kahvaltı: ${plan.breakfast}`);
-        if (plan.lunch) meals.push(`Öğle: ${plan.lunch}`);
-        if (plan.dinner) meals.push(`Akşam: ${plan.dinner}`);
-        if (plan.total_calories) meals.push(`Kalori: ${plan.total_calories} kcal`);
-        return `[Tarih: ${new Date(plan.date).toLocaleDateString('tr-TR')}] -> ${meals.join(', ')}`;
-      }).filter(m => m).join('\\n');
-
-      const prompt = `Bir kullanıcının genel diyet ve öğün takip bilgileri:
-- Toplam Eklenen Plan Sayısı: ${stats.totalPlans}
-- Ortalama Kalori Alımı: ${stats.avgCalories > 0 ? `${stats.avgCalories} kcal` : 'Belirtilmemiş'}
-- Son 30 Gün: ${stats.monthlyPlans} adet plan girişi
-${recentMeals ? `\\nKullanıcının sisteme girdiği son öğün detayları (Analiz etmen için):\\n${recentMeals}` : ''}
-
-Lütfen bu kullanıcıya:
-1. Son girdiği öğünlerin besin değerleri ve dengesi üzerinden genel bir analiz yap. Öğün atlamışsa, dengesiz veya çok/az kalorili beslenmişse uyar.
-2. Ortalama kalori alımı ve plan düzenliliğini değerlendir.
-3. Menüsüne ekleyebileceği veya dikkat etmesi gereken 3-4 pratik ve uygulanabilir beslenme tavsiyesi ver.
-4. Motivasyonunu artıracak samimi ve kısa bir kapanış yap.
-
-Cevabını tamamen Türkçe, son derece samimi ve cesaretlendirici bir dille, tıpkı bir diyetisyen gibi yaz. Maksimum 350 kelime kullan.`;
-
-      console.log(`🤖 Diyet planı tavsiyesi isteniyor (${AI_PROVIDER})...`);
-
-      let advice = "";
-
-      switch (AI_PROVIDER) {
-        case "huggingface":
-          advice = await this.getHuggingFaceAdvice(prompt);
-          break;
-        case "groq":
-          advice = await this.getGroqAdvice(prompt);
-          break;
-        case "cohere":
-          advice = await this.getCohereAdvice(prompt);
-          break;
-        case "gemini":
-          advice = await this.getGeminiAdvice(prompt);
-          break;
-        default:
-          throw new Error(`Geçersiz AI provider: ${AI_PROVIDER}`);
-      }
-
-      console.log("✅ Diyet planı tavsiyesi alındı");
-      return {
-        success: true,
-        advice: advice,
-        provider: AI_PROVIDER,
-      };
-    } catch (error) {
-      console.error("💥 Diyet planı tavsiyesi hatası:", error.message);
-
-      return {
-        success: false,
-        advice: this.getFallbackDietPlanAdvice(dietData),
-        error: error.message,
-        usingFallback: true,
-      };
-    }
+  getFallbackWeightTrackingAdvice({ stats }) {
+    const { totalChange, latest } = stats;
+    if (totalChange < -2)
+      return `📊 Kilo Takip Analizi\n\n🎉 Harika İlerleme!\n\nToplam ${Math.abs(totalChange).toFixed(1)} kg verdiniz.\n\n📝 Tavsiyeler:\n• Devam edin!\n• Protein alımınızı yüksek tutun\n• Haftada en az 3 gün egzersiz yapın\n• Tempoyu koruyun, acele etmeyin`;
+    if (totalChange > 2)
+      return `📊 Kilo Takip Analizi\n\n📈 Kilo Artışı\n\nToplam ${totalChange.toFixed(1)} kg aldınız.\n\n📝 Tavsiyeler:\n• Hedeflerinizi gözden geçirin\n• Günlük kalori alımını kontrol edin\n• Düzenli egzersiz rutini oluşturun`;
+    return `📊 Kilo Takip Analizi\n\n⚖️ Kilonuz Stabil (${latest} kg)\n\n📝 Tavsiyeler:\n• Dengeli beslenmeye devam edin\n• Egzersiz rutininizi sürdürün\n• Küçük değişiklikler deneyin`;
   },
 
-  // API çalışmazsa varsayılan diyet planı tavsiyeleri
-  getFallbackDietPlanAdvice(dietData) {
-    const { stats } = dietData;
-
-    let advice = `🍽️ Diyet Planı Analizi\n\n`;
-
-    if (stats.totalPlans === 0) {
-      advice += `📝 Henüz Plan Yok\n\nDiyet planı oluşturmaya başlamadınız. Başlamak için harika bir zaman!\n\n`;
-      advice += `💡 Başlangıç Tavsiyeleri:\n`;
-      advice += `• Her gün için basit bir plan oluşturun\n`;
-      advice += `• Öğün atlamayın - günde 3 ana öğün + 2-3 ara öğün\n`;
-      advice += `• Kalori hedeflerinizi belirleyin\n`;
-      advice += `• Çeşitli ve dengeli beslenmeye özen gösterin\n`;
-      advice += `• Her öğünde protein kaynağı bulundurun\n\n`;
-      advice += `💪 Başarı İpucu: Küçük adımlarla başlayın, tutarlı olun!`;
-    } else if (stats.monthlyPlans < 7) {
-      advice += `📊 Düzensiz Takip\n\nSon 30 günde sadece ${stats.monthlyPlans} plan girdiniz. Daha düzenli olabilirsiniz.\n\n`;
-      advice += `📝 Düzenlilik Tavsiyeleri:\n`;
-      advice += `• Her gün için plan yapmaya çalışın\n`;
-      advice += `• Akşamları ertesi günü planlayın\n`;
-      advice += `• Haftalık plan yapmayı deneyin\n`;
-      advice += `• Planlama alışkanlığı edinin - hatırlatıcı kurun\n`;
-      advice += `• Basit tutun - karmaşık planlar yapmayın\n\n`;
-      advice += `💪 Başarı: Düzenli plan, başarılı diyet demektir!`;
-    } else {
-      advice += `✅ Harika Takip!\n\nSon 30 günde ${stats.monthlyPlans} plan oluşturdunuz. Süper!\n\n`;
-
-      if (stats.avgCalories > 0) {
-        advice += `Ortalama kalori alımınız: ${stats.avgCalories} kcal\n\n`;
-
-        if (stats.avgCalories < 1200) {
-          advice += `⚠️ Dikkat: Çok düşük kalori - metabolizma yavaşlayabilir\n`;
-        } else if (stats.avgCalories > 2500) {
-          advice += `⚠️ Dikkat: Yüksek kalori - hedeflerinizi gözden geçirin\n`;
-        }
-      }
-
-      advice += `\n📝 İleri Seviye Tavsiyeler:\n`;
-      advice += `• Makro besin dengesi: 40% karb, 30% protein, 30% yağ\n`;
-      advice += `• Renkli sebze ve meyveleri çeşitlendirin\n`;
-      advice += `• İşlenmiş gıdalardan kaçının\n`;
-      advice += `• Öğün zamanlamasına dikkat edin\n`;
-      advice += `• Su tüketiminizi artırın (2-3L/gün)\n\n`;
-      advice += `💪 Devam Edin: Yaptığınız şey harika! Tutarlılığınızı sürdürün.`;
-    }
-
-    return advice;
+  getFallbackDietPlanAdvice({ stats }) {
+    if (stats.totalPlans === 0) return `🍽️ Diyet Planı\n\nHenüz plan yok. Başlamak için harika bir zaman!\n\n💡 Tavsiyeler:\n• Her gün için basit bir plan oluşturun\n• Öğün atlamayın\n• Kalori hedeflerinizi belirleyin`;
+    if (stats.monthlyPlans < 7) return `🍽️ Diyet Planı\n\nSon 30 günde ${stats.monthlyPlans} plan girdiniz. Daha düzenli olabilirsiniz.\n\n📝 Tavsiyeler:\n• Her gün plan yapmaya çalışın\n• Akşamları ertesi günü planlayın`;
+    return `🍽️ Diyet Planı\n\n✅ Harika Takip! ${stats.monthlyPlans} plan oluşturdunuz.\n\n📝 Tavsiyeler:\n• Makro besin dengesi: 40% karb, 30% protein, 30% yağ\n• Renkli sebzeler tüketin\n• Su tüketiminizi artırın (2-3L/gün)`;
   },
 
-  // API çalışmazsa varsayılan tavsiyeler
-  getFallbackAdvice(goalData) {
-    const { currentWeight, targetWeight, startDate, targetDate } = goalData;
-
-    if (!currentWeight || !targetWeight) {
-      return `🎯 Harika bir hedef belirlediniz!
-
-📝 Tavsiyeler:
-• Günlük kalori alımınızı takip edin
-• Düzenli egzersiz yapın (haftada 3-4 gün)
-• Bol su için (günde 2-3 litre)
-• Yeterli uyuyun (7-8 saat)
-
-💪 Unutmayın: Azim ve düzenlilik başarının anahtarıdır!`;
-    }
-
-    const start = new Date(startDate);
-    const target = new Date(targetDate);
-    const diffTime = Math.abs(target - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  getFallbackAdvice({ currentWeight, targetWeight, startDate, targetDate }) {
+    if (!currentWeight || !targetWeight)
+      return `🎯 Harika bir hedef belirlediniz!\n\n📝 Tavsiyeler:\n• Günlük kalori alımınızı takip edin\n• Düzenli egzersiz yapın\n• Bol su için\n\n💪 Azim ve düzenlilik başarının anahtarıdır!`;
+    const diffDays = Math.ceil(Math.abs(new Date(targetDate) - new Date(startDate)) / (1000 * 60 * 60 * 24));
     const weightDiff = Math.abs(currentWeight - targetWeight);
     const weeklyTarget = (weightDiff / (diffDays / 7)).toFixed(1);
     const isWeightLoss = currentWeight > targetWeight;
-
-    let advice = `🎯 Hedef Analizi:\n`;
-    advice += `${isWeightLoss ? "📉" : "📈"} ${weightDiff.toFixed(1)} kg ${
-      isWeightLoss ? "vermek" : "almak"
-    } istiyorsunuz.\n`;
-    advice += `⏱️ Haftalık hedef: ${weeklyTarget} kg\n\n`;
-
-    // Sağlıklı hedef kontrolü (haftada 0.5-1 kg sağlıklı kabul edilir)
-    if (isWeightLoss && parseFloat(weeklyTarget) > 1) {
-      advice += `⚠️ Haftalık ${weeklyTarget} kg vermek biraz agresif olabilir. Sağlıklı kilo kaybı haftada 0.5-1 kg arasındadır.\n\n`;
-    }
-
-    advice += `📝 Tavsiyeler:\n`;
-    if (isWeightLoss) {
-      advice += `• Kalori açığı oluşturun (günlük 300-500 kalori)\n`;
-      advice += `• Protein ağırlıklı beslenin\n`;
-      advice += `• Kardiyo + direnç egzersizleri yapın\n`;
-    } else {
-      advice += `• Kalori fazlası oluşturun (günlük 300-500 kalori)\n`;
-      advice += `• Protein ağırlıklı, yüksek kalorili besinler tüketin\n`;
-      advice += `• Ağırlık antrenmanlarına odaklanın\n`;
-    }
-    advice += `• Bol su için (2-3 litre/gün)\n`;
-    advice += `• Düzenli uyuyun (7-8 saat)\n\n`;
-    advice += `💪 Başarılar! Düzenli olarak ilerlemenizi takip edin.`;
-
+    let advice = `🎯 Hedef: ${weightDiff.toFixed(1)} kg ${isWeightLoss ? 'vermek' : 'almak'} (${weeklyTarget} kg/hafta)\n\n📝 Tavsiyeler:\n`;
+    if (isWeightLoss) advice += `• Kalori açığı oluşturun (300-500 kcal)\n• Protein ağırlıklı beslenin\n• Kardiyo + direnç egzersizleri`;
+    else advice += `• Kalori fazlası oluşturun (300-500 kcal)\n• Protein ağırlıklı, yüksek kalorili besinler\n• Ağırlık antrenmanlarına odaklanın`;
+    advice += `\n• Bol su için (2-3L/gün)\n• Düzenli uyuyun (7-8 saat)`;
     return advice;
-  },
-
-  /**
-   * Yemek fotoğrafından tahmini kalori.
-   * Önce Groq Vision (hızlı, ücretsiz katman) — EXPO_PUBLIC_GROQ_API_KEY.
-   * Başarısızsa Google Gemini — EXPO_PUBLIC_GEMINI_API_KEY.
-   */
-  async getMealCaloriesFromImage({ base64, mimeType = "image/jpeg" }) {
-    if (!base64 || typeof base64 !== "string") {
-      throw new Error("Görsel verisi bulunamadı.");
-    }
-
-    const cleanMime = mimeType && mimeType.includes("/") ? mimeType : "image/jpeg";
-    const cleanB64 = base64.replace(/^data:image\/\w+;base64,/, "");
-    const dataUrl = `data:${cleanMime};base64,${cleanB64}`;
-
-    const prompt = `Bu fotoğraftaki yemeği veya yemekleri incele. Tıbbi teşhis değil; sadece genel tahmindir.
-
-Yanıtını SADECE geçerli bir JSON nesnesi olarak ver, başka metin veya markdown kullanma. Şema:
-{
-  "mealName": "kısa Türkçe öğün adı (ör. Izgara tavuk ve pilav)",
-  "estimatedCalories": sayı (tahmini toplam kcal, tam sayı),
-  "confidence": "düşük" | "orta" | "yüksek",
-  "items": [ { "name": "madde adı Türkçe", "estimatedKcal": sayı } ],
-  "notes": "tek cümle Türkçe uyarı veya ipucu (porsiyon belirsizse belirt)"
-}
-
-Kurallar: items en fazla 8 eleman; estimatedCalories makul bir aralıkta olsun; emin değilsen confidence düşük yap.`;
-
-    let groqError = null;
-    if (GROQ_API_KEY) {
-      try {
-        return await fetchMealCaloriesGroqVision(dataUrl, prompt);
-      } catch (e) {
-        groqError = e;
-        console.warn("Groq vision (kalori):", e?.message || e);
-      }
-    }
-
-    if (GEMINI_API_KEY) {
-      return await fetchMealCaloriesGeminiVision(cleanMime, cleanB64, prompt);
-    }
-
-    if (groqError) {
-      throw groqError instanceof Error
-        ? groqError
-        : new Error(String(groqError));
-    }
-
-    throw new Error(
-      "Görsel analiz için .env içinde en az biri gerekli: EXPO_PUBLIC_GROQ_API_KEY (önerilen, hızlı) veya EXPO_PUBLIC_GEMINI_API_KEY."
-    );
   },
 };
