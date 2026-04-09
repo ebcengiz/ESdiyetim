@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, Alert, ActivityIndicator, Linking, Animated, Easing,
+  TouchableOpacity, ActivityIndicator, Linking, Animated, Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,8 +10,10 @@ import { bodyInfoService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from './AIAdviceCard';
 import { calculateBMI, getBMICategory, getBMICategoryName } from '../utils/bmi';
+import { useToast } from '../contexts/ToastContext';
 
 export default function BMIPanel({ latestWeight }) {
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [bodyInfo, setBodyInfo] = useState({ height: '', age: '', gender: 'male', weight: '' });
   const [existingId, setExistingId] = useState(null);
@@ -119,9 +121,9 @@ export default function BMIPanel({ latestWeight }) {
   }, [isSaved, bmi, bmiCategory, bmiRevealAnim]);
 
   const saveBodyInfo = async () => {
-    if (!bodyInfo.height || !bodyInfo.age) { Alert.alert('⚠️ Uyarı', 'Lütfen boy ve yaş alanlarını doldurun.'); return; }
+    if (!bodyInfo.height || !bodyInfo.age) { showToast('Lütfen boy ve yaş alanlarını doldurun.', 'warning'); return; }
     const w = parsedWeight();
-    if (!w) { Alert.alert('⚠️ Kilo Eksik', 'Lütfen geçerli bir kilo değeri girin.'); return; }
+    if (!w) { showToast('Lütfen geçerli bir kilo değeri girin.', 'warning'); return; }
     try {
       const data = { height: parseFloat(bodyInfo.height), weight: w, age: parseInt(bodyInfo.age, 10), gender: bodyInfo.gender };
       if (existingId) {
@@ -132,11 +134,11 @@ export default function BMIPanel({ latestWeight }) {
         setExistingId(newInfo.id);
         setIsSaved(true);
       }
-      Alert.alert('✅ Kaydedildi', 'Bilgileriniz güncellendi. AI tavsiyesi hazırlanıyor...');
+      showToast('Bilgileriniz güncellendi. AI tavsiyesi hazırlanıyor...', 'success');
       fetchAIAdvice(data);
       fetchBulletRecommendations(data);
     } catch {
-      Alert.alert('❌ Hata', 'Vücut bilgileri kaydedilirken bir hata oluştu.');
+      showToast('Vücut bilgileri kaydedilirken bir hata oluştu.', 'error');
     }
   };
 

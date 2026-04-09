@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   TextInput,
   ActivityIndicator,
 } from 'react-native';
@@ -15,15 +14,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { bodyInfoService } from '../services/supabase';
+import { useToast } from '../contexts/ToastContext';
+import ConfirmModal from '../components/ui/ConfirmModal';
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user, signOut, deleteAccount, updateProfile, leaveGuestMode, isGuest } = useAuth();
+  const { showToast } = useToast();
   const [bodyInfo, setBodyInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editingName, setEditingName] = useState(false);
   const [fullName, setFullName] = useState(user?.user_metadata?.full_name || '');
   const [savingName, setSavingName] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -72,15 +76,16 @@ export default function ProfileScreen({ navigation }) {
 
   const handleSaveName = async () => {
     if (!fullName.trim()) {
-      Alert.alert('Uyarı', 'Lütfen adınızı ve soyadınızı girin.');
+      showToast('Lütfen adınızı ve soyadınızı girin.', 'warning');
       return;
     }
     setSavingName(true);
     const { error } = await updateProfile({ full_name: fullName.trim() });
     setSavingName(false);
     if (error) {
-      Alert.alert('Hata', 'İsim güncellenirken bir hata oluştu.');
+      showToast('İsim güncellenirken bir hata oluştu.', 'error');
     } else {
+      showToast('İsim güncellendi.', 'success');
       setEditingName(false);
     }
   };
@@ -90,46 +95,22 @@ export default function ProfileScreen({ navigation }) {
     setEditingName(false);
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Çıkış Yap',
-      'Hesabınızdan çıkmak istediğinize emin misiniz?',
-      [
-        { text: 'İptal', style: 'cancel' },
-        {
-          text: 'Çıkış Yap',
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = await signOut();
-            if (error) Alert.alert('Hata', 'Çıkış yapılırken bir hata oluştu.');
-          },
-        },
-      ]
-    );
+  const handleLogout = () => setShowLogoutModal(true);
+
+  const confirmLogout = async () => {
+    setShowLogoutModal(false);
+    const { error } = await signOut();
+    if (error) showToast('Çıkış yapılırken bir hata oluştu.', 'error');
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Hesabı Sil',
-      'Hesabınız ve uygulamadaki tüm verileriniz (diyet planları, kilo kayıtları, vücut bilgileri, hedefler) kalıcı olarak silinir. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?',
-      [
-        { text: 'İptal', style: 'cancel' },
-        {
-          text: 'Evet, Sil',
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = await deleteAccount();
-            if (error) {
-              Alert.alert(
-                'Hesap silinemedi',
-                error.message ||
-                  'Sunucu hesap silme işlemini reddetti. Supabase Edge Function (delete-account) dağıtıldı mı kontrol edin.'
-              );
-            }
-          },
-        },
-      ]
-    );
+  const handleDeleteAccount = () => setShowDeleteModal(true);
+
+  const confirmDeleteAccount = async () => {
+    setShowDeleteModal(false);
+    const { error } = await deleteAccount();
+    if (error) {
+      showToast(error.message || 'Hesap silinemedi. Lütfen tekrar deneyin.', 'error');
+    }
   };
 
   const bmi = getBMI();
@@ -405,6 +386,31 @@ export default function ProfileScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Logout Confirm */}
+      <ConfirmModal
+        visible={showLogoutModal}
+        title="Çıkış Yap"
+        message="Hesabınızdan çıkmak istediğinize emin misiniz?"
+        confirmText="Çıkış Yap"
+        cancelText="İptal"
+        type="default"
+        icon="log-out-outline"
+        onConfirm={confirmLogout}
+        onCancel={() => setShowLogoutModal(false)}
+      />
+
+      {/* Delete Account Confirm */}
+      <ConfirmModal
+        visible={showDeleteModal}
+        title="Hesabı Sil"
+        message="Tüm verileriniz (diyet planları, kilo kayıtları, vücut bilgileri, hedefler) kalıcı olarak silinir. Bu işlem geri alınamaz."
+        confirmText="Evet, Sil"
+        cancelText="İptal"
+        type="danger"
+        onConfirm={confirmDeleteAccount}
+        onCancel={() => setShowDeleteModal(false)}
+      />
     </ScrollView>
   );
 }

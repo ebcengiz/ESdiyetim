@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Modal,
   Linking,
@@ -18,9 +17,11 @@ import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { bodyInfoService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from '../components/AIAdviceCard';
+import { useToast } from '../contexts/ToastContext';
 
 export default function BodyInfoScreen() {
   const insets = useSafeAreaInsets();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [bodyInfo, setBodyInfo] = useState({
     height: '',
@@ -113,7 +114,7 @@ export default function BodyInfoScreen() {
 
   const saveBodyInfo = async () => {
     if (!bodyInfo.height || !bodyInfo.weight || !bodyInfo.age) {
-      Alert.alert('⚠️ Uyarı', 'Lütfen tüm alanları doldurun.');
+      showToast('Lütfen tüm alanları doldurun.', 'warning');
       return;
     }
 
@@ -131,11 +132,11 @@ export default function BodyInfoScreen() {
         const newInfo = await bodyInfoService.create(data);
         setExistingId(newInfo.id);
       }
-      // ─── Kaydet sonrası otomatik AI tavsiyesi ───
+      showToast('Bilgileriniz kaydedildi.', 'success');
       fetchBMIAdvice(data);
     } catch (error) {
       console.error('Vücut bilgileri kaydetme hatası:', error);
-      Alert.alert('❌ Hata', 'Vücut bilgileri kaydedilirken bir hata oluştu.');
+      showToast('Vücut bilgileri kaydedilirken bir hata oluştu.', 'error');
     }
   };
 

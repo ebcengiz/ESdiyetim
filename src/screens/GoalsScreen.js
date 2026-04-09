@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, Alert, Modal, Platform, KeyboardAvoidingView,
+  TouchableOpacity, Modal, Platform, KeyboardAvoidingView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,8 +14,10 @@ import AIAdviceCard from '../components/AIAdviceCard';
 import HealthSourcesCard from '../components/HealthSourcesCard';
 import GuestGateBanner from '../components/GuestGateBanner';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { useFormModal } from '../hooks/useFormModal';
 import { toDateString, formatMediumDate, daysFromToday } from '../utils/date';
+import ConfirmModal from '../components/ui/ConfirmModal';
 
 const EMPTY_GOAL = { title: '', currentWeight: '', targetWeight: '', notes: '' };
 
@@ -28,12 +30,14 @@ const defaultTargetDate = () => {
 export default function GoalsScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [goals, setGoals] = useState([]);
   const [selectedStartDate, setSelectedStartDate] = useState(new Date());
   const [selectedTargetDate, setSelectedTargetDate] = useState(defaultTargetDate());
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showTargetDatePicker, setShowTargetDatePicker] = useState(false);
   const [goalAdvices, setGoalAdvices] = useState({});
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
 
   const modal = useFormModal(EMPTY_GOAL);
 
@@ -61,15 +65,13 @@ export default function GoalsScreen() {
       if (data?.length) data.forEach((goal) => fetchGoalAdvice(goal));
     } catch (error) {
       console.error('Hedefler yükleme hatası:', error);
-      Alert.alert('Hata', 'Hedefler yüklenirken bir hata oluştu.');
+      showToast('Hedefler yüklenirken bir hata oluştu.', 'error');
     }
   };
 
   const openAddModal = () => {
     if (!user) {
-      Alert.alert('Giriş gerekli', 'Hedef oluşturmak için hesap açın veya giriş yapın.', [
-        { text: 'Tamam', onPress: () => navigation.navigate('Profile') },
-      ]);
+      showToast('Hedef oluşturmak için giriş yapın.', 'info');
       return;
     }
     setSelectedStartDate(new Date());
@@ -103,8 +105,8 @@ export default function GoalsScreen() {
   };
 
   const saveGoal = async () => {
-    if (!modal.form.title) { Alert.alert('⚠️ Uyarı', 'Lütfen hedef başlığı girin.'); return; }
-    if (!modal.form.targetWeight) { Alert.alert('⚠️ Uyarı', 'Lütfen hedef kilonuzu girin.'); return; }
+    if (!modal.form.title) { showToast('Lütfen hedef başlığı girin.', 'warning'); return; }
+    if (!modal.form.targetWeight) { showToast('Lütfen hedef kilonuzu girin.', 'warning'); return; }
     try {
       const goalData = {
         title: modal.form.title,
@@ -121,27 +123,23 @@ export default function GoalsScreen() {
       loadGoals();
     } catch (error) {
       console.error('Hedef kaydetme hatası:', error);
-      Alert.alert('❌ Hata', 'Hedef kaydedilirken bir hata oluştu.');
+      showToast('Hedef kaydedilirken bir hata oluştu.', 'error');
     }
   };
 
-  const deleteGoal = (id) => {
-    Alert.alert('Hedefi Sil', 'Bu hedefi silmek istediğinizden emin misiniz?', [
-      { text: 'İptal', style: 'cancel' },
-      {
-        text: 'Sil', style: 'destructive',
-        onPress: async () => {
-          try {
-            await goalsService.delete(id);
-            Alert.alert('✅ Başarılı', 'Hedef silindi!');
-            loadGoals();
-          } catch (error) {
-            console.error('Hedef silme hatası:', error);
-            Alert.alert('❌ Hata', 'Hedef silinirken bir hata oluştu.');
-          }
-        },
-      },
-    ]);
+  const deleteGoal = (id) => setDeleteTargetId(id);
+
+  const confirmDeleteGoal = async () => {
+    const id = deleteTargetId;
+    setDeleteTargetId(null);
+    try {
+      await goalsService.delete(id);
+      showToast('Hedef silindi.', 'success');
+      loadGoals();
+    } catch (error) {
+      console.error('Hedef silme hatası:', error);
+      showToast('Hedef silinirken bir hata oluştu.', 'error');
+    }
   };
 
   const toggleGoalStatus = async (goal) => {
@@ -150,7 +148,7 @@ export default function GoalsScreen() {
       loadGoals();
     } catch (error) {
       console.error('Hedef durumu güncelleme hatası:', error);
-      Alert.alert('❌ Hata', 'Hedef durumu güncellenirken bir hata oluştu.');
+      showToast('Hedef durumu güncellenirken bir hata oluştu.', 'error');
     }
   };
 
@@ -442,6 +440,17 @@ export default function GoalsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <ConfirmModal
+        visible={deleteTargetId !== null}
+        title="Hedefi Sil"
+        message="Bu hedefi silmek istediğinizden emin misiniz?"
+        confirmText="Sil"
+        cancelText="İptal"
+        type="danger"
+        onConfirm={confirmDeleteGoal}
+        onCancel={() => setDeleteTargetId(null)}
+      />
     </View>
   );
 }

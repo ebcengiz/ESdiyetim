@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, Alert, Modal, Platform, KeyboardAvoidingView,
+  TouchableOpacity, Modal, Platform, KeyboardAvoidingView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +12,8 @@ import { aiService } from '../services/aiService';
 import AIAdviceCard from './AIAdviceCard';
 import { formatShortDate } from '../utils/date';
 import { useFormModal } from '../hooks/useFormModal';
+import { useToast } from '../contexts/ToastContext';
+import ConfirmModal from './ui/ConfirmModal';
 
 const EMPTY_FORM = { weight: '', notes: '' };
 const toLocalDateString = (date = new Date()) => {
@@ -27,12 +29,14 @@ const toDateKey = (value) => {
 };
 
 export default function WeightPanel({ onWeightChange }) {
+  const { showToast } = useToast();
   const [weights, setWeights] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [activeField, setActiveField] = useState('');
   const [aiAdvice, setAiAdvice] = useState('');
   const [loadingAdvice, setLoadingAdvice] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
 
   const modal = useFormModal(EMPTY_FORM);
 
@@ -54,7 +58,7 @@ export default function WeightPanel({ onWeightChange }) {
       if (data?.length) runWeightAIAdvice(data);
       else { setAiAdvice(''); setLoadingAdvice(false); }
     } catch {
-      Alert.alert('⚠️ Yükleme Hatası', 'Kilo kayıtlarınız yüklenirken bir sorun oluştu.');
+      showToast('Kilo kayıtlarınız yüklenirken bir sorun oluştu.', 'error');
     }
   };
 
@@ -96,24 +100,24 @@ export default function WeightPanel({ onWeightChange }) {
   };
 
   const saveWeight = async () => {
-    if (!modal.form.weight) { Alert.alert('⚠️ Uyarı', 'Lütfen kilonuzu girin.'); return; }
+    if (!modal.form.weight) { showToast('Lütfen kilonuzu girin.', 'warning'); return; }
     const parsedWeight = parseFloat(modal.form.weight);
     try {
       const selectedDateKey = toLocalDateString(selectedDate);
       const weightData = { date: selectedDateKey, weight: parsedWeight, notes: modal.form.notes };
       if (modal.editingId) {
         await weightService.update(modal.editingId, weightData);
-        Alert.alert('✅ Güncellendi', 'Kilo kaydınız güncellendi.');
+        showToast('Kilo kaydınız güncellendi.', 'success');
       } else {
         const existingForDate = (weights || []).find(
           (r) => toDateKey(r.date) === selectedDateKey
         );
         if (existingForDate?.id) {
           await weightService.update(existingForDate.id, weightData);
-          Alert.alert('✅ Güncellendi', 'Aynı günün kilo kaydı güncellendi.');
+          showToast('Aynı günün kilo kaydı güncellendi.', 'success');
         } else {
           await weightService.create(weightData);
-          Alert.alert('✅ Kaydedildi', 'Yeni kilo kaydı eklendi.');
+          showToast('Yeni kilo kaydı eklendi.', 'success');
         }
       }
       modal.close();
@@ -124,29 +128,25 @@ export default function WeightPanel({ onWeightChange }) {
         onWeightChange(latestRecord.weight);
       }
     } catch (error) {
-      if (error.code === 'DUPLICATE_DATE') Alert.alert('📆 Aynı Gün Kaydı', error.message);
-      else Alert.alert('⚠️ İşlem Başarısız', 'Kilo kaydı kaydedilirken bir hata oluştu.');
+      if (error.code === 'DUPLICATE_DATE') showToast(error.message, 'warning');
+      else showToast('Kilo kaydı kaydedilirken bir hata oluştu.', 'error');
     }
   };
 
-  const deleteWeight = (id) => {
-    Alert.alert('🗑️ Kaydı Sil', 'Bu kilo kaydını silmek istediğinizden emin misiniz?', [
-      { text: 'İptal', style: 'cancel' },
-      {
-        text: 'Sil', style: 'destructive',
-        onPress: async () => {
-          try {
-            await weightService.delete(id);
-            await loadWeights();
-            const latestRecord = await weightService.getLatest();
-            await bodyInfoService.syncWeight(latestRecord ? latestRecord.weight : null);
-            onWeightChange(latestRecord ? latestRecord.weight : null);
-          } catch {
-            Alert.alert('⚠️ Silme Başarısız', 'Lütfen tekrar deneyin.');
-          }
-        },
-      },
-    ]);
+  const deleteWeight = (id) => setDeleteTargetId(id);
+
+  const confirmDeleteWeight = async () => {
+    const id = deleteTargetId;
+    setDeleteTargetId(null);
+    try {
+      await weightService.delete(id);
+      await loadWeights();
+      const latestRecord = await weightService.getLatest();
+      await bodyInfoService.syncWeight(latestRecord ? latestRecord.weight : null);
+      onWeightChange(latestRecord ? latestRecord.weight : null);
+    } catch {
+      showToast('Silme başarısız. Lütfen tekrar deneyin.', 'error');
+    }
   };
 
   const calculateChange = (index) =>
@@ -329,6 +329,17 @@ export default function WeightPanel({ onWeightChange }) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <ConfirmModal
+        visible={deleteTargetId !== null}
+        title="Kaydı Sil"
+        message="Bu kilo kaydını silmek istediğinizden emin misiniz?"
+        confirmText="Sil"
+        cancelText="İptal"
+        type="danger"
+        onConfirm={confirmDeleteWeight}
+        onCancel={() => setDeleteTargetId(null)}
+      />
     </View>
   );
 }

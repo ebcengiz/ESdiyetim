@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, Alert, Modal, Platform, KeyboardAvoidingView,
+  TouchableOpacity, Modal, Platform, KeyboardAvoidingView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,8 +14,10 @@ import AIAdviceCard from '../components/AIAdviceCard';
 import HealthSourcesCard from '../components/HealthSourcesCard';
 import GuestGateBanner from '../components/GuestGateBanner';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { useFormModal } from '../hooks/useFormModal';
 import { toDateString, formatShortDate } from '../utils/date';
+import ConfirmModal from '../components/ui/ConfirmModal';
 
 const EMPTY_DIET_PLAN = {
   breakfast: '', morning_snack: '', lunch: '',
@@ -39,7 +41,9 @@ const getFilledMealsCount = (plan) =>
 export default function DietPlanScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [dietPlans, setDietPlans] = useState([]);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [focusedField, setFocusedField] = useState('');
@@ -73,15 +77,13 @@ export default function DietPlanScreen() {
       else { setAiAdvice(''); setLoadingAdvice(false); }
     } catch (error) {
       console.error('Diyet planları yükleme hatası:', error);
-      Alert.alert('Hata', 'Diyet planları yüklenirken bir hata oluştu.');
+      showToast('Diyet planları yüklenirken bir hata oluştu.', 'error');
     }
   };
 
   const openAddModal = () => {
     if (!user) {
-      Alert.alert('Giriş gerekli', 'Diyet planı oluşturmak için hesap açın veya giriş yapın.', [
-        { text: 'Tamam', onPress: () => navigation.navigate('Profile') },
-      ]);
+      showToast('Diyet planı oluşturmak için giriş yapın.', 'info');
       return;
     }
     setSelectedDate(new Date());
@@ -124,7 +126,7 @@ export default function DietPlanScreen() {
       const picked = new Date(selectedDate);
       picked.setHours(0, 0, 0, 0);
       if (picked < today) {
-        Alert.alert('Geçersiz tarih', 'Plan tarihi bugünden önce olamaz.');
+        showToast('Plan tarihi bugünden önce olamaz.', 'warning');
         return;
       }
 
@@ -141,44 +143,40 @@ export default function DietPlanScreen() {
       };
       if (modal.editingId) {
         await dietPlanService.update(modal.editingId, planData);
-        Alert.alert('✅ Başarılı', 'Diyet planı güncellendi!');
+        showToast('Diyet planı güncellendi.', 'success');
       } else {
         const existingForDate = (dietPlans || []).find(
           (p) => toDateString(new Date(p.date)) === planData.date
         );
         if (existingForDate?.id) {
           await dietPlanService.update(existingForDate.id, planData);
-          Alert.alert('✅ Başarılı', 'Aynı günün planı güncellendi!');
+          showToast('Aynı günün planı güncellendi.', 'success');
         } else {
           await dietPlanService.create(planData);
-          Alert.alert('✅ Başarılı', 'Diyet planı eklendi!');
+          showToast('Diyet planı eklendi.', 'success');
         }
       }
       modal.close();
       loadDietPlans();
     } catch (error) {
       console.error('Diyet planı kaydetme hatası:', error);
-      Alert.alert('❌ Hata', 'Diyet planı kaydedilirken bir hata oluştu.');
+      showToast('Diyet planı kaydedilirken bir hata oluştu.', 'error');
     }
   };
 
-  const deleteDietPlan = (id) => {
-    Alert.alert('Diyet Planını Sil', 'Bu diyet planını silmek istediğinizden emin misiniz?', [
-      { text: 'İptal', style: 'cancel' },
-      {
-        text: 'Sil', style: 'destructive',
-        onPress: async () => {
-          try {
-            await dietPlanService.delete(id);
-            Alert.alert('✅ Başarılı', 'Diyet planı silindi!');
-            loadDietPlans();
-          } catch (error) {
-            console.error('Diyet planı silme hatası:', error);
-            Alert.alert('❌ Hata', 'Diyet planı silinirken bir hata oluştu.');
-          }
-        },
-      },
-    ]);
+  const deleteDietPlan = (id) => setDeleteTargetId(id);
+
+  const confirmDeleteDietPlan = async () => {
+    const id = deleteTargetId;
+    setDeleteTargetId(null);
+    try {
+      await dietPlanService.delete(id);
+      showToast('Diyet planı silindi.', 'success');
+      loadDietPlans();
+    } catch (error) {
+      console.error('Diyet planı silme hatası:', error);
+      showToast('Diyet planı silinirken bir hata oluştu.', 'error');
+    }
   };
 
   const fetchDietAdvice = async (currentPlans) => {
@@ -264,10 +262,7 @@ export default function DietPlanScreen() {
             style={[styles.caloriePhotoCard, !user && styles.caloriePhotoCardGuest]}
             onPress={() => {
               if (!user) {
-                Alert.alert('Giriş gerekli', 'Fotoğraftan kalori tahmini için hesap oluşturun veya giriş yapın.', [
-                  { text: 'İptal', style: 'cancel' },
-                  { text: 'Profil', onPress: () => navigation.navigate('Profile') },
-                ]);
+                showToast('Fotoğraftan kalori için giriş yapın.', 'info');
                 return;
               }
               navigation.navigate('MealCalorie');
@@ -521,6 +516,17 @@ export default function DietPlanScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <ConfirmModal
+        visible={deleteTargetId !== null}
+        title="Diyet Planını Sil"
+        message="Bu diyet planını silmek istediğinizden emin misiniz?"
+        confirmText="Sil"
+        cancelText="İptal"
+        type="danger"
+        onConfirm={confirmDeleteDietPlan}
+        onCancel={() => setDeleteTargetId(null)}
+      />
     </View>
   );
 }

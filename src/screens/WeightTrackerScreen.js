@@ -6,12 +6,10 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   Modal,
   Dimensions,
   Platform,
   KeyboardAvoidingView,
-
   Keyboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,10 +19,13 @@ import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { weightService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from '../components/AIAdviceCard';
+import { useToast } from '../contexts/ToastContext';
+import ConfirmModal from '../components/ui/ConfirmModal';
 
 const { width } = Dimensions.get('window');
 
 export default function WeightTrackerScreen() {
+  const { showToast } = useToast();
   const [weights, setWeights] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -32,6 +33,7 @@ export default function WeightTrackerScreen() {
   const [weight, setWeight] = useState('');
   const [notes, setNotes] = useState('');
   const [editingId, setEditingId] = useState(null);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
 
   // AI Tavsiye state
   const [aiAdvice, setAiAdvice] = useState('');
@@ -81,11 +83,7 @@ export default function WeightTrackerScreen() {
         setLoadingAdvice(false);
       }
     } catch (error) {
-      Alert.alert(
-        '⚠️ Yükleme Hatası',
-        'Kilo kayıtlarınız yüklenirken bir sorun oluştu. Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.',
-        [{ text: 'Tamam', style: 'default' }]
-      );
+      showToast('Kilo kayıtlarınız yüklenirken bir sorun oluştu.', 'error');
     }
   };
 
@@ -118,7 +116,7 @@ export default function WeightTrackerScreen() {
 
   const saveWeight = async () => {
     if (!weight) {
-      Alert.alert('⚠️ Uyarı', 'Lütfen kilonuzu girin.');
+      showToast('Lütfen kilonuzu girin.', 'warning');
       return;
     }
 
@@ -131,79 +129,35 @@ export default function WeightTrackerScreen() {
 
       if (editingId) {
         await weightService.update(editingId, weightData);
-        Alert.alert(
-          '✅ Güncellendi',
-          'Kilo kaydınız başarıyla güncellendi.',
-          [{ text: 'Tamam', style: 'default' }]
-        );
+        showToast('Kilo kaydınız güncellendi.', 'success');
       } else {
         await weightService.create(weightData);
-        Alert.alert(
-          '✅ Kaydedildi',
-          'Yeni kilo kaydınız başarıyla eklendi.',
-          [{ text: 'Tamam', style: 'default' }]
-        );
+        showToast('Yeni kilo kaydı eklendi.', 'success');
       }
 
       setModalVisible(false);
       loadWeights();
     } catch (error) {
-      // Duplicate key hatası
       if (error.code === 'DUPLICATE_DATE') {
-        Alert.alert(
-          '📆 Aynı Gün Kaydı',
-          error.message,
-          [{ text: 'Tamam', style: 'default' }]
-        );
-      }
-      // Diğer veritabanı hataları
-      else if (error.message) {
-        Alert.alert(
-          '⚠️ İşlem Başarısız',
-          'Kilo kaydı kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.',
-          [{ text: 'Tamam', style: 'default' }]
-        );
-      }
-      // Bilinmeyen hatalar
-      else {
-        Alert.alert(
-          '⚠️ Bağlantı Hatası',
-          'Beklenmeyen bir hata oluştu. Lütfen internet bağlantınızı kontrol edin.',
-          [{ text: 'Tamam', style: 'default' }]
-        );
+        showToast(error.message, 'warning');
+      } else {
+        showToast('Kilo kaydı kaydedilirken bir hata oluştu.', 'error');
       }
     }
   };
 
-  const deleteWeight = (id) => {
-    Alert.alert(
-      '🗑️ Kaydı Sil',
-      'Bu kilo kaydını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
-      [
-        { text: 'İptal', style: 'cancel' },
-        {
-          text: 'Sil',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await weightService.delete(id);
-              Alert.alert(
-                '✅ Başarılı',
-                'Kilo kaydınız başarıyla silindi.',
-                [{ text: 'Tamam', style: 'default' }]
-              );
-              loadWeights();
-            } catch (error) {
-              Alert.alert(
-                '⚠️ Silme Başarısız',
-                'Kilo kaydı silinirken bir hata oluştu. Lütfen tekrar deneyin.',
-                [{ text: 'Tamam', style: 'default' }]
-              );
-            }
-          },
-        },
-      ]
-    );
+  const deleteWeight = (id) => setDeleteTargetId(id);
+
+  const confirmDeleteWeight = async () => {
+    const id = deleteTargetId;
+    setDeleteTargetId(null);
+    try {
+      await weightService.delete(id);
+      showToast('Kilo kaydı silindi.', 'success');
+      loadWeights();
+    } catch (error) {
+      showToast('Kilo kaydı silinirken bir hata oluştu.', 'error');
+    }
   };
 
   const calculateChange = (index) => {
@@ -505,6 +459,17 @@ export default function WeightTrackerScreen() {
       </Modal>
 
       {/* AI Modal kaldırıldı — inline gösteriliyor */}
+
+      <ConfirmModal
+        visible={deleteTargetId !== null}
+        title="Kaydı Sil"
+        message="Bu kilo kaydını silmek istediğinizden emin misiniz?"
+        confirmText="Sil"
+        cancelText="İptal"
+        type="danger"
+        onConfirm={confirmDeleteWeight}
+        onCancel={() => setDeleteTargetId(null)}
+      />
     </View>
   );
 }

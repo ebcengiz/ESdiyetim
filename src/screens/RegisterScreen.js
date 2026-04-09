@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,14 +8,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SIZES, SHADOWS, INPUT_FIELD } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function RegisterScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -26,44 +29,56 @@ export default function RegisterScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [focusedField, setFocusedField] = useState(null);
   const { signUp, continueAsGuest } = useAuth();
+  const { showToast } = useToast();
+
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+
+  const shake = () => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 8,  duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -8, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 6,  duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -6, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0,  duration: 60, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const validate = () => {
+    const errs = {};
+    if (!fullName.trim()) errs.fullName = 'Ad soyad gerekli.';
+    if (!email.trim()) {
+      errs.email = 'E-posta adresi gerekli.';
+    } else if (!emailRegex.test(email)) {
+      errs.email = 'Geçerli bir e-posta adresi girin.';
+    }
+    if (!password.trim()) {
+      errs.password = 'Şifre gerekli.';
+    } else if (password.length < 6) {
+      errs.password = 'Şifre en az 6 karakter olmalı.';
+    }
+    if (!confirmPassword.trim()) {
+      errs.confirmPassword = 'Şifre tekrarı gerekli.';
+    } else if (password !== confirmPassword) {
+      errs.confirmPassword = 'Şifreler eşleşmiyor.';
+    }
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const clearError = (field) => {
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
 
   const handleRegister = async () => {
-    // Validation
-    if (!fullName.trim()) {
-      Alert.alert('Hata', 'Lütfen adınızı ve soyadınızı girin.');
-      return;
-    }
-
-    if (!email.trim()) {
-      Alert.alert('Hata', 'Lütfen e-posta adresinizi girin.');
-      return;
-    }
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert('Hata', 'Geçerli bir e-posta adresi girin.');
-      return;
-    }
-
-    if (!password.trim()) {
-      Alert.alert('Hata', 'Lütfen şifrenizi girin.');
-      return;
-    }
-
-    if (password.length < 6) {
-      Alert.alert('Hata', 'Şifreniz en az 6 karakter olmalıdır.');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Hata', 'Şifreler eşleşmiyor.');
+    if (!validate()) {
+      shake();
       return;
     }
 
     setLoading(true);
-
     try {
       const { data, error } = await signUp(
         email.trim().toLowerCase(),
@@ -73,39 +88,31 @@ export default function RegisterScreen({ navigation }) {
 
       if (error) {
         if (error.message.includes('already registered')) {
-          Alert.alert('Hata', 'Bu e-posta adresi zaten kayıtlı.');
+          setErrors({ email: 'Bu e-posta adresi zaten kayıtlı.' });
+          shake();
         } else {
-          Alert.alert('Hata', error.message || 'Kayıt olurken bir hata oluştu.');
+          showToast(error.message || 'Kayıt olurken bir hata oluştu.', 'error');
         }
         return;
       }
 
-      // Oturum hemen açıldıysa (e-posta doğrulaması kapalı vb.) kök navigator zaten ana uygulamaya geçer;
-      // bu durumda Login ekranı yoktur — navigate('Login') hata verir.
       if (data?.session) {
-        Alert.alert(
-          'Kayıt Başarılı!',
-          'Hesabınız oluşturuldu. Hoş geldiniz!',
-          [{ text: 'Tamam' }]
-        );
+        showToast('Hesabınız oluşturuldu. Hoş geldiniz!', 'success');
       } else {
-        Alert.alert(
-          'Kayıt Başarılı!',
-          'Hesabınız oluşturuldu. E-posta doğrulaması isteniyorsa gelen kutunuzu kontrol edin; ardından giriş yapabilirsiniz.',
-          [
-            {
-              text: 'Tamam',
-              onPress: () => navigation.navigate('Login'),
-            },
-          ]
-        );
+        showToast('Hesap oluşturuldu! Gelen kutunuzu kontrol edin.', 'success');
+        setTimeout(() => navigation.navigate('Login'), 1200);
       }
-    } catch (error) {
-      Alert.alert('Hata', 'Beklenmeyen bir hata oluştu.');
-      console.error('Register error:', error);
+    } catch (_) {
+      showToast('Beklenmeyen bir hata oluştu.', 'error');
     } finally {
       setLoading(false);
     }
+  };
+
+  const inputBorderColor = (field) => {
+    if (errors[field]) return COLORS.error;
+    if (focusedField === field) return COLORS.primary;
+    return COLORS.border;
   };
 
   return (
@@ -127,13 +134,19 @@ export default function RegisterScreen({ navigation }) {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
             disabled={loading}
+            activeOpacity={0.7}
           >
-            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+            <Ionicons name="arrow-back" size={22} color={COLORS.text} />
           </TouchableOpacity>
         </View>
 
-        {/* Form */}
-        <View style={styles.formContainer}>
+        <Animated.View
+          style={[
+            styles.formContainer,
+            { transform: [{ translateX: shakeAnim }] },
+          ]}
+        >
+          {/* Title */}
           <View style={styles.titleContainer}>
             <LinearGradient
               colors={[COLORS.primary, COLORS.primaryLight]}
@@ -141,180 +154,197 @@ export default function RegisterScreen({ navigation }) {
               end={{ x: 1, y: 1 }}
               style={styles.iconBadge}
             >
-              <Ionicons name="person-add" size={32} color={COLORS.textOnPrimary} />
+              <Ionicons name="person-add" size={28} color="#fff" />
             </LinearGradient>
             <Text style={styles.title}>Hesap Oluşturun</Text>
             <Text style={styles.subtitle}>Sağlıklı yaşam yolculuğunuza başlayın</Text>
           </View>
 
-          {/* Full Name Input */}
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIconContainer}>
-              <Ionicons name="person-outline" size={20} color={COLORS.primary} />
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="Ad Soyad"
-              placeholderTextColor={COLORS.textSecondary}
-              value={fullName}
-              onChangeText={setFullName}
-              autoCapitalize="words"
-              editable={!loading}
-            />
-          </View>
-
-          {/* Email Input */}
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIconContainer}>
-              <Ionicons name="mail-outline" size={20} color={COLORS.primary} />
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="E-posta adresiniz"
-              placeholderTextColor={COLORS.textSecondary}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!loading}
-            />
-          </View>
-
-          {/* Password Input */}
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIconContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color={COLORS.primary} />
-            </View>
-            <TextInput
-              style={[styles.input, styles.passwordInput]}
-              placeholder="Şifre (en az 6 karakter)"
-              placeholderTextColor={COLORS.textSecondary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!loading}
-            />
-            <TouchableOpacity
-              style={styles.eyeIcon}
-              onPress={() => setShowPassword(!showPassword)}
-              disabled={loading}
-            >
-              <Ionicons
-                name={showPassword ? 'eye-outline' : 'eye-off-outline'}
-                size={20}
-                color={COLORS.textSecondary}
+          {/* Full Name */}
+          <View style={styles.fieldWrap}>
+            <View style={[styles.inputContainer, { borderColor: inputBorderColor('fullName') }, focusedField === 'fullName' && styles.inputFocused]}>
+              <View style={styles.inputIconContainer}>
+                <Ionicons name="person-outline" size={20} color={focusedField === 'fullName' ? COLORS.primary : COLORS.textSecondary} />
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Ad Soyad"
+                placeholderTextColor={COLORS.textLight}
+                value={fullName}
+                onChangeText={(v) => { setFullName(v); clearError('fullName'); }}
+                autoCapitalize="words"
+                editable={!loading}
+                onFocus={() => setFocusedField('fullName')}
+                onBlur={() => setFocusedField(null)}
               />
-            </TouchableOpacity>
-          </View>
-
-          {/* Confirm Password Input */}
-          <View style={styles.inputContainer}>
-            <View style={styles.inputIconContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color={COLORS.primary} />
             </View>
-            <TextInput
-              style={[styles.input, styles.passwordInput]}
-              placeholder="Şifre Tekrar"
-              placeholderTextColor={COLORS.textSecondary}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry={!showConfirmPassword}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!loading}
-            />
-            <TouchableOpacity
-              style={styles.eyeIcon}
-              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              disabled={loading}
-            >
-              <Ionicons
-                name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'}
-                size={20}
-                color={COLORS.textSecondary}
-              />
-            </TouchableOpacity>
+            {errors.fullName ? <ErrorRow text={errors.fullName} /> : null}
           </View>
 
-          {/* Register Button */}
+          {/* Email */}
+          <View style={styles.fieldWrap}>
+            <View style={[styles.inputContainer, { borderColor: inputBorderColor('email') }, focusedField === 'email' && styles.inputFocused]}>
+              <View style={styles.inputIconContainer}>
+                <Ionicons name="mail-outline" size={20} color={focusedField === 'email' ? COLORS.primary : COLORS.textSecondary} />
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="E-posta adresiniz"
+                placeholderTextColor={COLORS.textLight}
+                value={email}
+                onChangeText={(v) => { setEmail(v); clearError('email'); }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+                onFocus={() => setFocusedField('email')}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
+            {errors.email ? <ErrorRow text={errors.email} /> : null}
+          </View>
+
+          {/* Password */}
+          <View style={styles.fieldWrap}>
+            <View style={[styles.inputContainer, { borderColor: inputBorderColor('password') }, focusedField === 'password' && styles.inputFocused]}>
+              <View style={styles.inputIconContainer}>
+                <Ionicons name="lock-closed-outline" size={20} color={focusedField === 'password' ? COLORS.primary : COLORS.textSecondary} />
+              </View>
+              <TextInput
+                style={[styles.input, styles.passwordInput]}
+                placeholder="Şifre (en az 6 karakter)"
+                placeholderTextColor={COLORS.textLight}
+                value={password}
+                onChangeText={(v) => { setPassword(v); clearError('password'); }}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+                onFocus={() => setFocusedField('password')}
+                onBlur={() => setFocusedField(null)}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+                disabled={loading}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            {errors.password ? <ErrorRow text={errors.password} /> : null}
+          </View>
+
+          {/* Confirm Password */}
+          <View style={styles.fieldWrap}>
+            <View style={[styles.inputContainer, { borderColor: inputBorderColor('confirmPassword') }, focusedField === 'confirmPassword' && styles.inputFocused]}>
+              <View style={styles.inputIconContainer}>
+                <Ionicons name="lock-closed-outline" size={20} color={focusedField === 'confirmPassword' ? COLORS.primary : COLORS.textSecondary} />
+              </View>
+              <TextInput
+                style={[styles.input, styles.passwordInput]}
+                placeholder="Şifre Tekrar"
+                placeholderTextColor={COLORS.textLight}
+                value={confirmPassword}
+                onChangeText={(v) => { setConfirmPassword(v); clearError('confirmPassword'); }}
+                secureTextEntry={!showConfirmPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+                onFocus={() => setFocusedField('confirmPassword')}
+                onBlur={() => setFocusedField(null)}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                disabled={loading}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            {errors.confirmPassword ? <ErrorRow text={errors.confirmPassword} /> : null}
+          </View>
+
+          {/* Submit */}
           <TouchableOpacity
-            style={[styles.registerButton, loading && styles.registerButtonDisabled]}
+            style={[styles.registerButton, loading && styles.buttonDisabled]}
             onPress={handleRegister}
             disabled={loading}
-            activeOpacity={0.8}
+            activeOpacity={0.82}
           >
             <LinearGradient
               colors={loading ? [COLORS.disabled, COLORS.disabled] : [COLORS.primary, COLORS.primaryDark]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={styles.registerGradient}
+              style={styles.buttonGradient}
             >
               {loading ? (
-                <ActivityIndicator color={COLORS.textOnPrimary} />
+                <ActivityIndicator color="#fff" />
               ) : (
                 <>
-                  <Text style={styles.registerButtonText}>Kayıt Ol</Text>
-                  <Ionicons name="checkmark-circle" size={20} color={COLORS.textOnPrimary} />
+                  <Text style={styles.buttonText}>Kayıt Ol</Text>
+                  <Ionicons name="checkmark-circle" size={20} color="#fff" />
                 </>
               )}
             </LinearGradient>
           </TouchableOpacity>
 
+          {/* Divider */}
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
             <Text style={styles.dividerText}>veya</Text>
             <View style={styles.dividerLine} />
           </View>
 
+          {/* Guest */}
           <TouchableOpacity
             style={styles.guestButton}
-            onPress={async () => {
-              await continueAsGuest();
-            }}
+            onPress={() => continueAsGuest()}
             disabled={loading}
             activeOpacity={0.85}
           >
             <Ionicons name="phone-portrait-outline" size={20} color={COLORS.primary} />
             <Text style={styles.guestButtonText}>Hesap olmadan devam et</Text>
           </TouchableOpacity>
-          <Text style={styles.guestHint}>
-            Sağlık ipuçları hesap olmadan kullanılabilir; diğer özellikler için giriş gerekir.
-          </Text>
 
-          {/* Login Link */}
+          <View style={styles.guestHintBox}>
+            <Ionicons name="information-circle-outline" size={15} color={COLORS.textLight} />
+            <Text style={styles.guestHintText}>
+              Sağlık ipuçları hesap olmadan kullanılabilir; diğer özellikler için giriş gerekir.
+            </Text>
+          </View>
+
           <View style={styles.loginContainer}>
             <Text style={styles.loginText}>Zaten hesabınız var mı? </Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Login')}
-              disabled={loading}
-            >
+            <TouchableOpacity onPress={() => navigation.navigate('Login')} disabled={loading}>
               <Text style={styles.loginLink}>Giriş Yapın</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
+const ErrorRow = ({ text }) => (
+  <View style={styles.errorRow}>
+    <Ionicons name="alert-circle" size={14} color={COLORS.error} />
+    <Text style={styles.errorText}>{text}</Text>
+  </View>
+);
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  scrollContent: { flexGrow: 1 },
   header: {
     paddingHorizontal: SIZES.containerPadding,
+    paddingBottom: SIZES.sm,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
@@ -322,35 +352,46 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     paddingHorizontal: SIZES.containerPadding,
-    paddingTop: SIZES.lg,
+    paddingTop: SIZES.md,
   },
   titleContainer: {
     alignItems: 'center',
     marginBottom: SIZES.xl,
   },
   iconBadge: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: SIZES.md,
+    ...SHADOWS.medium,
   },
   title: {
     fontSize: SIZES.h2,
     fontWeight: '800',
     letterSpacing: -0.5,
     color: COLORS.text,
-    marginBottom: SIZES.xs,
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: SIZES.body,
     color: COLORS.textSecondary,
     textAlign: 'center',
   },
+  fieldWrap: {
+    marginBottom: SIZES.md,
+  },
   inputContainer: {
     ...INPUT_FIELD,
     borderRadius: SIZES.radiusMedium,
+    marginBottom: 0,
+    borderWidth: 1.5,
+  },
+  inputFocused: {
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    elevation: 3,
   },
   inputIconContainer: {
     width: 40,
@@ -358,7 +399,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: 56,
+    height: 54,
     fontSize: SIZES.body,
     color: COLORS.text,
   },
@@ -370,21 +411,43 @@ const styles = StyleSheet.create({
     right: SIZES.md,
     padding: SIZES.xs,
   },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 6,
+    paddingHorizontal: 4,
+  },
+  errorText: {
+    fontSize: SIZES.small,
+    color: COLORS.error,
+    fontWeight: '500',
+  },
   registerButton: {
     borderRadius: SIZES.radiusMedium,
     overflow: 'hidden',
+    marginTop: SIZES.sm,
     ...SHADOWS.medium,
+  },
+  buttonDisabled: { opacity: 0.7 },
+  buttonGradient: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SIZES.sm,
+  },
+  buttonText: {
+    fontSize: SIZES.h4,
+    fontWeight: '700',
+    color: '#fff',
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: SIZES.lg,
+    marginVertical: SIZES.xl,
   },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: COLORS.border,
-  },
+  dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
   dividerText: {
     marginHorizontal: SIZES.md,
     fontSize: SIZES.bodySmall,
@@ -395,7 +458,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: SIZES.sm,
-    paddingVertical: SIZES.md,
+    paddingVertical: 14,
     borderRadius: SIZES.radiusMedium,
     borderWidth: 1.5,
     borderColor: COLORS.primary,
@@ -406,29 +469,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.primary,
   },
-  guestHint: {
-    fontSize: 12,
-    color: COLORS.textLight,
-    textAlign: 'center',
-    lineHeight: 20,
+  guestHintBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
     marginTop: SIZES.md,
     marginBottom: SIZES.lg,
-    paddingHorizontal: SIZES.sm,
+    backgroundColor: COLORS.accent,
+    borderRadius: SIZES.radiusSmall,
+    padding: SIZES.sm + 2,
   },
-  registerButtonDisabled: {
-    opacity: 0.7,
-  },
-  registerGradient: {
-    height: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SIZES.sm,
-  },
-  registerButtonText: {
-    fontSize: SIZES.h4,
-    fontWeight: '600',
-    color: COLORS.textOnPrimary,
+  guestHintText: {
+    flex: 1,
+    fontSize: SIZES.small,
+    color: COLORS.textLight,
+    lineHeight: 19,
   },
   loginContainer: {
     flexDirection: 'row',
@@ -438,13 +493,6 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.md,
     paddingBottom: 4,
   },
-  loginText: {
-    fontSize: SIZES.body,
-    color: COLORS.textSecondary,
-  },
-  loginLink: {
-    fontSize: SIZES.body,
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
+  loginText: { fontSize: SIZES.body, color: COLORS.textSecondary },
+  loginLink: { fontSize: SIZES.body, color: COLORS.primary, fontWeight: '700' },
 });

@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
-  Alert,
   Animated,
   Easing,
 } from 'react-native';
@@ -18,6 +17,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { weightService, dietPlanService, tipsService, homeSummaryService } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import GuestGateBanner from '../components/GuestGateBanner';
 import HealthSourcesCard from '../components/HealthSourcesCard';
 
@@ -32,6 +32,7 @@ const toLocalDateString = (date = new Date()) => {
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user, isGuest } = useAuth();
+  const { showToast } = useToast();
   const [latestWeight, setLatestWeight] = useState(null);
   const [todayDiet, setTodayDiet] = useState(null);
   const [randomTip, setRandomTip] = useState(null);
@@ -78,7 +79,7 @@ export default function HomeScreen({ navigation }) {
     } catch (error) {
       console.error('Veri yükleme hatası:', error);
       if (user) {
-        Alert.alert('Hata', 'Veriler yüklenirken bir hata oluştu.');
+        showToast('Veriler yüklenirken bir hata oluştu.', 'error');
       }
     } finally {
       setLoadingState(false);
@@ -103,14 +104,7 @@ export default function HomeScreen({ navigation }) {
 
   const openMealCalorieOrPrompt = () => {
     if (!user) {
-      Alert.alert(
-        'Giriş gerekli',
-        'Fotoğraftan kalori tahmini için hesap oluşturun veya giriş yapın.',
-        [
-          { text: 'İptal', style: 'cancel' },
-          { text: 'Profil', onPress: () => navigation.navigate('Profile') },
-        ]
-      );
+      showToast('Fotoğraftan kalori için giriş yapın veya hesap oluşturun.', 'info');
       return;
     }
     navigation.navigate('MealCalorie');

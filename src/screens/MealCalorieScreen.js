@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   Platform,
@@ -24,6 +23,7 @@ import { aiService } from '../services/aiService';
 import HealthSourcesCard from '../components/HealthSourcesCard';
 import GuestGateBanner from '../components/GuestGateBanner';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 
 const DISCLAIMER_STORAGE_KEY = 'mealCalorieHealthDisclaimerV1';
 
@@ -67,6 +67,7 @@ const getItemKcal = (item) => {
 export default function MealCalorieScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [imageUri, setImageUri] = useState(null);
   const [base64, setBase64] = useState(null);
   const [mimeType, setMimeType] = useState('image/jpeg');
@@ -116,13 +117,13 @@ export default function MealCalorieScreen({ navigation }) {
       if (useCamera) {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('İzin gerekli', 'Kamera kullanımına izin verin.');
+          showToast('Kamera kullanımı için izin gerekli.', 'warning');
           return;
         }
       } else {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('İzin gerekli', 'Galeri erişimine izin verin.');
+          showToast('Galeri erişimi için izin gerekli.', 'warning');
           return;
         }
       }
@@ -148,13 +149,13 @@ export default function MealCalorieScreen({ navigation }) {
       setResult(null);
     } catch (e) {
       console.error(e);
-      Alert.alert('Hata', 'Görsel seçilemedi.');
+      showToast('Görsel seçilemedi.', 'error');
     }
   };
 
   const analyze = async () => {
     if (!base64) {
-      Alert.alert('Görsel yok', 'Önce bir fotoğraf seçin.');
+      showToast('Önce bir fotoğraf seçin.', 'warning');
       return;
     }
     setLoading(true);
@@ -166,7 +167,7 @@ export default function MealCalorieScreen({ navigation }) {
       });
       setResult(data);
     } catch (e) {
-      Alert.alert('Analiz başarısız', e.message || 'Tekrar deneyin.');
+      showToast(e.message || 'Analiz başarısız. Tekrar deneyin.', 'error');
     } finally {
       setLoading(false);
     }
