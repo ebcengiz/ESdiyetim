@@ -233,6 +233,70 @@ export const tipsService = {
   },
 };
 
+// Ana sayfa özet işlemleri
+export const homeSummaryService = {
+  // Bugünkü özet KPI verilerini getir
+  async getDailySummary(date = new Date().toISOString().split("T")[0]) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return {
+        latest_weight: null,
+        meals_planned_count: 0,
+        active_goals_count: 0,
+        completed_goals_count: 0,
+      };
+    }
+
+    // Öncelik: RPC ile tek round-trip.
+    const { data: rpcData, error: rpcError } = await supabase.rpc(
+      "get_home_daily_summary",
+      { p_date: date }
+    );
+
+    if (!rpcError && rpcData) {
+      return Array.isArray(rpcData) ? rpcData[0] || null : rpcData;
+    }
+
+    // Fallback: RPC yoksa uygulama çalışmaya devam etsin.
+    const [{ data: latestWeight }, { data: dietPlan }, { data: goals }] =
+      await Promise.all([
+        supabase
+          .from("weight_records")
+          .select("weight")
+          .eq("user_id", user.id)
+          .order("date", { ascending: false })
+          .limit(1)
+          .single(),
+        supabase
+          .from("diet_plans")
+          .select("breakfast,lunch,dinner")
+          .eq("user_id", user.id)
+          .eq("date", date)
+          .single(),
+        supabase
+          .from("goals")
+          .select("status")
+          .eq("user_id", user.id),
+      ]);
+
+    const mealsPlannedCount = [dietPlan?.breakfast, dietPlan?.lunch, dietPlan?.dinner]
+      .filter((meal) => typeof meal === "string" && meal.trim().length > 0).length;
+
+    const activeGoalsCount = (goals || []).filter((g) => g.status === "active").length;
+    const completedGoalsCount = (goals || []).filter((g) => g.status === "completed").length;
+
+    return {
+      latest_weight: latestWeight?.weight ?? null,
+      meals_planned_count: mealsPlannedCount,
+      active_goals_count: activeGoalsCount,
+      completed_goals_count: completedGoalsCount,
+    };
+  },
+};
+
 // Vücut bilgileri işlemleri
 export const bodyInfoService = {
   // En son vücut bilgisini getir (sadece kullanıcının kendi kaydı)

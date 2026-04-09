@@ -8,12 +8,14 @@ import {
   RefreshControl,
   Dimensions,
   Alert,
+  Animated,
+  Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
-import { weightService, dietPlanService, tipsService } from '../services/supabase';
+import { weightService, dietPlanService, tipsService, homeSummaryService } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import GuestGateBanner from '../components/GuestGateBanner';
 import HealthSourcesCard from '../components/HealthSourcesCard';
@@ -26,13 +28,22 @@ export default function HomeScreen({ navigation }) {
   const [latestWeight, setLatestWeight] = useState(null);
   const [todayDiet, setTodayDiet] = useState(null);
   const [randomTip, setRandomTip] = useState(null);
+  const [dailySummary, setDailySummary] = useState({
+    active_goals_count: 0,
+    completed_goals_count: 0,
+    meals_planned_count: 0,
+    latest_weight: null,
+  });
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingState, setLoadingState] = useState(true);
+  const heroEnterAnim = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadData();
   }, [user]);
 
   const loadData = async () => {
+    setLoadingState(true);
     try {
       const tip = await tipsService.getRandom();
       setRandomTip(tip);
@@ -49,11 +60,23 @@ export default function HomeScreen({ navigation }) {
       const today = new Date().toISOString().split('T')[0];
       const diet = await dietPlanService.getByDate(today);
       setTodayDiet(diet);
+
+      const summary = await homeSummaryService.getDailySummary(today);
+      if (summary) {
+        setDailySummary({
+          active_goals_count: summary.active_goals_count ?? 0,
+          completed_goals_count: summary.completed_goals_count ?? 0,
+          meals_planned_count: summary.meals_planned_count ?? 0,
+          latest_weight: summary.latest_weight ?? null,
+        });
+      }
     } catch (error) {
       console.error('Veri yükleme hatası:', error);
       if (user) {
         Alert.alert('Hata', 'Veriler yüklenirken bir hata oluştu.');
       }
+    } finally {
+      setLoadingState(false);
     }
   };
 
@@ -79,6 +102,44 @@ export default function HomeScreen({ navigation }) {
   };
 
   const headerTopPad = Math.max(insets.top, 12) + 16;
+  const todayDateLabel = new Date().toLocaleDateString('tr-TR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  const displayName = !user && isGuest
+    ? 'Misafir'
+    : user?.user_metadata?.full_name?.split(' ')?.[0] || 'Hoş Geldiniz';
+  const completedMealsCount = todayDiet
+    ? [todayDiet.breakfast, todayDiet.lunch, todayDiet.dinner].filter(Boolean).length
+    : 0;
+  const mealsCountDisplay = dailySummary.meals_planned_count || completedMealsCount;
+  const goalsDisplayText = dailySummary.active_goals_count > 0
+    ? `${dailySummary.active_goals_count} aktif`
+    : dailySummary.completed_goals_count > 0
+      ? `${dailySummary.completed_goals_count} tamam`
+      : 'Hedef ekle';
+
+  useEffect(() => {
+    Animated.timing(heroEnterAnim, {
+      toValue: 1,
+      duration: 420,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [heroEnterAnim]);
+
+  const heroAnimatedStyle = {
+    opacity: heroEnterAnim,
+    transform: [
+      {
+        translateY: heroEnterAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [14, 0],
+        }),
+      },
+    ],
+  };
 
   return (
     <SafeAreaView style={styles.root} edges={['left', 'right']}>
@@ -95,12 +156,9 @@ export default function HomeScreen({ navigation }) {
         <View style={[styles.headerInner, { paddingTop: headerTopPad }]}>
           <View style={styles.headerContent}>
             <View>
-              <Text style={styles.appName}>ESdiyet</Text>
-              {!user && isGuest ? (
-                <Text style={styles.userName}>Misafir</Text>
-              ) : user?.user_metadata?.full_name ? (
-                <Text style={styles.userName}>{user.user_metadata.full_name}</Text>
-              ) : null}
+              <Text style={styles.headerOverline}>Günlük Sağlık Asistanın</Text>
+              <Text style={styles.appName}>Merhaba, {displayName}</Text>
+              <Text style={styles.userName}>{todayDateLabel}</Text>
             </View>
             <View style={styles.headerActions}>
               <TouchableOpacity
@@ -124,6 +182,49 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
             </View>
           </View>
+          <Animated.View style={[styles.heroSummaryCard, heroAnimatedStyle]}>
+            <View style={styles.heroSummaryTop}>
+              <View style={styles.heroStatusBadge}>
+                <Ionicons
+                  name={todayDiet ? 'checkmark-circle' : 'time-outline'}
+                  size={16}
+                  color={COLORS.textOnPrimary}
+                />
+                <Text style={styles.heroStatusText}>
+                  {todayDiet ? 'Bugünkü plan hazır' : 'Plan bekleniyor'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Goals')}
+                style={styles.heroMiniAction}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.heroMiniActionText}>Hedefler</Text>
+                <Ionicons name="chevron-forward" size={14} color={COLORS.textOnPrimary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.heroMetricsRow}>
+              <View style={styles.heroMetricCard}>
+                <Text style={styles.heroMetricLabel}>Son kilo</Text>
+                {loadingState ? (
+                  <View style={styles.skeletonHeroLine} />
+                ) : (
+                  <Text style={styles.heroMetricValue}>
+                    {latestWeight ? `${latestWeight.weight} kg` : '--'}
+                  </Text>
+                )}
+              </View>
+              <View style={styles.heroMetricDivider} />
+              <View style={styles.heroMetricCard}>
+                <Text style={styles.heroMetricLabel}>Kalori analizi</Text>
+                {loadingState ? (
+                  <View style={[styles.skeletonHeroLine, { width: '68%' }]} />
+                ) : (
+                  <Text style={styles.heroMetricValue}>{user ? 'Aktif' : 'Giriş gerekli'}</Text>
+                )}
+              </View>
+            </View>
+          </Animated.View>
         </View>
       </LinearGradient>
 
@@ -148,6 +249,22 @@ export default function HomeScreen({ navigation }) {
             />
           ) : null}
 
+          <View style={styles.kpiStrip}>
+            <KpiPill
+              icon="calendar-clear-outline"
+              label="Öğün"
+              value={loadingState ? '...' : `${mealsCountDisplay}/3`}
+              onPress={() => navigation.navigate('DietPlan')}
+            />
+            <KpiPill
+              icon="water-outline"
+              label="Hedef"
+              value={loadingState ? '...' : goalsDisplayText}
+              compact
+              onPress={() => navigation.navigate('Goals')}
+            />
+          </View>
+
           {/* Stats Cards Row */}
           <View style={styles.statsRow}>
             {/* Weight Card */}
@@ -167,7 +284,9 @@ export default function HomeScreen({ navigation }) {
                 </View>
                 <View style={styles.statInfo}>
                   <Text style={styles.statLabel}>Son Kilom</Text>
-                  {latestWeight ? (
+                  {loadingState ? (
+                    <View style={styles.statSkeleton} />
+                  ) : latestWeight ? (
                     <>
                       <Text style={styles.statValue}>{latestWeight.weight}</Text>
                       <Text style={styles.statUnit}>kg</Text>
@@ -196,15 +315,21 @@ export default function HomeScreen({ navigation }) {
                 </View>
                 <View style={styles.statInfo}>
                   <Text style={styles.statLabel}>Bugün</Text>
-                  <Ionicons
-                    name={todayDiet ? "checkmark-circle" : "help-circle"}
-                    size={32}
-                    color={COLORS.textOnPrimary}
-                    style={{ marginVertical: 4 }}
-                  />
-                  <Text style={styles.statUnit}>
-                    {todayDiet ? 'Planlandı' : 'Plan Yok'}
-                  </Text>
+                  {loadingState ? (
+                    <View style={styles.statSkeleton} />
+                  ) : (
+                    <>
+                      <Ionicons
+                        name={todayDiet ? "checkmark-circle" : "help-circle"}
+                        size={32}
+                        color={COLORS.textOnPrimary}
+                        style={{ marginVertical: 4 }}
+                      />
+                      <Text style={styles.statUnit}>
+                        {todayDiet ? 'Planlandı' : 'Plan Yok'}
+                      </Text>
+                    </>
+                  )}
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -236,18 +361,13 @@ export default function HomeScreen({ navigation }) {
           {/* Today's Diet Section */}
           {todayDiet && (
             <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <View style={styles.sectionTitleRow}>
-                  <Ionicons name="restaurant-outline" size={24} color={COLORS.text} />
-                  <Text style={styles.sectionTitle}>Bugünün Diyetim</Text>
-                </View>
-                <TouchableOpacity onPress={() => navigation.navigate('DietPlan')}>
-                  <View style={styles.seeAllButton}>
-                    <Text style={styles.seeAllText}>Detay</Text>
-                    <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
-                  </View>
-                </TouchableOpacity>
-              </View>
+              <SectionHeader
+                icon="restaurant-outline"
+                title="Bugünün Diyetim"
+                subtitle="Planlanan öğünlerini takip et"
+                actionText="Detay"
+                onPress={() => navigation.navigate('DietPlan')}
+              />
               <View style={styles.modernCard}>
                 {todayDiet.breakfast && (
                   <MealItem icon="sunny" label="Kahvaltı" text={todayDiet.breakfast} />
@@ -263,20 +383,15 @@ export default function HomeScreen({ navigation }) {
           )}
 
           {/* Daily Tip Section */}
-          {randomTip && (
+          {!loadingState && randomTip && (
             <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <View style={styles.sectionTitleRow}>
-                  <Ionicons name="bulb" size={24} color={COLORS.text} />
-                  <Text style={styles.sectionTitle}>Günün Tavsiyesi</Text>
-                </View>
-                <TouchableOpacity onPress={() => navigation.navigate('Tips')}>
-                  <View style={styles.seeAllButton}>
-                    <Text style={styles.seeAllText}>Tümü</Text>
-                    <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
-                  </View>
-                </TouchableOpacity>
-              </View>
+              <SectionHeader
+                icon="bulb"
+                title="Günün Tavsiyesi"
+                subtitle="Kısa, uygulanabilir sağlık önerisi"
+                actionText="Tümü"
+                onPress={() => navigation.navigate('Tips')}
+              />
               <TouchableOpacity
                 style={styles.tipCard}
                 onPress={() => navigation.navigate('Tips')}
@@ -300,12 +415,20 @@ export default function HomeScreen({ navigation }) {
             </View>
           )}
 
+          {loadingState ? (
+            <View style={[styles.section, { marginTop: -4 }]}>
+              <View style={styles.skeletonBlockLg} />
+              <View style={styles.skeletonBlockMd} />
+            </View>
+          ) : null}
+
           {/* Quick Actions */}
           <View style={styles.section}>
-            <View style={styles.sectionTitleRow}>
-              <Ionicons name="grid" size={24} color={COLORS.text} />
-              <Text style={styles.sectionTitle}>Hızlı İşlemler</Text>
-            </View>
+            <SectionHeader
+              icon="sparkles-outline"
+              title="Hızlı İşlemler"
+              subtitle="Tek dokunuşla sık kullanılan adımlar"
+            />
             <View style={styles.quickActionsGrid}>
               <QuickActionButton
                 icon="restaurant-outline"
@@ -355,6 +478,66 @@ const MealItem = ({ icon, label, text }) => (
   </View>
 );
 
+const KpiPill = ({ icon, label, value, compact, onPress }) => {
+  const pressAnim = React.useRef(new Animated.Value(0)).current;
+
+  const animateTo = (toValue) => {
+    Animated.timing(pressAnim, {
+      toValue,
+      duration: 140,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const animatedStyle = {
+    transform: [
+      {
+        scale: pressAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 0.97],
+        }),
+      },
+    ],
+  };
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <TouchableOpacity
+        style={[styles.kpiPill, compact && styles.kpiPillCompact]}
+        activeOpacity={0.9}
+        onPress={onPress}
+        onPressIn={() => animateTo(1)}
+        onPressOut={() => animateTo(0)}
+      >
+        <Ionicons name={icon} size={16} color={COLORS.primary} />
+        <Text style={styles.kpiLabel}>{label}</Text>
+        <Text style={styles.kpiValue} numberOfLines={1}>{value}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+const SectionHeader = ({ icon, title, subtitle, actionText, onPress }) => (
+  <View style={styles.sectionHeader}>
+    <View style={styles.sectionTitleWrap}>
+      <View style={styles.sectionTitleRow}>
+        <Ionicons name={icon} size={22} color={COLORS.text} />
+        <Text style={styles.sectionTitle}>{title}</Text>
+      </View>
+      {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
+    </View>
+    {actionText && onPress ? (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+        <View style={styles.seeAllButton}>
+          <Text style={styles.seeAllText}>{actionText}</Text>
+          <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
+        </View>
+      </TouchableOpacity>
+    ) : null}
+  </View>
+);
+
 // Quick Action Button Component
 const QuickActionButton = ({ icon, label, color, onPress }) => (
   <TouchableOpacity
@@ -362,15 +545,13 @@ const QuickActionButton = ({ icon, label, color, onPress }) => (
     onPress={onPress}
     activeOpacity={0.7}
   >
-    <LinearGradient
-      colors={[color, `${color}DD`]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.quickActionGradient}
-    >
-      <Ionicons name={icon} size={32} color={COLORS.textOnPrimary} />
+    <View style={styles.quickActionGradient}>
+      <View style={[styles.quickActionIconBubble, { backgroundColor: `${color}1F` }]}>
+        <Ionicons name={icon} size={28} color={color} />
+      </View>
       <Text style={styles.quickActionLabel}>{label}</Text>
-    </LinearGradient>
+      <Ionicons name="arrow-forward" size={16} color={COLORS.textLight} />
+    </View>
   </TouchableOpacity>
 );
 
@@ -383,7 +564,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   headerInner: {
-    paddingBottom: 30,
+    paddingBottom: 24,
     paddingHorizontal: SIZES.containerPadding,
   },
   scroll: {
@@ -400,16 +581,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   appName: {
-    fontSize: SIZES.h1,
+    fontSize: SIZES.h2,
     fontWeight: '800',
     color: COLORS.textOnPrimary,
-    letterSpacing: -0.8,
+    letterSpacing: -0.5,
+    marginTop: 2,
+  },
+  headerOverline: {
+    fontSize: SIZES.tiny,
+    color: COLORS.textOnPrimary,
+    letterSpacing: 0.25,
+    opacity: 0.9,
   },
   userName: {
-    fontSize: SIZES.small,
+    fontSize: SIZES.tiny,
     color: COLORS.textOnPrimary,
-    opacity: 0.8,
-    marginTop: 4,
+    opacity: 0.92,
+    marginTop: 6,
   },
   headerActions: {
     flexDirection: 'row',
@@ -426,6 +614,76 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.6)',
   },
+  heroSummaryCard: {
+    marginTop: SIZES.md,
+    borderRadius: SIZES.radiusLarge,
+    padding: SIZES.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  heroSummaryTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SIZES.md,
+    gap: SIZES.sm,
+  },
+  heroStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  heroStatusText: {
+    color: COLORS.textOnPrimary,
+    fontSize: SIZES.tiny,
+    fontWeight: '600',
+  },
+  heroMiniAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  heroMiniActionText: {
+    color: COLORS.textOnPrimary,
+    fontSize: SIZES.tiny,
+    fontWeight: '700',
+  },
+  heroMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SIZES.sm,
+  },
+  heroMetricCard: {
+    flex: 1,
+  },
+  heroMetricLabel: {
+    fontSize: SIZES.tiny,
+    color: COLORS.textOnPrimary,
+    opacity: 0.8,
+    marginBottom: 4,
+  },
+  heroMetricValue: {
+    fontSize: SIZES.h5,
+    fontWeight: '700',
+    color: COLORS.textOnPrimary,
+  },
+  skeletonHeroLine: {
+    height: 14,
+    width: '56%',
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.32)',
+    marginTop: 2,
+  },
+  heroMetricDivider: {
+    width: 1,
+    height: 38,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
   avatarText: {
     fontSize: 16,
     fontWeight: '700',
@@ -435,10 +693,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: SIZES.containerPadding,
     paddingTop: SIZES.lg,
   },
+  kpiStrip: {
+    flexDirection: 'row',
+    gap: SIZES.sm,
+    marginBottom: SIZES.md,
+  },
+  kpiPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    ...SHADOWS.small,
+  },
+  kpiPillCompact: {
+    paddingRight: 10,
+  },
+  kpiLabel: {
+    fontSize: SIZES.tiny,
+    color: COLORS.textSecondary,
+  },
+  kpiValue: {
+    flex: 1,
+    fontSize: SIZES.small,
+    fontWeight: '700',
+    color: COLORS.text,
+    textAlign: 'right',
+  },
   statsRow: {
     flexDirection: 'row',
     gap: SIZES.md,
-    marginBottom: SIZES.md,
+    marginBottom: SIZES.lg,
   },
   calorieCta: {
     flexDirection: 'row',
@@ -498,7 +788,8 @@ const styles = StyleSheet.create({
   },
   statInfo: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
+    flexWrap: 'wrap',
   },
   statLabel: {
     fontSize: SIZES.small,
@@ -522,30 +813,52 @@ const styles = StyleSheet.create({
     color: COLORS.textOnPrimary,
     opacity: 0.5,
   },
+  statSkeleton: {
+    width: 52,
+    height: 18,
+    borderRadius: 999,
+    marginTop: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.32)',
+  },
   section: {
     marginBottom: SIZES.sectionSpacing,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: SIZES.md,
+    gap: SIZES.sm,
+  },
+  sectionTitleWrap: {
+    flex: 1,
   },
   sectionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SIZES.sm,
+    gap: 6,
   },
   sectionTitle: {
-    fontSize: SIZES.h3,
+    fontSize: SIZES.h4,
     fontWeight: '700',
-    letterSpacing: -0.35,
+    letterSpacing: -0.25,
     color: COLORS.text,
+  },
+  sectionSubtitle: {
+    marginTop: 4,
+    fontSize: SIZES.tiny,
+    color: COLORS.textSecondary,
   },
   seeAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: COLORS.surface,
   },
   seeAllText: {
     fontSize: SIZES.small,
@@ -556,6 +869,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: SIZES.radiusLarge,
     padding: SIZES.cardPadding,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
     ...SHADOWS.small,
   },
   mealItem: {
@@ -623,20 +938,42 @@ const styles = StyleSheet.create({
   },
   quickActionBtn: {
     width: (width - SIZES.containerPadding * 2 - SIZES.md) / 2,
-    height: 100,
+    height: 112,
     borderRadius: SIZES.radiusLarge,
-    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
     ...SHADOWS.small,
   },
   quickActionGradient: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: SIZES.md,
+  },
+  quickActionIconBubble: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
-    gap: SIZES.xs,
+    justifyContent: 'center',
   },
   quickActionLabel: {
-    fontSize: SIZES.small,
-    fontWeight: '600',
-    color: COLORS.textOnPrimary,
+    fontSize: SIZES.bodySmall,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  skeletonBlockLg: {
+    width: '100%',
+    height: 84,
+    borderRadius: SIZES.radiusLarge,
+    backgroundColor: COLORS.shimmer,
+    marginBottom: SIZES.sm,
+  },
+  skeletonBlockMd: {
+    width: '70%',
+    height: 20,
+    borderRadius: 999,
+    backgroundColor: COLORS.shimmer,
   },
 });
