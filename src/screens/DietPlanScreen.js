@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, Modal, Platform, Animated,
+  TouchableOpacity, Modal, Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,11 @@ import GuestGateBanner from '../components/GuestGateBanner';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ui/ConfirmModal';
+import {
+  searchOpenFoodFacts,
+  getFoodNutritionAI,
+  calcNutritionForGrams,
+} from '../services/nutritionService';
 
 // ─── Sabitler ────────────────────────────────────────────────────────────────
 
@@ -34,6 +40,21 @@ const EMPTY_FORM = {
   afternoon_snack: '', dinner: '', evening_snack: '',
   notes: '', total_calories: '',
 };
+
+/** "• Yumurta, 50g — 77 kcal" biçimindeki satırlardan kalori toplar */
+function sumKcalFromMealText(text) {
+  if (!text?.trim()) return 0;
+  let sum = 0;
+  for (const line of text.split('\n')) {
+    const m = line.match(/[—–-]\s*(\d+)\s*kcal/i);
+    if (m) sum += parseInt(m[1], 10) || 0;
+  }
+  return sum;
+}
+
+function sumAllMealKcal(form) {
+  return MEAL_FIELDS.reduce((acc, f) => acc + sumKcalFromMealText(form[f.key]), 0);
+}
 
 function toDateStr(d) {
   const y = d.getFullYear();
@@ -60,6 +81,43 @@ export default function DietPlanScreen() {
   const [aiAdvice, setAiAdvice] = useState('');
   const [loadingAdvice, setLoadingAdvice] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  /** Toplam kalori: besin satırlarından otomatik; kullanıcı alanı elle değiştirdiyse kilitle */
+  const [totalCaloriesManual, setTotalCaloriesManual] = useState(false);
+  const [mealPickerKey, setMealPickerKey] = useState(null);
+  const [pickQuery, setPickQuery] = useState('');
+  const [pickResults, setPickResults] = useState([]);
+  const [pickSearching, setPickSearching] = useState(false);
+  const [pickFood, setPickFood] = useState(null);
+  const [pickGrams, setPickGrams] = useState('100');
+  const [pickAiLoading, setPickAiLoading] = useState(false);
+
+  const computedMealKcalTotal = useMemo(
+    () => sumAllMealKcal(form),
+    [
+      form.breakfast,
+      form.morning_snack,
+      form.lunch,
+      form.afternoon_snack,
+      form.dinner,
+      form.evening_snack,
+    ]
+  );
+
+  const resetFoodPicker = useCallback(() => {
+    setPickQuery('');
+    setPickResults([]);
+    setPickFood(null);
+    setPickGrams('100');
+    setPickSearching(false);
+    setPickAiLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (!modalVisible || totalCaloriesManual) return;
+    const next = computedMealKcalTotal > 0 ? String(computedMealKcalTotal) : '';
+    setForm((f) => (f.total_calories === next ? f : { ...f, total_calories: next }));
+  }, [modalVisible, computedMealKcalTotal, totalCaloriesManual]);
 
   const isToday =
     toDateStr(selectedDate) === toDateStr(new Date());
@@ -104,30 +162,89 @@ export default function DietPlanScreen() {
 
   const openModal = (scrollToField) => {
     if (!user) { showToast('Plan eklemek için giriş yapın.', 'info'); return; }
-    setForm(
-      todayPlan
-        ? {
-            breakfast:        todayPlan.breakfast        || '',
-            morning_snack:    todayPlan.morning_snack    || '',
-            lunch:            todayPlan.lunch            || '',
-            afternoon_snack:  todayPlan.afternoon_snack  || '',
-            dinner:           todayPlan.dinner           || '',
-            evening_snack:    todayPlan.evening_snack    || '',
-            notes:            todayPlan.notes            || '',
-            total_calories:   todayPlan.total_calories?.toString() || '',
-          }
-        : EMPTY_FORM
-    );
+    const nextForm = todayPlan
+      ? {
+          breakfast:        todayPlan.breakfast        || '',
+          morning_snack:    todayPlan.morning_snack    || '',
+          lunch:            todayPlan.lunch            || '',
+          afternoon_snack:  todayPlan.afternoon_snack  || '',
+          dinner:           todayPlan.dinner           || '',
+          evening_snack:    todayPlan.evening_snack    || '',
+          notes:            todayPlan.notes            || '',
+          total_calories:   todayPlan.total_calories?.toString() || '',
+        }
+      : { ...EMPTY_FORM };
+    const parsedSum = sumAllMealKcal(nextForm);
+    setForm(nextForm);
+    setTotalCaloriesManual(!!(todayPlan?.total_calories && parsedSum === 0));
     setFocusedField(scrollToField || '');
+    setMealPickerKey(null);
+    resetFoodPicker();
     setModalVisible(true);
   };
 
   const closeModal = () => {
     setModalVisible(false);
     setFocusedField('');
+    setMealPickerKey(null);
+    resetFoodPicker();
   };
 
-  const updateField = (key, val) => setForm((f) => ({ ...f, [key]: val }));
+  const updateField = (key, val) => {
+    if (key === 'total_calories') setTotalCaloriesManual(true);
+    setForm((f) => ({ ...f, [key]: val }));
+  };
+
+  const handlePickSearch = useCallback(async (text) => {
+    setPickQuery(text);
+    setPickFood(null);
+    if (text.trim().length < 2) { setPickResults([]); return; }
+    setPickSearching(true);
+    try {
+      const results = await searchOpenFoodFacts(text.trim());
+      setPickResults(results.slice(0, 12));
+    } catch {
+      setPickResults([]);
+    } finally {
+      setPickSearching(false);
+    }
+  }, []);
+
+  const handlePickAISearch = async () => {
+    if (!pickQuery.trim()) { showToast('Önce bir besin adı girin.', 'warning'); return; }
+    setPickAiLoading(true);
+    setPickFood(null);
+    try {
+      const food = await getFoodNutritionAI(pickQuery.trim(), false);
+      setPickFood(food);
+      setPickResults([]);
+    } catch (e) {
+      showToast(e.message || 'AI analizi başarısız.', 'error');
+    } finally {
+      setPickAiLoading(false);
+    }
+  };
+
+  const appendFoodToMeal = (mealKey) => {
+    if (!pickFood) { showToast('Önce bir besin seçin.', 'warning'); return; }
+    const g = parseFloat(pickGrams);
+    if (!g || g <= 0) {
+      showToast(pickFood.isDrink ? 'Geçerli bir ml değeri girin.' : 'Geçerli bir gram değeri girin.', 'warning');
+      return;
+    }
+    const calc = calcNutritionForGrams(pickFood, g);
+    const unit = pickFood.isDrink ? 'ml' : 'g';
+    const kcal = Math.round(calc.calories || 0);
+    const line = `• ${pickFood.name}, ${g}${unit} — ${kcal} kcal`;
+    setForm((f) => {
+      const cur = (f[mealKey] || '').trim();
+      const merged = cur ? `${cur}\n${line}` : line;
+      return { ...f, [mealKey]: merged };
+    });
+    setTotalCaloriesManual(false);
+    resetFoodPicker();
+    showToast('Besin eklendi; toplam kalori güncellendi.', 'success');
+  };
 
   // ── Kaydet ─────────────────────────────────────────────────────────────────
 
@@ -143,7 +260,10 @@ export default function DietPlanScreen() {
         dinner:           form.dinner,
         evening_snack:    form.evening_snack,
         notes:            form.notes,
-        total_calories:   form.total_calories ? parseInt(form.total_calories) : null,
+        total_calories:   (() => {
+          const t = parseInt(form.total_calories, 10);
+          return Number.isFinite(t) && t >= 0 ? t : null;
+        })(),
       };
 
       if (todayPlan?.id) {
@@ -426,35 +546,92 @@ export default function DietPlanScreen() {
               {/* Ana öğünler */}
               <Text style={styles.modalGroupTitle}>Ana Öğünler</Text>
               {MEAL_FIELDS.filter((f) => f.group === 'main').map((f) => (
-                <FormMealInput
-                  key={f.key}
-                  field={f}
-                  value={form[f.key]}
-                  focused={focusedField === f.key}
-                  onFocus={() => setFocusedField(f.key)}
-                  onBlur={() => setFocusedField('')}
-                  onChange={(t) => updateField(f.key, t)}
-                />
+                <View key={f.key}>
+                  <FormMealInput
+                    field={f}
+                    value={form[f.key]}
+                    focused={focusedField === f.key}
+                    onFocus={() => setFocusedField(f.key)}
+                    onBlur={() => setFocusedField('')}
+                    onChange={(t) => updateField(f.key, t)}
+                  />
+                  <MealFoodPickerSection
+                    field={f}
+                    expanded={mealPickerKey === f.key}
+                    onToggle={() => {
+                      if (mealPickerKey === f.key) {
+                        setMealPickerKey(null);
+                        resetFoodPicker();
+                      } else {
+                        setMealPickerKey(f.key);
+                        resetFoodPicker();
+                      }
+                    }}
+                    pickQuery={pickQuery}
+                    onSearch={handlePickSearch}
+                    pickResults={pickResults}
+                    pickSearching={pickSearching}
+                    pickFood={pickFood}
+                    onSelectFood={(food) => { setPickFood(food); setPickResults([]); }}
+                    pickGrams={pickGrams}
+                    onGramsChange={setPickGrams}
+                    pickAiLoading={pickAiLoading}
+                    onAISearch={handlePickAISearch}
+                    onAppend={() => appendFoodToMeal(f.key)}
+                  />
+                </View>
               ))}
 
               {/* Ara öğünler */}
               <Text style={styles.modalGroupTitle}>Ara Öğünler</Text>
               {MEAL_FIELDS.filter((f) => f.group === 'snack').map((f) => (
-                <FormMealInput
-                  key={f.key}
-                  field={f}
-                  value={form[f.key]}
-                  focused={focusedField === f.key}
-                  onFocus={() => setFocusedField(f.key)}
-                  onBlur={() => setFocusedField('')}
-                  onChange={(t) => updateField(f.key, t)}
-                  compact
-                />
+                <View key={f.key}>
+                  <FormMealInput
+                    field={f}
+                    value={form[f.key]}
+                    focused={focusedField === f.key}
+                    onFocus={() => setFocusedField(f.key)}
+                    onBlur={() => setFocusedField('')}
+                    onChange={(t) => updateField(f.key, t)}
+                    compact
+                  />
+                  <MealFoodPickerSection
+                    field={f}
+                    expanded={mealPickerKey === f.key}
+                    onToggle={() => {
+                      if (mealPickerKey === f.key) {
+                        setMealPickerKey(null);
+                        resetFoodPicker();
+                      } else {
+                        setMealPickerKey(f.key);
+                        resetFoodPicker();
+                      }
+                    }}
+                    pickQuery={pickQuery}
+                    onSearch={handlePickSearch}
+                    pickResults={pickResults}
+                    pickSearching={pickSearching}
+                    pickFood={pickFood}
+                    onSelectFood={(food) => { setPickFood(food); setPickResults([]); }}
+                    pickGrams={pickGrams}
+                    onGramsChange={setPickGrams}
+                    pickAiLoading={pickAiLoading}
+                    onAISearch={handlePickAISearch}
+                    onAppend={() => appendFoodToMeal(f.key)}
+                  />
+                </View>
               ))}
 
               {/* Ek bilgiler */}
               <Text style={styles.modalGroupTitle}>Ek Bilgiler</Text>
 
+              {computedMealKcalTotal > 0 && (
+                <Text style={styles.kcalHint}>
+                  Besin satırlarından toplam:{' '}
+                  <Text style={styles.kcalHintBold}>{computedMealKcalTotal} kcal</Text>
+                  {totalCaloriesManual ? ' (manuel toplam kullanılıyor)' : ''}
+                </Text>
+              )}
               <View style={styles.extraRow}>
                 <View style={[styles.extraIconWrap, { backgroundColor: '#FEF3C7' }]}>
                   <Ionicons name="flame" size={16} color="#F59E0B" />
@@ -463,12 +640,32 @@ export default function DietPlanScreen() {
                   style={styles.extraInput}
                   value={form.total_calories}
                   onChangeText={(t) => updateField('total_calories', t)}
-                  placeholder="Toplam kalori (opsiyonel)"
+                  placeholder={
+                    totalCaloriesManual
+                      ? 'Toplam kalori (manuel)'
+                      : 'Otomatik veya elle düzenlemek için dokunun'
+                  }
                   placeholderTextColor={COLORS.textLight}
                   keyboardType="numeric"
                 />
                 <Text style={styles.extraUnit}>kcal</Text>
               </View>
+              {totalCaloriesManual && (
+                <TouchableOpacity
+                  style={styles.autoKcalBtn}
+                  onPress={() => {
+                    setTotalCaloriesManual(false);
+                    const next = computedMealKcalTotal > 0 ? String(computedMealKcalTotal) : '';
+                    setForm((f) => ({ ...f, total_calories: next }));
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name="refresh-outline" size={16} color={COLORS.primary} />
+                  <Text style={styles.autoKcalBtnText}>
+                    Satırlardan otomatik toplama dön
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               <View style={[styles.extraRow, { alignItems: 'flex-start', paddingTop: SIZES.sm }]}>
                 <View style={[styles.extraIconWrap, { backgroundColor: COLORS.highlight }]}>
@@ -583,6 +780,129 @@ function FormMealInput({ field, value, focused, onFocus, onBlur, onChange, compa
         onFocus={onFocus}
         onBlur={onBlur}
       />
+    </View>
+  );
+}
+
+/** Besin günlüğü ile aynı kaynak: OFF/USDA araması + AI + gram/ml → satıra yazılır */
+function MealFoodPickerSection({
+  field,
+  expanded,
+  onToggle,
+  pickQuery,
+  onSearch,
+  pickResults,
+  pickSearching,
+  pickFood,
+  onSelectFood,
+  pickGrams,
+  onGramsChange,
+  pickAiLoading,
+  onAISearch,
+  onAppend,
+}) {
+  const g = parseFloat(pickGrams) || 0;
+  const preview = pickFood && g > 0
+    ? Math.round(calcNutritionForGrams(pickFood, g).calories || 0)
+    : null;
+
+  return (
+    <View style={mp.wrap}>
+      <TouchableOpacity style={mp.toggle} onPress={onToggle} activeOpacity={0.75}>
+        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.primary} />
+        <Text style={mp.toggleText}>
+          {field.label}: besin seç, gram gir (otomatik kcal)
+        </Text>
+      </TouchableOpacity>
+      {expanded ? (
+        <View style={mp.panel}>
+          <View style={mp.searchRow}>
+            <Ionicons name="search-outline" size={16} color={COLORS.textSecondary} />
+            <TextInput
+              style={mp.searchInput}
+              placeholder="Ara: elma, yoğurt, tavuk..."
+              placeholderTextColor={COLORS.textLight}
+              value={pickQuery}
+              onChangeText={onSearch}
+              returnKeyType="search"
+              onSubmitEditing={onAISearch}
+            />
+          </View>
+          <TouchableOpacity
+            style={[mp.aiBtn, (!pickQuery.trim() || pickAiLoading) && { opacity: 0.55 }]}
+            onPress={onAISearch}
+            disabled={pickAiLoading || !pickQuery.trim()}
+          >
+            {pickAiLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="sparkles" size={14} color="#fff" />
+                <Text style={mp.aiBtnText}>AI ile tam analiz (Türkçe)</Text>
+              </>
+            )}
+          </TouchableOpacity>
+          {pickSearching ? (
+            <View style={mp.searchingRow}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={mp.searchingText}>Aranıyor...</Text>
+            </View>
+          ) : null}
+          {!pickFood && pickResults.length > 0 ? (
+            <ScrollView
+              style={mp.resultsScroll}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+            >
+              {pickResults.map((item, idx) => (
+                <TouchableOpacity
+                  key={`${item.id}_${idx}`}
+                  style={mp.resultItem}
+                  onPress={() => onSelectFood(item)}
+                  activeOpacity={0.72}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={mp.resultName} numberOfLines={2}>{item.name}</Text>
+                    {item.brand ? (
+                      <Text style={mp.resultBrand} numberOfLines={1}>{item.brand}</Text>
+                    ) : null}
+                  </View>
+                  <Text style={mp.resultKcal}>
+                    {item.calories} /100{item.isDrink ? 'ml' : 'g'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : null}
+          {pickFood ? (
+            <View style={mp.selectedCard}>
+              <View style={mp.selectedHeader}>
+                <Text style={mp.selectedName} numberOfLines={2}>{pickFood.name}</Text>
+                <TouchableOpacity onPress={() => onSelectFood(null)} hitSlop={12}>
+                  <Ionicons name="close-circle" size={22} color={COLORS.textLight} />
+                </TouchableOpacity>
+              </View>
+              <View style={mp.gramRow}>
+                <Text style={mp.gramLabel}>{pickFood.isDrink ? 'Miktar (ml)' : 'Miktar (g)'}</Text>
+                <TextInput
+                  style={mp.gramInput}
+                  value={pickGrams}
+                  onChangeText={onGramsChange}
+                  keyboardType="decimal-pad"
+                  placeholder={pickFood.isDrink ? '200' : '100'}
+                />
+              </View>
+              {preview != null ? (
+                <Text style={mp.estKcal}>Tahmini: {preview} kcal</Text>
+              ) : null}
+              <TouchableOpacity style={mp.addBtn} onPress={onAppend} activeOpacity={0.85}>
+                <Ionicons name="add-circle-outline" size={18} color="#fff" />
+                <Text style={mp.addBtnText}>Metne ekle</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -768,6 +1088,121 @@ const styles = StyleSheet.create({
     gap: SIZES.sm, paddingVertical: 13,
   },
   saveBtnText: { fontSize: SIZES.body, fontWeight: '700', color: '#fff' },
+
+  kcalHint: {
+    fontSize: SIZES.small,
+    color: COLORS.textSecondary,
+    marginBottom: SIZES.sm,
+    lineHeight: 20,
+  },
+  kcalHintBold: { fontWeight: '800', color: COLORS.text },
+  autoKcalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    marginBottom: SIZES.md,
+    paddingVertical: 6,
+  },
+  autoKcalBtnText: { fontSize: SIZES.small, fontWeight: '700', color: COLORS.primary },
+});
+
+const mp = StyleSheet.create({
+  wrap: { marginBottom: SIZES.md },
+  toggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+  },
+  toggleText: { flex: 1, fontSize: 12, fontWeight: '600', color: COLORS.primary },
+  panel: {
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: SIZES.radius,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SIZES.sm,
+    marginBottom: SIZES.sm,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radius,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: SIZES.sm,
+    marginBottom: SIZES.sm,
+  },
+  searchInput: { flex: 1, paddingVertical: 10, fontSize: SIZES.small, color: COLORS.text },
+  aiBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: COLORS.primary,
+    borderRadius: SIZES.radius,
+    paddingVertical: 10,
+    marginBottom: SIZES.sm,
+  },
+  aiBtnText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  searchingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SIZES.sm },
+  searchingText: { fontSize: 12, color: COLORS.textSecondary },
+  resultsScroll: { maxHeight: 160, marginBottom: SIZES.sm },
+  resultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    gap: SIZES.sm,
+  },
+  resultName: { fontSize: 13, fontWeight: '600', color: COLORS.text },
+  resultBrand: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
+  resultKcal: { fontSize: 11, fontWeight: '700', color: COLORS.primary },
+  selectedCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radius,
+    padding: SIZES.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  selectedHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: SIZES.sm, marginBottom: SIZES.sm },
+  selectedName: { flex: 1, fontSize: SIZES.body, fontWeight: '700', color: COLORS.text },
+  gramRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SIZES.sm,
+    gap: SIZES.sm,
+  },
+  gramLabel: { fontSize: SIZES.small, fontWeight: '600', color: COLORS.textSecondary },
+  gramInput: {
+    minWidth: 88,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: SIZES.radius,
+    paddingHorizontal: SIZES.sm,
+    paddingVertical: 8,
+    fontSize: SIZES.body,
+    fontWeight: '700',
+    color: COLORS.text,
+    textAlign: 'right',
+    backgroundColor: COLORS.surfaceAlt,
+  },
+  estKcal: { fontSize: SIZES.small, fontWeight: '700', color: '#F59E0B', marginBottom: SIZES.sm },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: COLORS.primaryDark,
+    borderRadius: SIZES.radius,
+    paddingVertical: 11,
+  },
+  addBtnText: { fontSize: SIZES.body, fontWeight: '700', color: '#fff' },
 });
 
 // Bölüm başlığı
