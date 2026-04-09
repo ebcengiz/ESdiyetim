@@ -275,7 +275,7 @@ function AppStack() {
         component={MealCalorieScreen}
         options={{
           headerShown: true,
-          title: "Fotoğraftan kalori",
+          title: "Fotoğraftan Kalori",
           // Sadece sol ok — "Geri" yazılı geniş hap görünümünü kaldırır (iOS Human Interface)
           headerBackButtonDisplayMode: "minimal",
           headerStyle: { backgroundColor: COLORS.primary },

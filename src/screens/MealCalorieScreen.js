@@ -11,6 +11,8 @@ import {
   Modal,
   Pressable,
   Platform,
+  Animated,
+  Easing,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -31,6 +33,37 @@ Bu uygulama tıbbi teşhis, tedavi veya kişiye özel beslenme planı sunmaz. Di
 
 Yapay zeka hata yapabilir; sonuçları tek başına sağlık kararı için kullanmayın.`;
 
+const getConfidenceMeta = (confidence) => {
+  const value = String(confidence || '').toLowerCase();
+  if (value.includes('yüksek') || value.includes('high')) {
+    return {
+      label: 'Yüksek güven',
+      bg: '#DCFCE7',
+      color: '#166534',
+      icon: 'checkmark-circle',
+    };
+  }
+  if (value.includes('düşük') || value.includes('low')) {
+    return {
+      label: 'Düşük güven',
+      bg: '#FEF2F2',
+      color: '#B91C1C',
+      icon: 'alert-circle',
+    };
+  }
+  return {
+    label: 'Orta güven',
+    bg: '#FEF9C3',
+    color: '#854D0E',
+    icon: 'information-circle',
+  };
+};
+
+const getItemKcal = (item) => {
+  const kcal = Number(item?.estimatedKcal ?? item?.kcal);
+  return Number.isFinite(kcal) && kcal > 0 ? Math.round(kcal) : 0;
+};
+
 export default function MealCalorieScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -40,6 +73,11 @@ export default function MealCalorieScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [disclaimerModalVisible, setDisclaimerModalVisible] = useState(false);
+  const [displayedCalories, setDisplayedCalories] = useState(0);
+  const previewAnim = React.useRef(new Animated.Value(0)).current;
+  const resultAnim = React.useRef(new Animated.Value(0)).current;
+  const analyzePressAnim = React.useRef(new Animated.Value(0)).current;
+  const kcalCountAnim = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!user) return;
@@ -134,6 +172,96 @@ export default function MealCalorieScreen({ navigation }) {
     }
   };
 
+  useEffect(() => {
+    Animated.timing(previewAnim, {
+      toValue: imageUri ? 1 : 0,
+      duration: imageUri ? 260 : 170,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [imageUri, previewAnim]);
+
+  useEffect(() => {
+    Animated.timing(resultAnim, {
+      toValue: result ? 1 : 0,
+      duration: result ? 300 : 170,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [result, resultAnim]);
+
+  useEffect(() => {
+    const target = Math.max(0, Math.round(Number(result?.estimatedCalories) || 0));
+    kcalCountAnim.stopAnimation();
+    kcalCountAnim.setValue(0);
+    setDisplayedCalories(0);
+
+    if (!result || !target) return;
+
+    const listenerId = kcalCountAnim.addListener(({ value }) => {
+      setDisplayedCalories(Math.round(value));
+    });
+
+    Animated.timing(kcalCountAnim, {
+      toValue: target,
+      duration: 900,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+
+    return () => {
+      kcalCountAnim.removeListener(listenerId);
+    };
+  }, [result, kcalCountAnim]);
+
+  const previewAnimatedStyle = {
+    opacity: previewAnim,
+    transform: [
+      {
+        translateY: previewAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [8, 0],
+        }),
+      },
+    ],
+  };
+
+  const resultAnimatedStyle = {
+    opacity: resultAnim,
+    transform: [
+      {
+        translateY: resultAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [12, 0],
+        }),
+      },
+    ],
+  };
+
+  const analyzeAnimatedStyle = {
+    transform: [
+      {
+        scale: analyzePressAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 0.98],
+        }),
+      },
+    ],
+  };
+  const confidenceMeta = getConfidenceMeta(result?.confidence);
+  const maxItemKcal = result?.items?.length
+    ? Math.max(...result.items.map((it) => getItemKcal(it)), 1)
+    : 1;
+
+  const animateAnalyzePress = (toValue) => {
+    Animated.timing(analyzePressAnim, {
+      toValue,
+      duration: 130,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  };
+
   if (!user) {
     return (
       <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -193,12 +321,186 @@ export default function MealCalorieScreen({ navigation }) {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.introBlock}>
+        <LinearGradient
+          colors={[COLORS.primary, COLORS.primaryLight]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroBlock}
+        >
+          <View style={styles.heroTopRow}>
+            <View style={styles.heroBadge}>
+              <Ionicons name="flash-outline" size={14} color={COLORS.textOnPrimary} />
+              <Text style={styles.heroBadgeText}>AI destekli analiz</Text>
+            </View>
+            <View style={styles.heroStepPill}>
+              <Text style={styles.heroStepText}>{result ? '2/2 tamamlandı' : imageUri ? '1/2 hazır' : '0/2 başla'}</Text>
+            </View>
+          </View>
           <Text style={styles.introTitle}>Öğününüzü görselden analiz edin</Text>
           <Text style={styles.introSub}>
             Fotoğraf yükleyin; yaklaşık kalori ve bileşen özeti alın. Sonuçlar referans amaçlıdır.
           </Text>
+          <View style={styles.heroMetaRow}>
+            <MetaChip icon="camera-outline" text={imageUri ? 'Fotoğraf eklendi' : 'Fotoğraf bekleniyor'} />
+            <MetaChip icon="analytics-outline" text={result ? 'Analiz hazır' : 'Analiz bekleniyor'} />
+          </View>
+        </LinearGradient>
+
+        <View style={styles.infoStrip}>
+          <InfoStat icon="restaurant-outline" label="Öğün" value={result?.mealName ? 'Tanımlandı' : 'Bekliyor'} />
+          <InfoStat icon="flame-outline" label="Kalori" value={result?.estimatedCalories ? `${result.estimatedCalories}` : '--'} />
         </View>
+
+        <View style={styles.stepsRow}>
+          <View style={styles.stepChip}>
+            <View style={styles.stepNumCircle}>
+              <Text style={styles.stepNumDigit}>1</Text>
+            </View>
+            <Text style={styles.stepLabel}>Fotoğraf</Text>
+          </View>
+          <View style={styles.stepLine} />
+          <View style={styles.stepChip}>
+            <View style={styles.stepNumCircle}>
+              <Text style={styles.stepNumDigit}>2</Text>
+            </View>
+            <Text style={styles.stepLabel}>Analiz</Text>
+          </View>
+        </View>
+
+        <View style={styles.actions}>
+          <ActionOptionCard
+            icon="images-outline"
+            title="Galeriden seç"
+            subtitle="Mevcut bir öğün fotoğrafı yükle"
+            onPress={() => pickImage(false)}
+          />
+          <ActionOptionCard
+            icon="camera-outline"
+            title="Fotoğraf çek"
+            subtitle="Kamera ile yeni fotoğraf al"
+            onPress={() => pickImage(true)}
+          />
+        </View>
+
+        {imageUri ? (
+          <Animated.View style={[styles.previewSection, previewAnimatedStyle]}>
+            <Text style={styles.sectionLabel}>Seçilen görsel</Text>
+            <View style={styles.previewWrap}>
+              <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="cover" />
+              <TouchableOpacity style={styles.clearPhoto} onPress={reset} hitSlop={12}>
+                <Ionicons name="close-circle" size={30} color={COLORS.error} />
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        ) : (
+          <View style={styles.placeholderCard}>
+            <Ionicons name="image-outline" size={40} color={COLORS.textLight} />
+            <Text style={styles.placeholderText}>Henüz görsel yok</Text>
+            <Text style={styles.placeholderHint}>Yukarıdaki seçeneklerden birini kullanın</Text>
+          </View>
+        )}
+
+        <Animated.View style={analyzeAnimatedStyle}>
+          <TouchableOpacity
+            style={[styles.analyzeBtn, (!base64 || loading) && styles.analyzeBtnDisabled]}
+            onPress={analyze}
+            disabled={!base64 || loading}
+            activeOpacity={0.96}
+            onPressIn={() => animateAnalyzePress(1)}
+            onPressOut={() => animateAnalyzePress(0)}
+          >
+            <LinearGradient
+              colors={
+                !base64 || loading
+                  ? [COLORS.disabled, COLORS.disabled]
+                  : [COLORS.primary, COLORS.primaryDark]
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.analyzeGradient}
+            >
+              {loading ? (
+                <ActivityIndicator color={COLORS.textOnPrimary} />
+              ) : (
+                <>
+                  <Ionicons name="sparkles" size={22} color={COLORS.textOnPrimary} />
+                  <Text style={styles.analyzeText}>Tahmini kaloriyi hesapla</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {result ? (
+          <Animated.View style={[styles.resultCard, resultAnimatedStyle]}>
+            <LinearGradient
+              colors={['#F0FDF4', '#FFFFFF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.resultHeaderBand}
+            >
+              <Text style={styles.resultKicker}>Tahmini sonuç</Text>
+              <Text style={styles.resultMeal} numberOfLines={3}>
+                {result.mealName}
+              </Text>
+            </LinearGradient>
+            <View style={styles.resultBody}>
+              <View style={styles.kcalRow}>
+                <Text style={styles.kcalValue}>{displayedCalories}</Text>
+                <Text style={styles.kcalUnit}>kcal</Text>
+              </View>
+              <View style={styles.resultMetaRow}>
+                <View style={[styles.confidenceBadge, { backgroundColor: confidenceMeta.bg }]}>
+                  <Ionicons name={confidenceMeta.icon} size={14} color={confidenceMeta.color} />
+                  <Text style={[styles.confidenceBadgeText, { color: confidenceMeta.color }]}>
+                    {confidenceMeta.label}
+                  </Text>
+                </View>
+                {result.provider === 'groq-vision' || result.provider === 'gemini-vision' ? (
+                  <View style={styles.providerChip}>
+                    <Ionicons name="hardware-chip-outline" size={14} color={COLORS.textLight} />
+                    <Text style={styles.providerHint}>
+                      {result.provider === 'groq-vision' ? 'Groq Vision' : 'Gemini Vision'}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+              {result.items?.length > 0 ? (
+                <View style={styles.itemsBox}>
+                  <Text style={styles.itemsTitle}>Tahmini dağılım</Text>
+                  {result.items.map((it, i) => (
+                    <View key={i} style={styles.itemRow}>
+                      <View style={styles.itemMain}>
+                        <View style={styles.itemTopRow}>
+                          <Text style={styles.itemName} numberOfLines={2}>
+                            {it.name || 'Öğe'}
+                          </Text>
+                          <Text style={styles.itemKcal}>
+                            {getItemKcal(it) > 0 ? `${getItemKcal(it)} kcal` : '—'}
+                          </Text>
+                        </View>
+                        <View style={styles.itemBarTrack}>
+                          <View
+                            style={[
+                              styles.itemBarFill,
+                              {
+                                width: `${Math.max(
+                                  6,
+                                  Math.min(100, (getItemKcal(it) / maxItemKcal) * 100)
+                                )}%`,
+                              },
+                            ]}
+                          />
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+              {result.notes ? <Text style={styles.notes}>{result.notes}</Text> : null}
+            </View>
+          </Animated.View>
+        ) : null}
 
         <View style={styles.warningCard}>
           <View style={styles.warningHeader}>
@@ -221,137 +523,6 @@ export default function MealCalorieScreen({ navigation }) {
 
         <HealthSourcesCard variant="meal" style={{ marginBottom: SIZES.lg }} />
 
-        <View style={styles.stepsRow}>
-          <View style={styles.stepChip}>
-            <View style={styles.stepNumCircle}>
-              <Text style={styles.stepNumDigit}>1</Text>
-            </View>
-            <Text style={styles.stepLabel}>Fotoğraf</Text>
-          </View>
-          <View style={styles.stepLine} />
-          <View style={styles.stepChip}>
-            <View style={styles.stepNumCircle}>
-              <Text style={styles.stepNumDigit}>2</Text>
-            </View>
-            <Text style={styles.stepLabel}>Analiz</Text>
-          </View>
-        </View>
-
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={styles.pickBtn}
-            onPress={() => pickImage(false)}
-            activeOpacity={0.88}
-          >
-            <View style={styles.pickIconCircle}>
-              <Ionicons name="images-outline" size={22} color={COLORS.primary} />
-            </View>
-            <Text style={styles.pickBtnText}>Galeriden seç</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.pickBtn}
-            onPress={() => pickImage(true)}
-            activeOpacity={0.88}
-          >
-            <View style={styles.pickIconCircle}>
-              <Ionicons name="camera-outline" size={22} color={COLORS.primary} />
-            </View>
-            <Text style={styles.pickBtnText}>Fotoğraf çek</Text>
-          </TouchableOpacity>
-        </View>
-
-        {imageUri ? (
-          <View style={styles.previewSection}>
-            <Text style={styles.sectionLabel}>Seçilen görsel</Text>
-            <View style={styles.previewWrap}>
-              <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="cover" />
-              <TouchableOpacity style={styles.clearPhoto} onPress={reset} hitSlop={12}>
-                <Ionicons name="close-circle" size={30} color={COLORS.error} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : (
-          <View style={styles.placeholderCard}>
-            <Ionicons name="image-outline" size={40} color={COLORS.textLight} />
-            <Text style={styles.placeholderText}>Henüz görsel yok</Text>
-            <Text style={styles.placeholderHint}>Yukarıdaki seçeneklerden birini kullanın</Text>
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={[styles.analyzeBtn, (!base64 || loading) && styles.analyzeBtnDisabled]}
-          onPress={analyze}
-          disabled={!base64 || loading}
-          activeOpacity={0.92}
-        >
-          <LinearGradient
-            colors={
-              !base64 || loading
-                ? [COLORS.disabled, COLORS.disabled]
-                : [COLORS.primary, COLORS.primaryDark]
-            }
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.analyzeGradient}
-          >
-            {loading ? (
-              <ActivityIndicator color={COLORS.textOnPrimary} />
-            ) : (
-              <>
-                <Ionicons name="sparkles" size={22} color={COLORS.textOnPrimary} />
-                <Text style={styles.analyzeText}>Tahmini kaloriyi hesapla</Text>
-              </>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
-
-        {result ? (
-          <View style={styles.resultCard}>
-            <LinearGradient
-              colors={['#F0FDF4', '#FFFFFF']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.resultHeaderBand}
-            >
-              <Text style={styles.resultKicker}>Tahmini sonuç</Text>
-              <Text style={styles.resultMeal} numberOfLines={3}>
-                {result.mealName}
-              </Text>
-            </LinearGradient>
-            <View style={styles.resultBody}>
-              <View style={styles.kcalRow}>
-                <Text style={styles.kcalValue}>{result.estimatedCalories}</Text>
-                <Text style={styles.kcalUnit}>kcal</Text>
-              </View>
-              <Text style={styles.confidence}>Güven düzeyi: {result.confidence}</Text>
-              {result.provider === 'groq-vision' || result.provider === 'gemini-vision' ? (
-                <Text style={styles.providerHint}>
-                  {result.provider === 'groq-vision' ? 'Analiz: Groq' : 'Analiz: Google Gemini'}
-                </Text>
-              ) : null}
-              {result.items?.length > 0 ? (
-                <View style={styles.itemsBox}>
-                  <Text style={styles.itemsTitle}>Tahmini dağılım</Text>
-                  {result.items.map((it, i) => (
-                    <View key={i} style={styles.itemRow}>
-                      <Text style={styles.itemName} numberOfLines={2}>
-                        {it.name || 'Öğe'}
-                      </Text>
-                      <Text style={styles.itemKcal}>
-                        {(() => {
-                          const k = Number(it.estimatedKcal ?? it.kcal);
-                          return Number.isFinite(k) ? `${Math.round(k)} kcal` : '—';
-                        })()}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-              {result.notes ? <Text style={styles.notes}>{result.notes}</Text> : null}
-            </View>
-          </View>
-        ) : null}
-
         <View style={styles.footerLegal}>
           <Ionicons name="document-text-outline" size={16} color={COLORS.textLight} />
           <Text style={styles.footerLegalText}>
@@ -363,6 +534,35 @@ export default function MealCalorieScreen({ navigation }) {
     </View>
   );
 }
+
+const MetaChip = ({ icon, text }) => (
+  <View style={styles.metaChip}>
+    <Ionicons name={icon} size={14} color={COLORS.textOnPrimary} />
+    <Text style={styles.metaChipText}>{text}</Text>
+  </View>
+);
+
+const InfoStat = ({ icon, label, value }) => (
+  <View style={styles.infoStat}>
+    <View style={styles.infoStatIcon}>
+      <Ionicons name={icon} size={16} color={COLORS.primary} />
+    </View>
+    <View style={styles.infoStatTextWrap}>
+      <Text style={styles.infoStatLabel}>{label}</Text>
+      <Text style={styles.infoStatValue} numberOfLines={1}>{value}</Text>
+    </View>
+  </View>
+);
+
+const ActionOptionCard = ({ icon, title, subtitle, onPress }) => (
+  <TouchableOpacity style={styles.pickBtn} onPress={onPress} activeOpacity={0.88}>
+    <View style={styles.pickIconCircle}>
+      <Ionicons name={icon} size={20} color={COLORS.primary} />
+    </View>
+    <Text style={styles.pickBtnText}>{title}</Text>
+    <Text style={styles.pickBtnSub}>{subtitle}</Text>
+  </TouchableOpacity>
+);
 
 const styles = StyleSheet.create({
   root: {
@@ -433,21 +633,119 @@ const styles = StyleSheet.create({
     paddingHorizontal: SIZES.containerPadding,
     paddingTop: SIZES.md,
   },
+  heroBlock: {
+    borderRadius: SIZES.radiusLarge,
+    padding: SIZES.md + 2,
+    marginBottom: SIZES.md,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SIZES.sm,
+    gap: SIZES.sm,
+  },
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  heroBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textOnPrimary,
+  },
+  heroStepPill: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  heroStepText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textOnPrimary,
+  },
   introBlock: {
     marginBottom: SIZES.lg,
   },
   introTitle: {
     fontSize: SIZES.h2,
     fontWeight: '800',
-    color: COLORS.text,
+    color: COLORS.textOnPrimary,
     letterSpacing: -0.8,
     lineHeight: 34,
     marginBottom: SIZES.sm,
   },
   introSub: {
     fontSize: SIZES.bodySmall,
-    color: COLORS.textSecondary,
+    color: 'rgba(255,255,255,0.94)',
     lineHeight: 22,
+  },
+  heroMetaRow: {
+    flexDirection: 'row',
+    gap: SIZES.sm,
+    marginTop: SIZES.md,
+  },
+  metaChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+  },
+  metaChipText: {
+    fontSize: 11,
+    color: COLORS.textOnPrimary,
+    fontWeight: '600',
+  },
+  infoStrip: {
+    flexDirection: 'row',
+    gap: SIZES.sm,
+    marginBottom: SIZES.lg,
+  },
+  infoStat: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    ...SHADOWS.small,
+  },
+  infoStatIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.surfaceAlt,
+    marginRight: 8,
+  },
+  infoStatTextWrap: {
+    flex: 1,
+  },
+  infoStatLabel: {
+    fontSize: SIZES.tiny,
+    color: COLORS.textSecondary,
+  },
+  infoStatValue: {
+    marginTop: 2,
+    fontSize: SIZES.small,
+    color: COLORS.text,
+    fontWeight: '700',
   },
   warningCard: {
     backgroundColor: '#FFFBEB',
@@ -559,6 +857,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.text,
     textAlign: 'center',
+  },
+  pickBtnSub: {
+    marginTop: 4,
+    fontSize: 11,
+    color: COLORS.textLight,
+    textAlign: 'center',
+    lineHeight: 15,
+    paddingHorizontal: 4,
   },
   sectionLabel: {
     fontSize: SIZES.tiny,
@@ -702,10 +1008,39 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginBottom: SIZES.xs,
   },
-  providerHint: {
-    fontSize: SIZES.tiny,
-    color: COLORS.textLight,
+  resultMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: SIZES.sm,
     marginBottom: SIZES.md,
+  },
+  confidenceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  confidenceBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  providerChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  providerHint: {
+    fontSize: 12,
+    color: COLORS.textLight,
   },
   itemsBox: {
     borderTopWidth: 1,
@@ -719,11 +1054,17 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.sm,
   },
   itemRow: {
+    marginBottom: SIZES.md,
+  },
+  itemMain: {
+    width: '100%',
+  },
+  itemTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: SIZES.md,
-    marginBottom: SIZES.sm,
+    marginBottom: 6,
   },
   itemName: {
     flex: 1,
@@ -734,6 +1075,18 @@ const styles = StyleSheet.create({
     fontSize: SIZES.bodySmall,
     fontWeight: '600',
     color: COLORS.text,
+  },
+  itemBarTrack: {
+    width: '100%',
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: COLORS.borderLight,
+    overflow: 'hidden',
+  },
+  itemBarFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: COLORS.primary,
   },
   notes: {
     fontSize: SIZES.small,
