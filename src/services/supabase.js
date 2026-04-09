@@ -47,10 +47,25 @@ export const dietPlanService = {
       .select("*")
       .eq("user_id", user.id)
       .eq("date", date)
-      .single();
+      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false });
 
-    if (error && error.code !== "PGRST116") throw error; // PGRST116 = no rows
-    return data;
+    if (error) throw error;
+    if (!data || data.length === 0) return null;
+
+    const countFilledMeals = (plan) =>
+      [
+        plan?.breakfast,
+        plan?.lunch,
+        plan?.dinner,
+        plan?.morning_snack,
+        plan?.afternoon_snack,
+        plan?.evening_snack,
+      ].filter((m) => typeof m === "string" && m.trim().length > 0).length;
+
+    // Aynı gün birden fazla kayıt varsa en dolu planı tercih et.
+    const sorted = [...data].sort((a, b) => countFilledMeals(b) - countFilledMeals(a));
+    return sorted[0] || null;
   },
 
   // Yeni diyet planı ekle
@@ -60,7 +75,9 @@ export const dietPlanService = {
 
     const { data, error } = await supabase
       .from("diet_plans")
-      .insert([{ ...dietPlan, user_id: user.id }])
+      .upsert([{ ...dietPlan, user_id: user.id }], {
+        onConflict: "user_id,date",
+      })
       .select()
       .single();
 
@@ -233,10 +250,17 @@ export const tipsService = {
   },
 };
 
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 // Ana sayfa özet işlemleri
 export const homeSummaryService = {
   // Bugünkü özet KPI verilerini getir
-  async getDailySummary(date = new Date().toISOString().split("T")[0]) {
+  async getDailySummary(date = getLocalDateString(new Date())) {
     const {
       data: { user },
     } = await supabase.auth.getUser();

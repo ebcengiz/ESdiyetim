@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { weightService, dietPlanService, tipsService, homeSummaryService } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,6 +22,12 @@ import GuestGateBanner from '../components/GuestGateBanner';
 import HealthSourcesCard from '../components/HealthSourcesCard';
 
 const { width } = Dimensions.get('window');
+const toLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -36,13 +43,10 @@ export default function HomeScreen({ navigation }) {
   });
   const [refreshing, setRefreshing] = useState(false);
   const [loadingState, setLoadingState] = useState(true);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const heroEnterAnim = React.useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    loadData();
-  }, [user]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoadingState(true);
     try {
       const tip = await tipsService.getRandom();
@@ -57,7 +61,7 @@ export default function HomeScreen({ navigation }) {
       const weight = await weightService.getLatest();
       setLatestWeight(weight);
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = toLocalDateString(new Date());
       const diet = await dietPlanService.getByDate(today);
       setTodayDiet(diet);
 
@@ -70,6 +74,7 @@ export default function HomeScreen({ navigation }) {
           latest_weight: summary.latest_weight ?? null,
         });
       }
+      setLastUpdatedAt(new Date());
     } catch (error) {
       console.error('Veri yükleme hatası:', error);
       if (user) {
@@ -78,7 +83,17 @@ export default function HomeScreen({ navigation }) {
     } finally {
       setLoadingState(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -119,6 +134,12 @@ export default function HomeScreen({ navigation }) {
     : dailySummary.completed_goals_count > 0
       ? `${dailySummary.completed_goals_count} tamam`
       : 'Hedef ekle';
+  const lastUpdatedLabel = lastUpdatedAt
+    ? `Son güncelleme: ${lastUpdatedAt.toLocaleTimeString('tr-TR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })}`
+    : 'Son güncelleme: -';
 
   useEffect(() => {
     Animated.timing(heroEnterAnim, {
@@ -264,6 +285,7 @@ export default function HomeScreen({ navigation }) {
               onPress={() => navigation.navigate('Goals')}
             />
           </View>
+          <Text style={styles.lastUpdatedText}>{lastUpdatedLabel}</Text>
 
           {/* Stats Cards Row */}
           <View style={styles.statsRow}>
@@ -697,6 +719,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: SIZES.sm,
     marginBottom: SIZES.md,
+  },
+  lastUpdatedText: {
+    marginTop: -2,
+    marginBottom: SIZES.md,
+    fontSize: SIZES.tiny,
+    color: COLORS.textLight,
   },
   kpiPill: {
     flex: 1,

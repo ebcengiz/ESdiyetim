@@ -143,8 +143,16 @@ export default function DietPlanScreen() {
         await dietPlanService.update(modal.editingId, planData);
         Alert.alert('✅ Başarılı', 'Diyet planı güncellendi!');
       } else {
-        await dietPlanService.create(planData);
-        Alert.alert('✅ Başarılı', 'Diyet planı eklendi!');
+        const existingForDate = (dietPlans || []).find(
+          (p) => toDateString(new Date(p.date)) === planData.date
+        );
+        if (existingForDate?.id) {
+          await dietPlanService.update(existingForDate.id, planData);
+          Alert.alert('✅ Başarılı', 'Aynı günün planı güncellendi!');
+        } else {
+          await dietPlanService.create(planData);
+          Alert.alert('✅ Başarılı', 'Diyet planı eklendi!');
+        }
       }
       modal.close();
       loadDietPlans();
