@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, Alert, ActivityIndicator, Linking,
+  TouchableOpacity, Alert, ActivityIndicator, Linking, Animated, Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +20,7 @@ export default function BMIPanel({ latestWeight }) {
   const [loadingAdvice, setLoadingAdvice] = useState(false);
   const [bulletRecs, setBulletRecs] = useState([]);
   const [loadingBullets, setLoadingBullets] = useState(false);
+  const bmiRevealAnim = React.useRef(new Animated.Value(0)).current;
 
   const parsedWeight = () => {
     const w = parseFloat(bodyInfo.weight);
@@ -106,6 +107,17 @@ export default function BMIPanel({ latestWeight }) {
 
   const refreshBMIInsights = () => { fetchAIAdvice(); fetchBulletRecommendations(); };
 
+  useEffect(() => {
+    if (!(isSaved && bmi && bmiCategory)) return;
+    bmiRevealAnim.setValue(0);
+    Animated.timing(bmiRevealAnim, {
+      toValue: 1,
+      duration: 320,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [isSaved, bmi, bmiCategory, bmiRevealAnim]);
+
   const saveBodyInfo = async () => {
     if (!bodyInfo.height || !bodyInfo.age) { Alert.alert('⚠️ Uyarı', 'Lütfen boy ve yaş alanlarını doldurun.'); return; }
     const w = parsedWeight();
@@ -132,8 +144,45 @@ export default function BMIPanel({ latestWeight }) {
     return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={COLORS.primary} /></View>;
   }
 
+  const bmiRevealStyle = {
+    opacity: bmiRevealAnim,
+    transform: [
+      {
+        translateY: bmiRevealAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [10, 0],
+        }),
+      },
+      {
+        scale: bmiRevealAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.98, 1],
+        }),
+      },
+    ],
+  };
+
   return (
     <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={s.listContent}>
+      <LinearGradient
+        colors={[COLORS.primary, COLORS.primaryLight]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={s.heroCard}
+      >
+        <View style={s.heroTopRow}>
+          <View style={s.heroBadge}>
+            <Ionicons name="body-outline" size={14} color={COLORS.textOnPrimary} />
+            <Text style={s.heroBadgeText}>VKİ Analizi</Text>
+          </View>
+          <Text style={s.heroDate}>
+            {new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}
+          </Text>
+        </View>
+        <Text style={s.heroTitle}>Vücut Kitle İndeksi</Text>
+        <Text style={s.heroSub}>Temel bilgilerini gir, VKİ sonucunu ve kişisel önerileri anında gör.</Text>
+      </LinearGradient>
+
       <View style={s.syncBadge}>
         <Ionicons name="information-circle" size={16} color={COLORS.info} />
         <Text style={s.syncText}>
@@ -142,42 +191,44 @@ export default function BMIPanel({ latestWeight }) {
         </Text>
       </View>
 
-      <Text style={s.sectionTitle}>Temel Bilgiler</Text>
+      <View style={s.sectionCard}>
+        <Text style={s.sectionTitle}>Temel Bilgiler</Text>
 
-      {[
-        { label: 'Boy (cm)', field: 'height', icon: 'resize', placeholder: '175', keyboard: 'decimal-pad' },
-        { label: 'Kilo (kg)', field: 'weight', icon: 'fitness', placeholder: '72.5', keyboard: 'decimal-pad' },
-        { label: 'Yaş', field: 'age', icon: 'calendar', placeholder: '30', keyboard: 'number-pad' },
-      ].map(({ label, field, icon, placeholder, keyboard }) => (
-        <View key={field} style={s.inputGroup}>
-          <Text style={s.inputLabel}>{label}</Text>
-          <View style={s.textInputWrap}>
-            <Ionicons name={icon} size={20} color={COLORS.primary} />
-            <TextInput
-              style={s.textInput}
-              value={bodyInfo[field]}
-              onChangeText={(t) => { setBodyInfo({ ...bodyInfo, [field]: t }); setIsSaved(false); }}
-              placeholder={placeholder}
-              keyboardType={keyboard}
-              placeholderTextColor={COLORS.textLight}
-            />
+        {[
+          { label: 'Boy (cm)', field: 'height', icon: 'resize', placeholder: '175', keyboard: 'decimal-pad' },
+          { label: 'Kilo (kg)', field: 'weight', icon: 'fitness', placeholder: '72.5', keyboard: 'decimal-pad' },
+          { label: 'Yaş', field: 'age', icon: 'calendar', placeholder: '30', keyboard: 'number-pad' },
+        ].map(({ label, field, icon, placeholder, keyboard }) => (
+          <View key={field} style={s.inputGroup}>
+            <Text style={s.inputLabel}>{label}</Text>
+            <View style={s.textInputWrap}>
+              <Ionicons name={icon} size={20} color={COLORS.primary} />
+              <TextInput
+                style={s.textInput}
+                value={bodyInfo[field]}
+                onChangeText={(t) => { setBodyInfo({ ...bodyInfo, [field]: t }); setIsSaved(false); }}
+                placeholder={placeholder}
+                keyboardType={keyboard}
+                placeholderTextColor={COLORS.textLight}
+              />
+            </View>
           </View>
-        </View>
-      ))}
+        ))}
 
-      <View style={s.inputGroup}>
-        <Text style={s.inputLabel}>Cinsiyet</Text>
-        <View style={{ flexDirection: 'row', gap: SIZES.md }}>
-          {[{ key: 'male', label: 'Erkek' }, { key: 'female', label: 'Kadın' }].map(({ key, label }) => (
-            <TouchableOpacity
-              key={key}
-              style={[s.genderBtn, bodyInfo.gender === key && s.genderBtnActive]}
-              onPress={() => { setBodyInfo({ ...bodyInfo, gender: key }); setIsSaved(false); }}
-            >
-              <Ionicons name={key} size={22} color={bodyInfo.gender === key ? COLORS.textOnPrimary : COLORS.textSecondary} />
-              <Text style={[s.genderText, bodyInfo.gender === key && { color: COLORS.textOnPrimary }]}>{label}</Text>
-            </TouchableOpacity>
-          ))}
+        <View style={s.inputGroup}>
+          <Text style={s.inputLabel}>Cinsiyet</Text>
+          <View style={{ flexDirection: 'row', gap: SIZES.md }}>
+            {[{ key: 'male', label: 'Erkek' }, { key: 'female', label: 'Kadın' }].map(({ key, label }) => (
+              <TouchableOpacity
+                key={key}
+                style={[s.genderBtn, bodyInfo.gender === key && s.genderBtnActive]}
+                onPress={() => { setBodyInfo({ ...bodyInfo, gender: key }); setIsSaved(false); }}
+              >
+                <Ionicons name={key} size={20} color={bodyInfo.gender === key ? COLORS.textOnPrimary : COLORS.textSecondary} />
+                <Text style={[s.genderText, bodyInfo.gender === key && { color: COLORS.textOnPrimary }]}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       </View>
 
@@ -191,13 +242,13 @@ export default function BMIPanel({ latestWeight }) {
       {isSaved && bmi && bmiCategory && (
         <>
           <Text style={[s.sectionTitle, { marginTop: SIZES.xl }]}>Vücut Kitle İndeksi (VKİ)</Text>
-          <View style={s.bmiCard}>
+          <Animated.View style={[s.bmiCard, bmiRevealStyle]}>
             <LinearGradient colors={[bmiCategory.color, bmiCategory.color + 'CC']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.bmiGradient}>
               <View style={s.bmiIconCircle}><Ionicons name={bmiCategory.icon} size={38} color={COLORS.textOnPrimary} /></View>
               <Text style={s.bmiVal}>{bmi}</Text>
               <Text style={s.bmiCat}>{bmiCategory.name}</Text>
             </LinearGradient>
-          </View>
+          </Animated.View>
 
           <View style={s.bmiScale}>
             {[
@@ -284,17 +335,50 @@ export default function BMIPanel({ latestWeight }) {
 
 const s = StyleSheet.create({
   listContent: { padding: SIZES.containerPadding, paddingBottom: 100 },
+  heroCard: {
+    borderRadius: SIZES.radiusLarge,
+    padding: SIZES.md,
+    marginBottom: SIZES.md,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SIZES.sm,
+  },
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  heroBadgeText: { color: COLORS.textOnPrimary, fontSize: 11, fontWeight: '700' },
+  heroDate: { color: COLORS.textOnPrimary, fontSize: 11, opacity: 0.9, fontWeight: '600' },
+  heroTitle: { color: COLORS.textOnPrimary, fontSize: SIZES.h3, fontWeight: '800', letterSpacing: -0.3 },
+  heroSub: { color: COLORS.textOnPrimary, opacity: 0.92, fontSize: SIZES.tiny, marginTop: 4, lineHeight: 18 },
   syncBadge: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: COLORS.info + '12', borderRadius: SIZES.radiusMedium, padding: SIZES.md, marginBottom: SIZES.lg, borderWidth: 1, borderColor: COLORS.info + '35' },
   syncText: { flex: 1, fontSize: SIZES.small, color: COLORS.textSecondary, lineHeight: 18 },
-  sectionTitle: { fontSize: SIZES.h3, fontWeight: '700', color: COLORS.text, marginBottom: SIZES.md },
+  sectionCard: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    borderRadius: SIZES.radiusLarge,
+    padding: SIZES.md,
+    marginBottom: SIZES.md,
+    ...SHADOWS.small,
+  },
+  sectionTitle: { fontSize: SIZES.h4, fontWeight: '700', color: COLORS.text, marginBottom: SIZES.md },
   inputGroup: { marginBottom: SIZES.md },
   inputLabel: { fontSize: SIZES.small, fontWeight: '600', color: COLORS.textSecondary, marginBottom: SIZES.xs },
-  textInputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surfaceAlt, borderRadius: SIZES.radiusMedium, paddingHorizontal: SIZES.md, gap: SIZES.sm },
-  textInput: { flex: 1, fontSize: SIZES.h4, fontWeight: '600', color: COLORS.text, paddingVertical: SIZES.md },
+  textInputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surfaceAlt, borderRadius: SIZES.radiusMedium, paddingHorizontal: SIZES.md, gap: SIZES.sm, borderWidth: 1, borderColor: COLORS.border },
+  textInput: { flex: 1, fontSize: 22, fontWeight: '600', color: COLORS.text, paddingVertical: SIZES.md - 2 },
   saveBtn: { borderRadius: SIZES.radiusMedium, overflow: 'hidden', height: 52, ...SHADOWS.medium },
   saveBtnGradient: { flex: 1, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6 },
   saveBtnText: { fontSize: SIZES.h5, fontWeight: '700', color: COLORS.textOnPrimary },
-  genderBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surface, borderRadius: SIZES.radiusMedium, padding: SIZES.md, gap: SIZES.sm, ...SHADOWS.small },
+  genderBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surface, borderRadius: SIZES.radiusMedium, padding: SIZES.md - 2, gap: SIZES.sm, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.small },
   genderBtnActive: { backgroundColor: COLORS.primary },
   genderText: { fontSize: SIZES.body, fontWeight: '600', color: COLORS.textSecondary },
   bmiCard: { borderRadius: SIZES.radiusLarge, overflow: 'hidden', marginBottom: SIZES.md, ...SHADOWS.medium },
