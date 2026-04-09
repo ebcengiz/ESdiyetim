@@ -52,6 +52,31 @@ const VARIANTS = {
       },
     ],
   },
+  food: {
+    title: 'Veri kaynakları ve uyarılar',
+    headerIcon: 'information-circle-outline',
+    headerIconSize: 18,
+    intro:
+      'Besin değerleri Open Food Facts veritabanı ve yapay zeka tahminlerinden derlenmektedir. Değerler yaklaşıktır; kesin bilgi için kaynaklara başvurun. Bu uygulama diyetisyen tavsiyesinin yerine geçmez.',
+    links: [
+      {
+        label: 'Open Food Facts — açık kaynak besin veritabanı',
+        url: 'https://world.openfoodfacts.org/',
+      },
+      {
+        label: 'USDA FoodData Central — besin bileşimi',
+        url: 'https://fdc.nal.usda.gov/',
+      },
+      {
+        label: 'T.C. Sağlık Bakanlığı — TÜBER beslenme rehberi',
+        url: 'https://hsgm.saglik.gov.tr/tr/beslenme',
+      },
+      {
+        label: 'WHO — sağlıklı beslenme',
+        url: 'https://www.who.int/news-room/fact-sheets/detail/healthy-diet',
+      },
+    ],
+  },
   general: {
     title: 'Bilimsel ve resmî kaynaklar',
     headerIcon: 'library-outline',

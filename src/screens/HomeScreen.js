@@ -9,13 +9,14 @@ import {
   Dimensions,
   Animated,
   Easing,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
-import { weightService, dietPlanService, tipsService, homeSummaryService } from '../services/supabase';
+import { weightService, dietPlanService, tipsService, homeSummaryService, foodLogService } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import GuestGateBanner from '../components/GuestGateBanner';
@@ -42,6 +43,7 @@ export default function HomeScreen({ navigation }) {
     meals_planned_count: 0,
     latest_weight: null,
   });
+  const [todayFoodSummary, setTodayFoodSummary] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingState, setLoadingState] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
@@ -56,6 +58,7 @@ export default function HomeScreen({ navigation }) {
       if (!user) {
         setLatestWeight(null);
         setTodayDiet(null);
+        setTodayFoodSummary(null);
         return;
       }
 
@@ -75,6 +78,14 @@ export default function HomeScreen({ navigation }) {
           latest_weight: summary.latest_weight ?? null,
         });
       }
+
+      try {
+        const foodSummary = await foodLogService.getDailySummary(today);
+        setTodayFoodSummary(foodSummary);
+      } catch {
+        setTodayFoodSummary(null);
+      }
+
       setLastUpdatedAt(new Date());
     } catch (error) {
       console.error('Veri yükleme hatası:', error);
@@ -108,6 +119,14 @@ export default function HomeScreen({ navigation }) {
       return;
     }
     navigation.navigate('MealCalorie');
+  };
+
+  const openFoodLogOrPrompt = () => {
+    if (!user) {
+      showToast('Besin takibi için giriş yapın veya hesap oluşturun.', 'info');
+      return;
+    }
+    navigation.navigate('FoodLog');
   };
 
   const headerTopPad = Math.max(insets.top, 12) + 16;
@@ -351,6 +370,56 @@ export default function HomeScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
+          {/* Günlük Kalori Özeti Kartı */}
+          {user && (
+            <TouchableOpacity
+              style={styles.foodSummaryCard}
+              onPress={openFoodLogOrPrompt}
+              activeOpacity={0.82}
+            >
+              <LinearGradient
+                colors={['#E8724A', '#f0955c']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.foodSummaryGradient}
+              >
+                <View style={styles.foodSummaryTop}>
+                  <View style={styles.foodSummaryIconWrap}>
+                    <Ionicons name="nutrition" size={20} color="#fff" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.foodSummaryLabel}>Bugün Yediklerim</Text>
+                    {loadingState ? (
+                      <View style={styles.foodSummarySkeleton} />
+                    ) : (
+                      <Text style={styles.foodSummaryKcal}>
+                        {todayFoodSummary && todayFoodSummary.calories > 0
+                          ? `${Math.round(todayFoodSummary.calories)} kcal`
+                          : 'Henüz eklenmedi'}
+                      </Text>
+                    )}
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.7)" />
+                </View>
+
+                {todayFoodSummary && todayFoodSummary.calories > 0 && (
+                  <View style={styles.foodSummaryMacros}>
+                    {[
+                      { label: 'Protein', value: todayFoodSummary.protein, unit: 'g' },
+                      { label: 'Karb', value: todayFoodSummary.carbs, unit: 'g' },
+                      { label: 'Yağ', value: todayFoodSummary.fat, unit: 'g' },
+                    ].map((m) => (
+                      <View key={m.label} style={styles.foodSummaryMacroPill}>
+                        <Text style={styles.foodSummaryMacroValue}>{Math.round(m.value)}{m.unit}</Text>
+                        <Text style={styles.foodSummaryMacroLabel}>{m.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={[styles.calorieCta, !user && styles.calorieCtaGuest]}
             onPress={openMealCalorieOrPrompt}
@@ -374,8 +443,31 @@ export default function HomeScreen({ navigation }) {
             />
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={[styles.calorieCta, !user && styles.calorieCtaGuest]}
+            onPress={openFoodLogOrPrompt}
+            activeOpacity={0.82}
+          >
+            <View style={[styles.calorieCtaIcon, { backgroundColor: '#E8724A1A' }]}>
+              <Ionicons name="nutrition-outline" size={22} color="#E8724A" />
+            </View>
+            <View style={styles.calorieCtaText}>
+              <Text style={styles.calorieCtaTitle}>Besin Takibi</Text>
+              <Text style={styles.calorieCtaSub}>
+                {user
+                  ? 'Günlük kalori ve makro takibini başlat'
+                  : 'Kullanmak için giriş yapın — dokunun'}
+              </Text>
+            </View>
+            <Ionicons
+              name={user ? 'chevron-forward' : 'lock-closed-outline'}
+              size={20}
+              color={COLORS.textLight}
+            />
+          </TouchableOpacity>
+
           {/* Today's Diet Section */}
-          {todayDiet && (
+          {todayDiet && (todayDiet.breakfast || todayDiet.lunch || todayDiet.dinner) && (
             <View style={styles.section}>
               <SectionHeader
                 icon="restaurant-outline"
@@ -469,6 +561,12 @@ export default function HomeScreen({ navigation }) {
                 label="Hedefler"
                 color={COLORS.primaryLight}
                 onPress={() => navigation.navigate('Goals')}
+              />
+              <QuickActionButton
+                icon="nutrition-outline"
+                label="Besin Takibi"
+                color="#E8724A"
+                onPress={openFoodLogOrPrompt}
               />
             </View>
           </View>
@@ -589,7 +687,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 24,
+    paddingBottom: Platform.OS === 'ios' ? 120 : 110,
   },
   headerContent: {
     flexDirection: 'row',
@@ -751,6 +849,69 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: SIZES.md,
     marginBottom: SIZES.lg,
+  },
+  foodSummaryCard: {
+    borderRadius: SIZES.radiusLarge,
+    overflow: 'hidden',
+    marginBottom: SIZES.md,
+    ...SHADOWS.medium,
+  },
+  foodSummaryGradient: {
+    padding: SIZES.md,
+    gap: SIZES.sm,
+  },
+  foodSummaryTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SIZES.sm,
+  },
+  foodSummaryIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  foodSummaryLabel: {
+    fontSize: SIZES.small,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '600',
+  },
+  foodSummaryKcal: {
+    fontSize: SIZES.h3,
+    fontWeight: '800',
+    color: '#fff',
+    marginTop: 1,
+  },
+  foodSummarySkeleton: {
+    width: 80,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.28)',
+    marginTop: 4,
+  },
+  foodSummaryMacros: {
+    flexDirection: 'row',
+    gap: SIZES.sm,
+    paddingTop: SIZES.xs,
+  },
+  foodSummaryMacroPill: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: SIZES.radius,
+    paddingVertical: 6,
+    alignItems: 'center',
+  },
+  foodSummaryMacroValue: {
+    fontSize: SIZES.body,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  foodSummaryMacroLabel: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.75)',
+    marginTop: 1,
   },
   calorieCta: {
     flexDirection: 'row',

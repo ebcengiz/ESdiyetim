@@ -1,20 +1,76 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
+  Animated,
+  Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 
+// ─── Animasyonlu yükleme noktaları ───────────────────────────────────────────
+function PulsingDots({ color }) {
+  const dots = [useRef(new Animated.Value(0)).current,
+                useRef(new Animated.Value(0)).current,
+                useRef(new Animated.Value(0)).current];
+
+  useEffect(() => {
+    const animations = dots.map((dot, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(i * 140),
+          Animated.timing(dot, { toValue: 1, duration: 400, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 400, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        ])
+      )
+    );
+    animations.forEach(a => a.start());
+    return () => animations.forEach(a => a.stop());
+  }, []);
+
+  return (
+    <View style={{ flexDirection: 'row', gap: 5, alignItems: 'center' }}>
+      {dots.map((dot, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: 7, height: 7, borderRadius: 4,
+            backgroundColor: color,
+            opacity: dot,
+            transform: [{ scale: dot.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }],
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
+// ─── Sparkle animasyonu ───────────────────────────────────────────────────────
+function SparkleIcon({ tint }) {
+  const spin = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.15, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <Animated.View style={{ transform: [{ scale: pulse }] }}>
+      <Ionicons name="sparkles" size={20} color={tint} />
+    </Animated.View>
+  );
+}
+
 /**
- * VKİ ve tüm sekmelerde ortak modern AI kartı.
- * @param {string} [subtitle] — Başlık altında ince açıklama (beyaz/yarı saydam)
- * @param {React.ReactNode} [children] — loading değilken gövdede özel içerik (ör. Tips paragrafları)
- * @param {string} [footerDisclaimer] — Gövde altında küçük uyarı metni
+ * Modern AI Tavsiye Kartı
  */
 export default function AIAdviceCard({
   visible = true,
@@ -24,7 +80,7 @@ export default function AIAdviceCard({
   gradientColors = [COLORS.primary, COLORS.primaryLight],
   iconTint = COLORS.primary,
   title = 'Yapay Zeka Tavsiyesi',
-  loadingText = 'AI tavsiyeniz hazırlanıyor...',
+  loadingText = 'Analiz yapılıyor',
   subtitle,
   footerDisclaimer,
   style,
@@ -36,70 +92,79 @@ export default function AIAdviceCard({
 
   return (
     <View style={[styles.wrap, style]}>
-      <View style={styles.cardOuter}>
-        <LinearGradient
-          colors={gradientColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.header}
-        >
-          <View style={styles.headerRow}>
-            <View style={styles.iconBox}>
-              <Ionicons name="sparkles" size={18} color={iconTint} />
-            </View>
-            <View style={styles.headerTextBlock}>
-              <Text style={styles.title} numberOfLines={2}>
-                {title}
-              </Text>
-              {subtitle ? (
-                <Text style={styles.subtitle} numberOfLines={2}>
-                  {subtitle}
-                </Text>
-              ) : null}
-            </View>
-            {onRefresh ? (
-              <TouchableOpacity
-                onPress={onRefresh}
-                disabled={loading}
-                style={styles.refreshBtn}
-                activeOpacity={0.75}
-              >
-                <Ionicons name="refresh" size={17} color="rgba(255,255,255,0.95)" />
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.refreshPlaceholder} />
-            )}
-          </View>
-        </LinearGradient>
+      {/* ── Header (gradient) ─────────────────────────────── */}
+      <LinearGradient
+        colors={gradientColors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        {/* Sol üst: AI rozeti */}
+        <View style={styles.aiBadge}>
+          <Ionicons name="flash" size={10} color={gradientColors[0]} />
+          <Text style={[styles.aiBadgeText, { color: gradientColors[0] }]}>AI</Text>
+        </View>
 
-        <View style={styles.body}>
-          {loading ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator size="small" color={iconTint} />
-              <Text style={[styles.loadingText, { color: iconTint }]}>
-                {loadingText}
-              </Text>
-            </View>
-          ) : showBodyContent ? (
-            <>
-              {children != null ? (
-                <View style={styles.childrenWrap}>{children}</View>
-              ) : (
-                <Text style={styles.adviceText}>{advice}</Text>
-              )}
-              {footerDisclaimer ? (
-                <View style={styles.footerRow}>
-                  <Ionicons
-                    name="shield-checkmark-outline"
-                    size={14}
-                    color={COLORS.textLight}
-                  />
-                  <Text style={styles.footerDisclaimer}>{footerDisclaimer}</Text>
-                </View>
-              ) : null}
-            </>
+        <View style={styles.headerRow}>
+          {/* İkon kutusu */}
+          <View style={styles.iconBox}>
+            <SparkleIcon tint={gradientColors[0]} />
+          </View>
+
+          {/* Başlık + alt başlık */}
+          <View style={styles.headerTexts}>
+            <Text style={styles.headerTitle}>{title}</Text>
+            {subtitle ? (
+              <Text style={styles.headerSubtitle} numberOfLines={2}>{subtitle}</Text>
+            ) : null}
+          </View>
+
+          {/* Yenile butonu */}
+          {onRefresh ? (
+            <TouchableOpacity
+              onPress={onRefresh}
+              disabled={loading}
+              style={styles.refreshBtn}
+              activeOpacity={0.75}
+            >
+              <Ionicons name="refresh-outline" size={18} color="rgba(255,255,255,0.9)" />
+            </TouchableOpacity>
           ) : null}
         </View>
+
+        {/* Alt ayraç çizgisi */}
+        <View style={styles.headerDivider} />
+      </LinearGradient>
+
+      {/* ── Body ──────────────────────────────────────────── */}
+      <View style={styles.body}>
+        {loading ? (
+          <View style={styles.loadingRow}>
+            <PulsingDots color={iconTint} />
+            <Text style={[styles.loadingText, { color: iconTint }]}>{loadingText}</Text>
+          </View>
+        ) : showBodyContent ? (
+          <>
+            {/* Sol renkli çizgi */}
+            <View style={styles.contentRow}>
+              <View style={[styles.leftAccent, { backgroundColor: iconTint }]} />
+              <View style={styles.contentInner}>
+                {children != null ? (
+                  children
+                ) : (
+                  <Text style={styles.adviceText}>{advice}</Text>
+                )}
+              </View>
+            </View>
+
+            {footerDisclaimer ? (
+              <View style={styles.footer}>
+                <Ionicons name="shield-checkmark-outline" size={12} color={COLORS.textLight} />
+                <Text style={styles.footerText}>{footerDisclaimer}</Text>
+              </View>
+            ) : null}
+          </>
+        ) : null}
       </View>
     </View>
   );
@@ -108,8 +173,6 @@ export default function AIAdviceCard({
 const styles = StyleSheet.create({
   wrap: {
     marginTop: SIZES.md,
-  },
-  cardOuter: {
     borderRadius: SIZES.radiusLarge,
     overflow: 'hidden',
     backgroundColor: COLORS.surface,
@@ -117,75 +180,104 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     ...SHADOWS.large,
   },
+
+  // ── Header
   header: {
+    paddingTop: SIZES.sm + 2,
+    paddingBottom: SIZES.md,
     paddingHorizontal: SIZES.md,
-    paddingVertical: SIZES.md + 2,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.2)',
+  },
+  aiBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    gap: 3,
+    marginBottom: SIZES.sm,
+  },
+  aiBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: SIZES.sm,
   },
-  headerTextBlock: {
-    flex: 1,
-    minHeight: 36,
-    justifyContent: 'center',
-  },
   iconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255,255,255,0.92)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 1,
     ...SHADOWS.small,
   },
-  title: {
+  headerTexts: {
+    flex: 1,
+  },
+  headerTitle: {
     fontSize: SIZES.body + 1,
     fontWeight: '800',
-    color: COLORS.textOnPrimary,
-    letterSpacing: -0.25,
+    color: '#fff',
+    letterSpacing: -0.3,
   },
-  subtitle: {
+  headerSubtitle: {
     marginTop: 3,
     fontSize: SIZES.small,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.88)',
-    lineHeight: 18,
+    color: 'rgba(255,255,255,0.82)',
+    lineHeight: 17,
   },
   refreshBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
   },
-  refreshPlaceholder: {
-    width: 36,
-    height: 36,
+  headerDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    marginTop: SIZES.md,
+    marginHorizontal: -SIZES.md,
   },
+
+  // ── Body
   body: {
     backgroundColor: COLORS.surface,
-    paddingHorizontal: SIZES.md + 2,
+    paddingHorizontal: SIZES.md,
     paddingVertical: SIZES.lg,
-  },
-  childrenWrap: {
-    gap: SIZES.sm,
   },
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SIZES.sm,
+    gap: SIZES.md,
     paddingVertical: SIZES.xs,
   },
   loadingText: {
     fontSize: SIZES.small,
     fontWeight: '600',
+    letterSpacing: 0.1,
+  },
+  contentRow: {
+    flexDirection: 'row',
+    gap: SIZES.sm,
+  },
+  leftAccent: {
+    width: 3,
+    borderRadius: 2,
+    minHeight: 20,
+    opacity: 0.7,
+  },
+  contentInner: {
     flex: 1,
   },
   adviceText: {
@@ -194,16 +286,18 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     letterSpacing: -0.1,
   },
-  footerRow: {
+
+  // ── Footer
+  footer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: 6,
     marginTop: SIZES.lg,
     paddingTop: SIZES.md,
     borderTopWidth: 1,
     borderTopColor: COLORS.divider,
   },
-  footerDisclaimer: {
+  footerText: {
     flex: 1,
     fontSize: 11,
     lineHeight: 16,

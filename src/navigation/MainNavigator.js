@@ -30,6 +30,7 @@ import LoginScreen from "../screens/LoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import MealCalorieScreen from "../screens/MealCalorieScreen";
+import FoodLogScreen from "../screens/FoodLogScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -185,6 +186,7 @@ function MainTabs() {
         options={{
           title: TAB_ITEMS.DietPlan.title,
           tabBarLabel: TAB_ITEMS.DietPlan.label,
+          headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <ModernTabIcon
               icon={TAB_ITEMS.DietPlan.icon}
@@ -287,6 +289,11 @@ function AppStack() {
           },
           headerShadowVisible: false,
         }}
+      />
+      <Stack.Screen
+        name="FoodLog"
+        component={FoodLogScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

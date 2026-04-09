@@ -2,21 +2,22 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Text, View, StyleSheet, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SIZES, SHADOWS } from '../../constants/theme';
+import { SIZES, SHADOWS } from '../../constants/theme';
 
 const { width } = Dimensions.get('window');
 
 const TOAST_CONFIG = {
-  success: { bg: '#16A34A', icon: 'checkmark-circle', light: '#DCFCE7', textColor: '#fff' },
-  error:   { bg: '#DC2626', icon: 'close-circle',     light: '#FEE2E2', textColor: '#fff' },
-  warning: { bg: '#D97706', icon: 'warning',           light: '#FEF3C7', textColor: '#fff' },
-  info:    { bg: '#0F766E', icon: 'information-circle',light: '#CCFBF1', textColor: '#fff' },
+  success: { accent: '#22C55E', icon: 'checkmark-circle' },
+  error:   { accent: '#EF4444', icon: 'close-circle' },
+  warning: { accent: '#F59E0B', icon: 'warning' },
+  info:    { accent: '#3B82F6', icon: 'information-circle' },
 };
 
 export default function Toast({ visible, type = 'info', message, onHide }) {
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-120)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.92)).current;
 
   const config = TOAST_CONFIG[type] || TOAST_CONFIG.info;
 
@@ -25,20 +26,24 @@ export default function Toast({ visible, type = 'info', message, onHide }) {
       Animated.parallel([
         Animated.spring(translateY, {
           toValue: 0,
-          tension: 80,
-          friction: 10,
+          tension: 90,
+          friction: 11,
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
           toValue: 1,
-          duration: 200,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scale, {
+          toValue: 1,
+          tension: 90,
+          friction: 11,
           useNativeDriver: true,
         }),
       ]).start();
 
-      const timer = setTimeout(() => {
-        hide();
-      }, 3200);
+      const timer = setTimeout(() => hide(), 3200);
       return () => clearTimeout(timer);
     }
   }, [visible]);
@@ -47,12 +52,12 @@ export default function Toast({ visible, type = 'info', message, onHide }) {
     Animated.parallel([
       Animated.timing(translateY, {
         toValue: -120,
-        duration: 280,
+        duration: 260,
         useNativeDriver: true,
       }),
       Animated.timing(opacity, {
         toValue: 0,
-        duration: 220,
+        duration: 200,
         useNativeDriver: true,
       }),
     ]).start(() => onHide?.());
@@ -65,17 +70,22 @@ export default function Toast({ visible, type = 'info', message, onHide }) {
       style={[
         styles.container,
         {
-          top: insets.top + 12,
-          backgroundColor: config.bg,
+          top: insets.top + 10,
           opacity,
-          transform: [{ translateY }],
+          transform: [{ translateY }, { scale }],
         },
       ]}
       pointerEvents="none"
     >
-      <View style={styles.iconWrap}>
-        <Ionicons name={config.icon} size={22} color="#fff" />
+      {/* Sol renkli şerit */}
+      <View style={[styles.stripe, { backgroundColor: config.accent }]} />
+
+      {/* İkon */}
+      <View style={[styles.iconWrap, { backgroundColor: config.accent + '22' }]}>
+        <Ionicons name={config.icon} size={20} color={config.accent} />
       </View>
+
+      {/* Mesaj */}
       <Text style={styles.message} numberOfLines={3}>
         {message}
       </Text>
@@ -91,21 +101,39 @@ const styles = StyleSheet.create({
     zIndex: 9999,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#1C1C1E',        // koyu nötr — her arkaplan üstünde görünür
     borderRadius: SIZES.radiusMedium,
-    paddingVertical: 14,
-    paddingHorizontal: SIZES.md,
+    overflow: 'hidden',
+    paddingVertical: 13,
+    paddingRight: SIZES.md,
+    paddingLeft: 0,
     gap: SIZES.sm,
-    ...SHADOWS.large,
+    // Güçlü gölge — arka plandan ayırır
+    shadowColor: '#000',
+    shadowOpacity: 0.45,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 16,
+  },
+  stripe: {
+    width: 4,
+    alignSelf: 'stretch',
+    borderRadius: 2,
+    marginLeft: 0,
+    marginRight: 2,
   },
   iconWrap: {
-    width: 28,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   message: {
     flex: 1,
     fontSize: SIZES.bodySmall,
     fontWeight: '600',
-    color: '#fff',
+    color: '#F5F5F5',
     lineHeight: 20,
   },
 });

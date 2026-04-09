@@ -527,3 +527,62 @@ export const goalsService = {
     if (error) throw error;
   },
 };
+
+// ─── Besin Günlüğü (food_logs) ───────────────────────────────────────────────
+export const foodLogService = {
+  async getByDate(date) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
+    const { data, error } = await supabase
+      .from('food_logs')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('date', date)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async create(entry) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
+    const { data, error } = await supabase
+      .from('food_logs')
+      .insert([{ ...entry, user_id: user.id }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async delete(id) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+
+    const { error } = await supabase
+      .from('food_logs')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+  },
+
+  async getDailySummary(date) {
+    const logs = await foodLogService.getByDate(date);
+    return logs.reduce(
+      (acc, log) => ({
+        calories: acc.calories + (log.calories || 0),
+        protein:  acc.protein  + (log.protein  || 0),
+        carbs:    acc.carbs    + (log.carbs     || 0),
+        fat:      acc.fat      + (log.fat       || 0),
+        fiber:    acc.fiber    + (log.fiber     || 0),
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
+    );
+  },
+};
