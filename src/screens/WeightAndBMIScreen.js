@@ -32,7 +32,17 @@ export default function WeightAndBMIScreen() {
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={[s.header, { paddingTop: Math.max(insets.top, 8) + 10 }]}
       >
+        <View style={s.headerTopRow}>
+          <View style={s.headerBadge}>
+            <Ionicons name="analytics-outline" size={14} color={COLORS.textOnPrimary} />
+            <Text style={s.headerBadgeText}>Sağlık Takibi</Text>
+          </View>
+          <Text style={s.headerDate}>
+            {new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}
+          </Text>
+        </View>
         <Text style={s.headerTitle}>Kilo ve VKİ</Text>
+        <Text style={s.headerSubtitle}>Kilo trendinizi ve vücut kitle indeksinizi tek yerden takip edin.</Text>
         <View style={s.segmentWrap}>
           {[
             { key: 'weight', label: 'Kilo Takibi', icon: 'fitness' },
@@ -69,9 +79,22 @@ export default function WeightAndBMIScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  header: { paddingBottom: 16, paddingHorizontal: SIZES.containerPadding, alignItems: 'center', gap: SIZES.md },
-  headerTitle: { fontSize: SIZES.h3, fontWeight: '800', letterSpacing: -0.35, color: COLORS.textOnPrimary },
-  segmentWrap: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: SIZES.radiusMedium, padding: 3, width: '100%' },
+  header: { paddingBottom: 14, paddingHorizontal: SIZES.containerPadding, alignItems: 'center', gap: SIZES.sm },
+  headerTopRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  headerBadgeText: { color: COLORS.textOnPrimary, fontSize: 11, fontWeight: '700' },
+  headerDate: { color: COLORS.textOnPrimary, fontSize: 11, fontWeight: '600', opacity: 0.9 },
+  headerTitle: { alignSelf: 'flex-start', fontSize: SIZES.h3, fontWeight: '800', letterSpacing: -0.35, color: COLORS.textOnPrimary },
+  headerSubtitle: { alignSelf: 'flex-start', fontSize: SIZES.tiny, color: COLORS.textOnPrimary, opacity: 0.92, marginBottom: 2 },
+  segmentWrap: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: SIZES.radiusMedium, padding: 4, width: '100%' },
   segmentBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, borderRadius: SIZES.radiusSmall, gap: 6 },
   segmentBtnActive: { backgroundColor: COLORS.surface },
   segmentText: { fontSize: SIZES.small, fontWeight: '600', color: 'rgba(255,255,255,0.75)' },

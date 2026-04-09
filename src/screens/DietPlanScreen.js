@@ -864,11 +864,6 @@ const styles = StyleSheet.create({
   notesInput: { flex: 1, fontSize: 15, color: COLORS.text, minHeight: 72, textAlignVertical: 'top' },
   inputFocused: {
     borderColor: COLORS.primary,
-    shadowColor: COLORS.primary,
-    shadowOpacity: 0.14,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
   },
   modalFooter: { flexDirection: 'row', gap: SIZES.md, paddingHorizontal: SIZES.lg, paddingVertical: SIZES.md + 2, borderTopWidth: 1, borderTopColor: COLORS.divider, backgroundColor: COLORS.surface, ...SHADOWS.small },
   modalBtn: { flex: 1, height: 52, borderRadius: 14, overflow: 'hidden' },

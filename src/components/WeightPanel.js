@@ -19,6 +19,7 @@ export default function WeightPanel({ onWeightChange }) {
   const [weights, setWeights] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [activeField, setActiveField] = useState('');
   const [aiAdvice, setAiAdvice] = useState('');
   const [loadingAdvice, setLoadingAdvice] = useState(false);
 
@@ -130,6 +131,9 @@ export default function WeightPanel({ onWeightChange }) {
 
   const calculateChange = (index) =>
     index < weights.length - 1 ? weights[index].weight - weights[index + 1].weight : null;
+  const modalFilledCount = [modal.form.weight, modal.form.notes]
+    .filter((v) => typeof v === 'string' && v.trim().length > 0).length;
+  const modalProgressPercent = Math.max(0, Math.min(100, Math.round((modalFilledCount / 2) * 100)));
 
   return (
     <View style={{ flex: 1 }}>
@@ -147,6 +151,11 @@ export default function WeightPanel({ onWeightChange }) {
             <Text style={s.listTitle}>Kilo Geçmişi</Text>
             <Text style={s.listSub}>{weights.length} kayıt</Text>
           </View>
+
+          <TouchableOpacity style={s.inlineAddBtn} onPress={openAddModal} activeOpacity={0.86}>
+            <Ionicons name="add-circle" size={18} color={COLORS.textOnPrimary} />
+            <Text style={s.inlineAddText}>Yeni Kilo Kaydı Ekle</Text>
+          </TouchableOpacity>
 
           {weights.length > 0 && (
             <View style={s.infoMsg}>
@@ -192,27 +201,38 @@ export default function WeightPanel({ onWeightChange }) {
         ) : null}
       </ScrollView>
 
-      <TouchableOpacity style={s.fab} onPress={openAddModal} activeOpacity={0.8}>
-        <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={s.fabGradient}>
-          <Text style={s.fabText}>+</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-
       <Modal visible={modal.visible} animationType="slide" transparent onRequestClose={modal.close}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={s.modalOverlay}>
             <View style={s.modalBox}>
+              <View style={s.modalHandle} />
               <View style={s.modalHead}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: SIZES.sm }}>
-                  <Ionicons name={modal.isEditing ? 'create' : 'add-circle'} size={22} color={COLORS.primary} />
-                  <Text style={s.modalTitle}>{modal.isEditing ? 'Düzenle' : 'Yeni Kayıt'}</Text>
+                <View style={s.modalTitleWrap}>
+                  <View style={s.modalIconBadge}>
+                    <Ionicons name={modal.isEditing ? 'create' : 'add-circle'} size={18} color={COLORS.primary} />
+                  </View>
+                  <View>
+                    <Text style={s.modalTitle}>{modal.isEditing ? 'Kaydı Düzenle' : 'Yeni Kilo Kaydı'}</Text>
+                    <Text style={s.modalSubtitle}>
+                      {modal.isEditing ? 'Mevcut kaydı güncelleyin' : 'Günlük ölçümünüzü hızlıca ekleyin'}
+                    </Text>
+                  </View>
                 </View>
                 <TouchableOpacity onPress={modal.close} style={s.closeBtn}>
                   <Ionicons name="close" size={22} color={COLORS.textSecondary} />
                 </TouchableOpacity>
               </View>
+              <View style={s.modalProgressRow}>
+                <Text style={s.modalProgressText}>{modalFilledCount}/2 alan dolu</Text>
+                <View style={s.modalProgressTrack}>
+                  <View style={[s.modalProgressFill, { width: `${modalProgressPercent}%` }]} />
+                </View>
+              </View>
+              <View style={s.modalDivider} />
 
               <ScrollView style={s.modalBody} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
+                <Text style={s.modalHint}>Tarih ve kilo alanı yeterlidir, not alanı opsiyoneldir.</Text>
+
                 <View style={s.inputGroup}>
                   <Text style={s.inputLabel}>Tarih</Text>
                   <TouchableOpacity style={s.dateBtn} onPress={() => setShowDatePicker(true)} activeOpacity={0.7}>
@@ -224,7 +244,12 @@ export default function WeightPanel({ onWeightChange }) {
                     <View style={s.datePickerWrap}>
                       <DateTimePicker value={selectedDate} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onDateChange} locale="tr-TR" maximumDate={new Date()} />
                       {Platform.OS === 'ios' && (
-                        <TouchableOpacity style={s.datePickerClose} onPress={() => setShowDatePicker(false)}>
+                        <TouchableOpacity
+                          style={s.datePickerClose}
+                          onPress={() => {
+                            setShowDatePicker(false);
+                          }}
+                        >
                           <Text style={s.datePickerCloseText}>Tamam</Text>
                         </TouchableOpacity>
                       )}
@@ -234,27 +259,47 @@ export default function WeightPanel({ onWeightChange }) {
 
                 <View style={s.inputGroup}>
                   <Text style={s.inputLabel}>Kilo (kg)</Text>
-                  <View style={s.textInputWrap}>
+                  <View style={[s.textInputWrap, activeField === 'weight' && s.textInputWrapFocused]}>
                     <Ionicons name="fitness" size={20} color={COLORS.primary} />
-                    <TextInput style={s.textInput} value={modal.form.weight} onChangeText={(t) => modal.updateField('weight', t)} placeholder="75.5" keyboardType="decimal-pad" placeholderTextColor={COLORS.textLight} />
+                    <TextInput
+                      style={s.textInput}
+                      value={modal.form.weight}
+                      onChangeText={(t) => modal.updateField('weight', t)}
+                      placeholder="75.5"
+                      keyboardType="decimal-pad"
+                      placeholderTextColor={COLORS.textLight}
+                      onFocus={() => setActiveField('weight')}
+                      onBlur={() => setActiveField('')}
+                    />
                   </View>
                 </View>
 
                 <View style={s.inputGroup}>
                   <Text style={s.inputLabel}>Notlar (Opsiyonel)</Text>
-                  <View style={[s.textInputWrap, { alignItems: 'flex-start' }]}>
+                  <View style={[s.textInputWrap, { alignItems: 'flex-start' }, activeField === 'notes' && s.textInputWrapFocused]}>
                     <Ionicons name="document-text" size={20} color={COLORS.primary} style={{ marginTop: 2 }} />
-                    <TextInput style={[s.textInput, { minHeight: 72, textAlignVertical: 'top' }]} value={modal.form.notes} onChangeText={(t) => modal.updateField('notes', t)} placeholder="Notlarınızı yazın..." multiline placeholderTextColor={COLORS.textLight} />
+                    <TextInput
+                      style={[s.textInput, { minHeight: 72, textAlignVertical: 'top' }]}
+                      value={modal.form.notes}
+                      onChangeText={(t) => modal.updateField('notes', t)}
+                      placeholder="Notlarınızı yazın..."
+                      multiline
+                      placeholderTextColor={COLORS.textLight}
+                      onFocus={() => setActiveField('notes')}
+                      onBlur={() => setActiveField('')}
+                    />
                   </View>
                 </View>
               </ScrollView>
 
               <View style={s.modalFoot}>
                 <TouchableOpacity style={[s.modalActionBtn, s.cancelBtnStyle]} onPress={modal.close}>
+                  <Ionicons name="close-outline" size={18} color={COLORS.textSecondary} />
                   <Text style={s.cancelBtnText}>İptal</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[s.modalActionBtn, { overflow: 'hidden' }]} onPress={saveWeight}>
                   <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={s.saveBtnGradient}>
+                    <Ionicons name="checkmark-outline" size={18} color={COLORS.textOnPrimary} />
                     <Text style={s.saveBtnText}>Kaydet</Text>
                   </LinearGradient>
                 </TouchableOpacity>
@@ -283,12 +328,28 @@ const s = StyleSheet.create({
   listHeader: { marginBottom: SIZES.md },
   listTitle: { fontSize: SIZES.h3, fontWeight: '700', color: COLORS.text },
   listSub: { fontSize: SIZES.small, color: COLORS.textSecondary, marginTop: 2 },
+  inlineAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: SIZES.radiusMedium,
+    paddingVertical: 11,
+    marginBottom: SIZES.md,
+    backgroundColor: COLORS.primary,
+    ...SHADOWS.small,
+  },
+  inlineAddText: {
+    fontSize: SIZES.bodySmall,
+    fontWeight: '700',
+    color: COLORS.textOnPrimary,
+  },
   infoMsg: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.highlight, borderRadius: SIZES.radiusSmall, paddingHorizontal: SIZES.sm, paddingVertical: 6, marginBottom: SIZES.md },
   infoText: { fontSize: SIZES.small, color: COLORS.textSecondary, flex: 1 },
   empty: { alignItems: 'center', paddingVertical: 60 },
   emptyText: { fontSize: SIZES.h4, fontWeight: '600', color: COLORS.textSecondary, marginTop: SIZES.md },
   emptySub: { fontSize: SIZES.body, color: COLORS.textLight, marginTop: 4 },
-  recordCard: { backgroundColor: COLORS.surface, borderRadius: SIZES.radiusLarge, padding: SIZES.md, marginBottom: SIZES.md, ...SHADOWS.small },
+  recordCard: { backgroundColor: COLORS.surface, borderRadius: SIZES.radiusLarge, padding: SIZES.md, marginBottom: SIZES.md, borderWidth: 1, borderColor: COLORS.borderLight, ...SHADOWS.small },
   recordTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SIZES.sm },
   recordDateText: { fontSize: SIZES.small, fontWeight: '600', color: COLORS.textSecondary },
   changeBadge: { paddingHorizontal: SIZES.sm, paddingVertical: 3, borderRadius: SIZES.radiusSmall },
@@ -297,18 +358,40 @@ const s = StyleSheet.create({
   recordWeight: { fontSize: SIZES.h1, fontWeight: '700', color: COLORS.primary },
   recordUnit: { fontSize: SIZES.h4, fontWeight: '600', color: COLORS.textSecondary },
   recordNotes: { flex: 1, fontSize: SIZES.small, color: COLORS.textSecondary, marginLeft: SIZES.sm },
-  fab: { position: 'absolute', bottom: SIZES.lg, right: SIZES.lg, width: 60, height: 60, borderRadius: 30, overflow: 'hidden', ...SHADOWS.large },
-  fabGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  fabText: { fontSize: 32, fontWeight: '300', color: COLORS.textOnPrimary },
   modalOverlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'flex-end' },
-  modalBox: { backgroundColor: COLORS.surface, borderTopLeftRadius: SIZES.radiusXL, borderTopRightRadius: SIZES.radiusXL, maxHeight: '90%' },
-  modalHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: SIZES.lg, borderBottomWidth: 1, borderBottomColor: COLORS.divider },
+  modalBox: { backgroundColor: COLORS.surface, borderTopLeftRadius: SIZES.radiusXL, borderTopRightRadius: SIZES.radiusXL, maxHeight: '92%' },
+  modalHandle: {
+    width: 44,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: COLORS.border,
+    alignSelf: 'center',
+    marginTop: 8,
+    marginBottom: 2,
+  },
+  modalHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SIZES.lg, paddingTop: SIZES.sm, paddingBottom: SIZES.sm },
+  modalTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm, flex: 1 },
+  modalIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.highlight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   modalTitle: { fontSize: SIZES.h4, fontWeight: '700', color: COLORS.text },
-  closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.surfaceAlt, justifyContent: 'center', alignItems: 'center' },
+  modalSubtitle: { fontSize: SIZES.tiny, color: COLORS.textSecondary, marginTop: 2 },
+  closeBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: COLORS.surfaceAlt, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+  modalProgressRow: { paddingHorizontal: SIZES.lg, paddingBottom: SIZES.sm },
+  modalProgressText: { fontSize: 11, fontWeight: '700', color: COLORS.textSecondary, marginBottom: 6 },
+  modalProgressTrack: { width: '100%', height: 8, borderRadius: 999, backgroundColor: COLORS.borderLight, overflow: 'hidden' },
+  modalProgressFill: { height: '100%', borderRadius: 999, backgroundColor: COLORS.primary },
+  modalDivider: { height: 1, backgroundColor: COLORS.divider, marginHorizontal: SIZES.lg },
   modalBody: { padding: SIZES.lg },
-  modalFoot: { flexDirection: 'row', gap: SIZES.md, paddingHorizontal: SIZES.lg, paddingVertical: SIZES.lg, borderTopWidth: 1, borderTopColor: COLORS.divider, backgroundColor: COLORS.surface },
-  modalActionBtn: { flex: 1, height: 52, borderRadius: SIZES.radiusMedium },
-  cancelBtnStyle: { backgroundColor: COLORS.surfaceAlt, justifyContent: 'center', alignItems: 'center' },
+  modalHint: { fontSize: SIZES.tiny, color: COLORS.textSecondary, marginBottom: SIZES.md },
+  modalFoot: { flexDirection: 'row', gap: SIZES.md, paddingHorizontal: SIZES.lg, paddingVertical: SIZES.md + 2, borderTopWidth: 1, borderTopColor: COLORS.divider, backgroundColor: COLORS.surface },
+  modalActionBtn: { flex: 1, height: 52, borderRadius: 14 },
+  cancelBtnStyle: { backgroundColor: COLORS.surfaceAlt, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: COLORS.border },
   cancelBtnText: { fontSize: SIZES.h5, fontWeight: '600', color: COLORS.textSecondary },
   saveBtnGradient: { flex: 1, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6 },
   saveBtnText: { fontSize: SIZES.h5, fontWeight: '700', color: COLORS.textOnPrimary },
@@ -319,6 +402,7 @@ const s = StyleSheet.create({
   datePickerCloseText: { fontSize: SIZES.h5, fontWeight: '700', color: COLORS.textOnPrimary },
   inputGroup: { marginBottom: SIZES.md },
   inputLabel: { fontSize: SIZES.small, fontWeight: '600', color: COLORS.textSecondary, marginBottom: SIZES.xs },
-  textInputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surfaceAlt, borderRadius: SIZES.radiusMedium, paddingHorizontal: SIZES.md, gap: SIZES.sm },
+  textInputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surfaceAlt, borderRadius: SIZES.radiusMedium, paddingHorizontal: SIZES.md, gap: SIZES.sm, borderWidth: 1, borderColor: COLORS.border },
+  textInputWrapFocused: { borderColor: COLORS.primary },
   textInput: { flex: 1, fontSize: SIZES.h4, fontWeight: '600', color: COLORS.text, paddingVertical: SIZES.md },
 });
