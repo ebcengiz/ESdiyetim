@@ -42,6 +42,11 @@ export default function GoalsScreen() {
     activeGoals: goals.filter((g) => g.status === 'active').length,
     completedGoals: goals.filter((g) => g.status === 'completed').length,
   }), [goals]);
+  const orderedGoals = useMemo(() => [...goals], [goals]);
+  const primaryAdviceGoal = useMemo(
+    () => orderedGoals.find((g) => g.status === 'active') || orderedGoals[0] || null,
+    [orderedGoals]
+  );
 
   useEffect(() => {
     if (!user) { setGoals([]); setGoalAdvices({}); return; }
@@ -168,6 +173,25 @@ export default function GoalsScreen() {
 
   return (
     <View style={styles.container}>
+      <LinearGradient
+        colors={[COLORS.primary, COLORS.primaryLight]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroHeader}
+      >
+        <View style={styles.heroTopRow}>
+          <View style={styles.heroBadge}>
+            <Ionicons name="trophy-outline" size={14} color={COLORS.textOnPrimary} />
+            <Text style={styles.heroBadgeText}>Hedef Takibi</Text>
+          </View>
+          <Text style={styles.heroDate}>
+            {new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}
+          </Text>
+        </View>
+        <Text style={styles.heroTitle}>Hedeflerim</Text>
+        <Text style={styles.heroSubtitle}>Kilo hedeflerini planla, ilerlemeyi takip et ve duruma göre güncelle.</Text>
+      </LinearGradient>
+
       {goals.length > 0 && (
         <LinearGradient colors={[COLORS.primary, COLORS.primaryLight]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statsHeader}>
           <StatCard label="Toplam" value={stats.total} icon="trophy" />
@@ -182,10 +206,15 @@ export default function GoalsScreen() {
             <GuestGateBanner navigation={navigation} message="Kilo hedefleri hesabınıza bağlıdır. Oluşturmak ve senkronize etmek için giriş yapın." />
           ) : null}
 
-          <View style={styles.titleContainer}>
-            <Text style={styles.title}>Hedeflerim</Text>
-            <Text style={styles.subtitle}>Kilo hedeflerinizi belirleyin ve takip edin</Text>
+          <View style={styles.infoChipRow}>
+            <InfoChip icon="flag-outline" text={`${stats.activeGoals} aktif`} />
+            <InfoChip icon="checkmark-circle-outline" text={`${stats.completedGoals} tamamlanan`} />
           </View>
+
+          <TouchableOpacity style={styles.inlineAddBtn} onPress={openAddModal} activeOpacity={0.86}>
+            <Ionicons name="add-circle" size={18} color={COLORS.textOnPrimary} />
+            <Text style={styles.inlineAddText}>Yeni Hedef Ekle</Text>
+          </TouchableOpacity>
 
           {goals.length === 0 ? (
             <View style={styles.emptyState}>
@@ -194,7 +223,7 @@ export default function GoalsScreen() {
               <Text style={styles.emptySubtext}>Başlamak için + butonuna tıklayın</Text>
             </View>
           ) : (
-            goals.map((goal) => {
+            orderedGoals.map((goal) => {
               const daysRemaining = daysFromToday(goal.target_date);
               const isCompleted = goal.status === 'completed';
               const weightDiff = goal.current_weight ? Math.abs(goal.current_weight - goal.target_weight) : null;
@@ -203,15 +232,14 @@ export default function GoalsScreen() {
               return (
                 <TouchableOpacity
                   key={goal.id}
-                  style={[styles.goalCard, isCompleted && styles.goalCardCompleted]}
+                  style={styles.goalCard}
                   onPress={() => openEditModal(goal)}
-                  onLongPress={() => deleteGoal(goal.id)}
                   activeOpacity={0.7}
                 >
                   <View style={styles.goalHeader}>
                     <View style={styles.goalTitleRow}>
                       <Ionicons name={isCompleted ? 'checkmark-circle' : 'flag'} size={24} color={isCompleted ? COLORS.success : COLORS.primary} />
-                      <Text style={[styles.goalTitle, isCompleted && styles.goalTitleCompleted]}>{goal.title}</Text>
+                      <Text style={styles.goalTitle}>{goal.title}</Text>
                     </View>
                     <TouchableOpacity onPress={() => toggleGoalStatus(goal)} style={styles.statusButton}>
                       <Ionicons name={isCompleted ? 'refresh-circle-outline' : 'checkmark-done-circle-outline'} size={24} color={COLORS.textSecondary} />
@@ -239,6 +267,18 @@ export default function GoalsScreen() {
                     </View>
 
                     <View style={styles.weightInfo}>
+                      <View style={styles.statusPillRow}>
+                        <View style={[styles.statusPill, isCompleted ? styles.statusPillDone : styles.statusPillActive]}>
+                          <Ionicons
+                            name={isCompleted ? 'checkmark-done' : 'time-outline'}
+                            size={14}
+                            color={isCompleted ? COLORS.success : COLORS.info}
+                          />
+                          <Text style={[styles.statusPillText, isCompleted ? styles.statusPillTextDone : styles.statusPillTextActive]}>
+                            {isCompleted ? 'Tamamlandı' : 'Devam Ediyor'}
+                          </Text>
+                        </View>
+                      </View>
                       {goal.current_weight && (
                         <View style={styles.weightRow}>
                           <Text style={styles.weightLabel}>Mevcut:</Text>
@@ -263,35 +303,50 @@ export default function GoalsScreen() {
                       </View>
                     )}
 
-                    {gAdv && (
-                      <AIAdviceCard
-                        visible={gAdv.loading || !!gAdv.advice}
-                        loading={gAdv.loading}
-                        advice={gAdv.advice}
-                        onRefresh={() => fetchGoalAdvice(goal)}
-                        gradientColors={[COLORS.primary, COLORS.primaryLight]}
-                        iconTint={COLORS.primary}
-                        subtitle="Hedefinize ve mevcut kilonuza göre kişiselleştirilir"
-                        footerDisclaimer="Bu tavsiye genel bilgilendirme amaçlıdır; tıbbi teşhis ve tedavi yerine geçmez."
-                      />
-                    )}
+                    <View style={styles.goalActionsRow}>
+                      <TouchableOpacity
+                        style={styles.deleteActionBtn}
+                        onPress={() => deleteGoal(goal.id)}
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons name="trash-outline" size={16} color={COLORS.error} />
+                        <Text style={styles.deleteActionText}>Hedefi Sil</Text>
+                      </TouchableOpacity>
+                    </View>
+
                   </View>
                 </TouchableOpacity>
               );
             })
           )}
+
+          {primaryAdviceGoal && goalAdvices[primaryAdviceGoal.id] ? (
+            <View style={{ marginTop: SIZES.xs, marginBottom: SIZES.md }}>
+              <View style={styles.adviceHeaderRow}>
+                <Ionicons name="sparkles-outline" size={18} color={COLORS.primary} />
+                <Text style={styles.adviceHeaderTitle}>Seçili Hedef İçin AI Tavsiyesi</Text>
+              </View>
+              <AIAdviceCard
+                visible={
+                  goalAdvices[primaryAdviceGoal.id].loading ||
+                  !!goalAdvices[primaryAdviceGoal.id].advice
+                }
+                loading={goalAdvices[primaryAdviceGoal.id].loading}
+                advice={goalAdvices[primaryAdviceGoal.id].advice}
+                onRefresh={() => fetchGoalAdvice(primaryAdviceGoal)}
+                gradientColors={[COLORS.primary, COLORS.primaryLight]}
+                iconTint={COLORS.primary}
+                subtitle="Seçili hedefinize göre kişiselleştirilir"
+                footerDisclaimer="Bu tavsiye genel bilgilendirme amaçlıdır; tıbbi teşhis ve tedavi yerine geçmez."
+              />
+            </View>
+          ) : null}
         </View>
 
         <View style={{ paddingHorizontal: SIZES.containerPadding, marginBottom: 100 }}>
           <HealthSourcesCard variant="general" />
         </View>
       </ScrollView>
-
-      <TouchableOpacity style={styles.addButton} onPress={openAddModal} activeOpacity={0.8}>
-        <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={styles.addButtonGradient}>
-          <Text style={styles.addButtonText}>+</Text>
-        </LinearGradient>
-      </TouchableOpacity>
 
       <Modal visible={modal.visible} animationType="slide" transparent onRequestClose={modal.close}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalKeyboardView}>
@@ -401,43 +456,148 @@ const StatCard = ({ label, value, icon }) => (
   </View>
 );
 
+const InfoChip = ({ icon, text }) => (
+  <View style={styles.infoChip}>
+    <Ionicons name={icon} size={14} color={COLORS.textSecondary} />
+    <Text style={styles.infoChipText}>{text}</Text>
+  </View>
+);
+
 // ─── Stiller ─────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  statsHeader: { flexDirection: 'row', justifyContent: 'space-around', padding: SIZES.containerPadding, paddingTop: SIZES.lg },
+  heroHeader: {
+    paddingHorizontal: SIZES.containerPadding,
+    paddingTop: SIZES.lg,
+    paddingBottom: SIZES.md,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SIZES.sm,
+  },
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  heroBadgeText: { color: COLORS.textOnPrimary, fontSize: 11, fontWeight: '700' },
+  heroDate: { color: COLORS.textOnPrimary, fontSize: 11, opacity: 0.9, fontWeight: '600' },
+  heroTitle: { fontSize: SIZES.h2, fontWeight: '800', letterSpacing: -0.45, color: COLORS.textOnPrimary },
+  heroSubtitle: { marginTop: 4, fontSize: SIZES.tiny, color: COLORS.textOnPrimary, opacity: 0.92 },
+  statsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: SIZES.containerPadding,
+    paddingVertical: SIZES.md,
+    marginHorizontal: SIZES.containerPadding,
+    marginTop: SIZES.sm,
+    marginBottom: SIZES.md,
+    borderRadius: SIZES.radiusLarge,
+    ...SHADOWS.medium,
+  },
   statCard: { alignItems: 'center' },
   statValue: { fontSize: SIZES.h2, fontWeight: '700', color: COLORS.textOnPrimary, marginVertical: SIZES.xs },
   statLabel: { fontSize: SIZES.tiny, color: COLORS.textOnPrimary, opacity: 0.9 },
   scrollView: { flex: 1 },
-  content: { padding: SIZES.containerPadding },
-  titleContainer: { marginBottom: SIZES.lg },
-  title: { fontSize: SIZES.h2, fontWeight: '800', letterSpacing: -0.45, color: COLORS.text },
-  subtitle: { fontSize: SIZES.small, color: COLORS.textSecondary, marginTop: SIZES.xs },
+  content: { paddingHorizontal: SIZES.containerPadding, paddingTop: SIZES.sm, paddingBottom: SIZES.sm },
+  infoChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SIZES.xs, marginBottom: SIZES.md },
+  infoChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  infoChipText: { fontSize: 11, color: COLORS.textSecondary, fontWeight: '600' },
+  inlineAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: SIZES.radiusMedium,
+    paddingVertical: 12,
+    marginBottom: SIZES.md,
+    backgroundColor: COLORS.primary,
+    ...SHADOWS.small,
+  },
+  inlineAddText: { fontSize: SIZES.bodySmall, fontWeight: '700', color: COLORS.textOnPrimary },
   emptyState: { alignItems: 'center', paddingVertical: SIZES.xxxl },
   emptyText: { fontSize: SIZES.h4, fontWeight: '600', color: COLORS.textSecondary, marginTop: SIZES.md, marginBottom: SIZES.xs },
   emptySubtext: { fontSize: SIZES.body, color: COLORS.textLight },
-  goalCard: { backgroundColor: COLORS.surface, borderRadius: SIZES.radiusLarge, padding: SIZES.md, marginBottom: SIZES.md, ...SHADOWS.small },
-  goalCardCompleted: { opacity: 0.7 },
+  goalCard: { backgroundColor: COLORS.surface, borderRadius: SIZES.radiusLarge, padding: SIZES.md, marginBottom: SIZES.md, borderWidth: 1, borderColor: COLORS.borderLight, ...SHADOWS.small },
   goalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SIZES.md },
   goalTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm, flex: 1 },
   goalTitle: { fontSize: SIZES.h4, fontWeight: '700', color: COLORS.text, flex: 1 },
-  goalTitleCompleted: { textDecorationLine: 'line-through', color: COLORS.textSecondary },
   statusButton: { padding: SIZES.xs },
   goalBody: { gap: SIZES.md },
   goalInfo: { gap: SIZES.xs },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: SIZES.xs },
   infoText: { fontSize: SIZES.small, color: COLORS.textSecondary },
   weightInfo: { backgroundColor: COLORS.highlight, borderRadius: SIZES.radiusMedium, padding: SIZES.md, gap: SIZES.xs },
+  statusPillRow: { marginBottom: 8 },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  statusPillActive: { backgroundColor: COLORS.info + '18' },
+  statusPillDone: { backgroundColor: COLORS.success + '18' },
+  statusPillText: { fontSize: 11, fontWeight: '700' },
+  statusPillTextActive: { color: COLORS.info },
+  statusPillTextDone: { color: COLORS.success },
+  adviceHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+  adviceHeaderTitle: {
+    fontSize: SIZES.small,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
   weightRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   weightLabel: { fontSize: SIZES.small, color: COLORS.textSecondary, fontWeight: '600' },
   weightValue: { fontSize: SIZES.body, fontWeight: '700', color: COLORS.text },
   targetWeight: { color: COLORS.primary },
   notesContainer: { paddingTop: SIZES.sm, borderTopWidth: 1, borderTopColor: COLORS.divider },
   notesText: { fontSize: SIZES.small, color: COLORS.textSecondary, lineHeight: 20 },
-  addButton: { position: 'absolute', bottom: SIZES.lg, right: SIZES.lg, width: 64, height: 64, borderRadius: 32, overflow: 'hidden', ...SHADOWS.large },
-  addButtonGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  addButtonText: { fontSize: 36, fontWeight: '300', color: COLORS.textOnPrimary },
+  goalActionsRow: {
+    marginTop: 2,
+  },
+  deleteActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.error + '12',
+    borderWidth: 1,
+    borderColor: COLORS.error + '45',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  deleteActionText: {
+    fontSize: SIZES.tiny,
+    fontWeight: '700',
+    color: COLORS.error,
+  },
   modalKeyboardView: { flex: 1 },
   modalOverlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'flex-end' },
   modalContent: { backgroundColor: COLORS.surface, borderTopLeftRadius: SIZES.radiusXL, borderTopRightRadius: SIZES.radiusXL, maxHeight: '90%' },
