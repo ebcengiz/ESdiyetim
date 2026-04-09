@@ -158,11 +158,31 @@ export const weightService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
 
-    const { data, error } = await supabase
+    let data = null;
+    let error = null;
+
+    // Öncelik: aynı gün için create yerine update (upsert)
+    const upsertRes = await supabase
       .from("weight_records")
-      .insert([{ ...weightRecord, user_id: user.id }])
+      .upsert([{ ...weightRecord, user_id: user.id }], {
+        onConflict: "user_id,date",
+      })
       .select()
       .single();
+
+    data = upsertRes.data;
+    error = upsertRes.error;
+
+    // Eski şemalarda onConflict (user_id,date) yoksa insert fallback
+    if (error && String(error.message || "").toLowerCase().includes("no unique")) {
+      const insertRes = await supabase
+        .from("weight_records")
+        .insert([{ ...weightRecord, user_id: user.id }])
+        .select()
+        .single();
+      data = insertRes.data;
+      error = insertRes.error;
+    }
 
     if (error) {
       // Duplicate key hatası için özel mesaj

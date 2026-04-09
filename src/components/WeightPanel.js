@@ -10,10 +10,21 @@ import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { weightService, bodyInfoService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from './AIAdviceCard';
-import { toDateString, formatShortDate } from '../utils/date';
+import { formatShortDate } from '../utils/date';
 import { useFormModal } from '../hooks/useFormModal';
 
 const EMPTY_FORM = { weight: '', notes: '' };
+const toLocalDateString = (date = new Date()) => {
+  const d = date instanceof Date ? date : new Date(date);
+  const year = d.getFullYear();
+  const month = `${d.getMonth() + 1}`.padStart(2, '0');
+  const day = `${d.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+const toDateKey = (value) => {
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  return toLocalDateString(value);
+};
 
 export default function WeightPanel({ onWeightChange }) {
   const [weights, setWeights] = useState([]);
@@ -88,13 +99,22 @@ export default function WeightPanel({ onWeightChange }) {
     if (!modal.form.weight) { Alert.alert('⚠️ Uyarı', 'Lütfen kilonuzu girin.'); return; }
     const parsedWeight = parseFloat(modal.form.weight);
     try {
-      const weightData = { date: toDateString(selectedDate), weight: parsedWeight, notes: modal.form.notes };
+      const selectedDateKey = toLocalDateString(selectedDate);
+      const weightData = { date: selectedDateKey, weight: parsedWeight, notes: modal.form.notes };
       if (modal.editingId) {
         await weightService.update(modal.editingId, weightData);
         Alert.alert('✅ Güncellendi', 'Kilo kaydınız güncellendi.');
       } else {
-        await weightService.create(weightData);
-        Alert.alert('✅ Kaydedildi', 'Yeni kilo kaydı eklendi.');
+        const existingForDate = (weights || []).find(
+          (r) => toDateKey(r.date) === selectedDateKey
+        );
+        if (existingForDate?.id) {
+          await weightService.update(existingForDate.id, weightData);
+          Alert.alert('✅ Güncellendi', 'Aynı günün kilo kaydı güncellendi.');
+        } else {
+          await weightService.create(weightData);
+          Alert.alert('✅ Kaydedildi', 'Yeni kilo kaydı eklendi.');
+        }
       }
       modal.close();
       await loadWeights();
@@ -240,6 +260,7 @@ export default function WeightPanel({ onWeightChange }) {
                     <Text style={s.dateBtnText}>{selectedDate.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
                     <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
                   </TouchableOpacity>
+                  <Text style={s.dateHintText}>Bu tarih için kayıt varsa üzerine yazılır.</Text>
                   {showDatePicker && (
                     <View style={s.datePickerWrap}>
                       <DateTimePicker value={selectedDate} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onDateChange} locale="tr-TR" maximumDate={new Date()} />
@@ -397,6 +418,7 @@ const s = StyleSheet.create({
   saveBtnText: { fontSize: SIZES.h5, fontWeight: '700', color: COLORS.textOnPrimary },
   dateBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surfaceAlt, borderRadius: SIZES.radiusMedium, padding: SIZES.md, gap: SIZES.sm },
   dateBtnText: { flex: 1, fontSize: SIZES.body, fontWeight: '600', color: COLORS.text },
+  dateHintText: { marginTop: 6, fontSize: 11, color: COLORS.textLight },
   datePickerWrap: { backgroundColor: COLORS.surface, borderRadius: SIZES.radiusMedium, marginTop: SIZES.sm, overflow: 'hidden' },
   datePickerClose: { backgroundColor: COLORS.primary, paddingVertical: SIZES.md, alignItems: 'center' },
   datePickerCloseText: { fontSize: SIZES.h5, fontWeight: '700', color: COLORS.textOnPrimary },
