@@ -102,11 +102,53 @@ const VARIANTS = {
       },
     ],
   },
+  /** Diyet planı ekranı: App Store 1.4.1 (sağlık) uyumu — tıbbi sınırlama + kaynaklar */
+  dietPlan: {
+    title: 'Uyarılar ve güvenilir kaynaklar',
+    headerIcon: 'shield-checkmark-outline',
+    headerIconSize: 18,
+    intro:
+      'Diyet planı, günlük öğün notları ve kalori toplamları yalnızca kişisel kayıt ve genel bilgilendirme içindir; tıbbi teşhis, tedavi, terapi veya kişiye özel beslenme planı sunmaz ve bunların yerine geçmez. Uygulama tıbbi bir cihaz veya uzman sağlık hizmeti değildir. Hamilelik, emzirme, yeme bozukluğu, kronik hastalık, ilaç kullanımı veya özel beslenme ihtiyacınız varsa mutlaka hekim veya diyetisyene danışın. Veritabanı ve yapay zekâ ile hesaplanan kalori ve besin değerleri yaklaşık olabilir. Acil tıbbi durumlarda yerel acil hattınızı (ör. 112) arayın. Aşağıdaki bağlantılar bağımsız resmî ve bilimsel kaynaklardır.',
+    links: [
+      {
+        label: 'T.C. Sağlık Bakanlığı — Türkiye Beslenme Rehberi (TÜBER)',
+        url: 'https://hsgm.saglik.gov.tr/tr/beslenme',
+      },
+      {
+        label: 'WHO — sağlıklı beslenme (genel ilkeler)',
+        url: 'https://www.who.int/news-room/fact-sheets/detail/healthy-diet',
+      },
+      {
+        label: 'WHO — obezite ve VKİ',
+        url: 'https://www.who.int/news-room/fact-sheets/detail/obesity-and-overweight',
+      },
+      {
+        label: 'MedlinePlus (NIH) — beslenme ve diyet',
+        url: 'https://medlineplus.gov/nutrition.html',
+      },
+      {
+        label: 'NHS (UK) — Eat well',
+        url: 'https://www.nhs.uk/live-well/eat-well/',
+      },
+      {
+        label: 'USDA FoodData Central — besin bileşimi referansı',
+        url: 'https://fdc.nal.usda.gov/',
+      },
+      {
+        label: 'Open Food Facts — ürün besin değerleri (açık veri)',
+        url: 'https://world.openfoodfacts.org/',
+      },
+      {
+        label: 'FDA — Nutrition Facts etiketi (ABD referansı)',
+        url: 'https://www.fda.gov/food/nutrition-education-resources-materials/nutrition-fact-label',
+      },
+    ],
+  },
 };
 
 /**
- * App Store 1.4.1: sağlık/medikal içerik için uygulama içi kaynak bağlantıları.
- * @param {'meal'|'tips'|'general'} variant
+ * App Store 1.4.1: sağlık/medikal içerik için uygulama içi kaynak bağlantıları ve uyarı metinleri.
+ * @param {'meal'|'tips'|'food'|'general'|'dietPlan'} variant
  */
 export default function HealthSourcesCard({ variant = 'general', style }) {
   const cfg = VARIANTS[variant] || VARIANTS.general;

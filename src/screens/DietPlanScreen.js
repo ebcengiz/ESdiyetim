@@ -409,6 +409,20 @@ export default function DietPlanScreen() {
           />
         )}
 
+        <View style={styles.legalBanner} accessibilityRole="text">
+          <View style={styles.legalBannerIconWrap}>
+            <Ionicons name="shield-checkmark-outline" size={22} color={COLORS.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.legalBannerTitle}>Önemli bilgilendirme</Text>
+            <Text style={styles.legalBannerText}>
+              Bu ekran kişisel kayıt ve genel bilgilendirme amaçlıdır; tıbbi teşhis, tedavi veya uzman beslenme
+              planı değildir ve bunların yerine geçmez. Kalori ve besin değerleri yaklaşıktır. Özel sağlık
+              durumlarınız için hekim veya diyetisyene danışın. Acil durumlarda yerel acil hattınızı arayın (ör. 112).
+            </Text>
+          </View>
+        </View>
+
         {/* Fotoğraftan kalori CTA */}
         <TouchableOpacity
           style={styles.ctaCard}
@@ -490,13 +504,13 @@ export default function DietPlanScreen() {
             gradientColors={[COLORS.primary, COLORS.primaryLight]}
             iconTint={COLORS.primary}
             subtitle="Planlarınıza göre kişiselleştirilir"
-            footerDisclaimer="Bu tavsiye genel bilgilendirme amaçlıdır; tıbbi teşhis ve tedavi yerine geçmez."
+            footerDisclaimer="Yapay zekâ metni genel bilgilendirme amaçlıdır; tıbbi teşhis, tedavi veya kişisel beslenme planı yerine geçmez. Özel durumlar için hekim veya diyetisyeninize danışın."
             style={{ marginHorizontal: SIZES.containerPadding }}
           />
         )}
 
         <HealthSourcesCard
-          variant="general"
+          variant="dietPlan"
           style={{ marginHorizontal: SIZES.containerPadding, marginTop: SIZES.lg }}
         />
       </ScrollView>
@@ -542,6 +556,10 @@ export default function DietPlanScreen() {
               contentContainerStyle={styles.modalScrollContent}
             >
               <Text style={styles.modalHint}>Boş alanlar opsiyoneldir.</Text>
+              <Text style={styles.modalLegalHint}>
+                Eklediğiniz besin satırlarındaki kalori tahminleri veritabanı veya yapay zekâya dayanır; kişisel
+                tıbbi öneri oluşturmaz. Şüphede uzmana danışın.
+              </Text>
 
               {/* Ana öğünler */}
               <Text style={styles.modalGroupTitle}>Ana Öğünler</Text>
@@ -974,6 +992,40 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingTop: SIZES.md, paddingBottom: Platform.OS === 'ios' ? 120 : 110 },
 
+  legalBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SIZES.sm,
+    marginHorizontal: SIZES.containerPadding,
+    marginBottom: SIZES.md,
+    padding: SIZES.md,
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: SIZES.radiusLarge,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.small,
+  },
+  legalBannerIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.highlight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  legalBannerTitle: {
+    fontSize: SIZES.small,
+    fontWeight: '800',
+    color: COLORS.text,
+    marginBottom: 6,
+    letterSpacing: -0.2,
+  },
+  legalBannerText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+  },
+
   // CTA
   ctaCard: {
     flexDirection: 'row', alignItems: 'center',
@@ -1049,7 +1101,14 @@ const styles = StyleSheet.create({
   modalProgressFill: { height: 4, backgroundColor: COLORS.primary, borderRadius: 2 },
   modalBody: { flex: 1 },
   modalScrollContent: { paddingHorizontal: SIZES.containerPadding, paddingBottom: SIZES.xl },
-  modalHint: { fontSize: SIZES.small, color: COLORS.textSecondary, marginBottom: SIZES.md },
+  modalHint: { fontSize: SIZES.small, color: COLORS.textSecondary, marginBottom: SIZES.sm },
+  modalLegalHint: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    lineHeight: 16,
+    marginBottom: SIZES.md,
+    fontStyle: 'italic',
+  },
   modalGroupTitle: {
     fontSize: SIZES.small, fontWeight: '800', color: COLORS.textSecondary,
     letterSpacing: 0.5, textTransform: 'uppercase', marginTop: SIZES.md, marginBottom: SIZES.sm,
