@@ -5,17 +5,12 @@
  *  1. Open Food Facts TR  → Türk markaları (Sütaş, Dost, Ülker…)
  *  2. Open Food Facts WW  → Uluslararası paketli ürünler
  *  3. USDA FoodData Central → İçecekler ve ABD ürünleri (API key gerektirmez)
- *  4. Edamam Nutrition API  → Genel besin analizi (API key gerekir)
- *  5. CalorieNinja API      → Hızlı besin sonuçları (API key gerekir)
- *  6. Groq AI               → Türkçe gıda adlarında tam besin analizi (fallback)
+ *  4. Groq AI               → Türkçe gıda adlarında tam besin analizi (fallback)
  */
 
 import { callGroq, parseJsonObjectFromLlmText } from './ai/providers';
 
 // ─── Ortak yardımcılar ────────────────────────────────────────────────────────
-const EDAMAM_APP_ID = process.env.EXPO_PUBLIC_EDAMAM_APP_ID || '';
-const EDAMAM_APP_KEY = process.env.EXPO_PUBLIC_EDAMAM_APP_KEY || '';
-const CALORIENINJA_API_KEY = process.env.EXPO_PUBLIC_CALORIENINJA_API_KEY || '';
 
 function round(v) {
   if (v == null || isNaN(v)) return null;
@@ -164,133 +159,28 @@ function parseUSDAFood(f) {
   };
 }
 
-// ─── 4: Edamam Nutrition API ──────────────────────────────────────────────────
-
-async function fetchEdamam(query) {
-  if (!EDAMAM_APP_ID || !EDAMAM_APP_KEY) return [];
-
-  try {
-    const url =
-      'https://api.edamam.com/api/nutrition-data' +
-      `?app_id=${encodeURIComponent(EDAMAM_APP_ID)}` +
-      `&app_key=${encodeURIComponent(EDAMAM_APP_KEY)}` +
-      `&ingr=${encodeURIComponent(`100g ${query}`)}`;
-
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    const json = await res.json();
-
-    const parsed = parseEdamamFood(json, query);
-    return parsed ? [parsed] : [];
-  } catch {
-    return [];
-  }
-}
-
-function parseEdamamFood(data, query) {
-  if (!data || typeof data.calories !== 'number' || data.calories <= 0) return null;
-  const n = data.totalNutrients || {};
-
-  const isDrink = /drink|beverage|juice|water|soda|cola|tea|coffee|milk|ayran|içecek/i.test(
-    `${query} ${data.uri || ''}`
-  );
-
-  return {
-    source: 'edamam',
-    id: `edamam_${toKebab(query)}`,
-    name: capitalize(query),
-    brand: null,
-    imageUrl: null,
-    isDrink,
-    calories: round(data.calories),
-    protein: round(n.PROCNT?.quantity),
-    carbs: round(n.CHOCDF?.quantity),
-    fat: round(n.FAT?.quantity),
-    fiber: round(n.FIBTG?.quantity),
-    sugar: round(n.SUGAR?.quantity),
-    sodium: round(n.NA?.quantity),
-    saturated_fat: round(n.FASAT?.quantity),
-    vitamins: [],
-    minerals: [],
-    glycemic_index: null,
-    health_note: null,
-    typical_portion: '100g',
-    category: null,
-  };
-}
-
-// ─── 5: CalorieNinja API ──────────────────────────────────────────────────────
-
-async function fetchCalorieNinja(query) {
-  if (!CALORIENINJA_API_KEY) return [];
-
-  try {
-    const url = `https://api.calorieninjas.com/v1/nutrition?query=${encodeURIComponent(query)}`;
-    const res = await fetch(url, {
-      headers: { 'X-Api-Key': CALORIENINJA_API_KEY },
-    });
-    if (!res.ok) return [];
-    const json = await res.json();
-
-    return (json.items || [])
-      .map((item) => parseCalorieNinjaItem(item))
-      .filter((p) => p !== null && p.calories != null && p.calories > 0);
-  } catch {
-    return [];
-  }
-}
-
-function parseCalorieNinjaItem(item) {
-  if (!item?.name || item.calories == null) return null;
-
-  const serving = Number(item.serving_size_g) || 100;
-  const scale = serving > 0 ? 100 / serving : 1;
-
-  const isDrink = /drink|beverage|juice|water|soda|cola|tea|coffee|milk|ayran|içecek/i.test(
-    item.name
-  );
-
-  return {
-    source: 'calorieninja',
-    id: `calorieninja_${toKebab(item.name)}`,
-    name: capitalize(item.name),
-    brand: null,
-    imageUrl: null,
-    isDrink,
-    calories: round(item.calories * scale),
-    protein: round((item.protein_g || 0) * scale),
-    carbs: round((item.carbohydrates_total_g || 0) * scale),
-    fat: round((item.fat_total_g || 0) * scale),
-    fiber: round((item.fiber_g || 0) * scale),
-    sugar: round((item.sugar_g || 0) * scale),
-    sodium: round((item.sodium_mg || 0) * scale),
-    saturated_fat: round((item.fat_saturated_g || 0) * scale),
-    vitamins: [],
-    minerals: [],
-    glycemic_index: null,
-    health_note: null,
-    typical_portion: `${round(serving)}g`,
-    category: null,
-  };
-}
-
 // ─── Birleşik arama ───────────────────────────────────────────────────────────
 
 export async function searchOpenFoodFacts(query) {
-  // Tüm sağlayıcılar paralel çalışır, API key zorunlu olanlar key yoksa boş döner.
-  const [trResults, wwResults, usdaResults, edamamResults, calorieNinjaResults] = await Promise.all([
+  // Tüm sağlayıcılar paralel çalışır.
+  const [trResults, wwResults, usdaResults] = await Promise.all([
     fetchOFF('https://tr.openfoodfacts.org', query),
     fetchOFF('https://world.openfoodfacts.org', query),
     fetchUSDA(query),
-    fetchEdamam(query),
-    fetchCalorieNinja(query),
   ]);
 
   // Birleştir, id'ye göre tekrarları temizle
   const seen = new Set();
   const merged = [];
+  const normalizedQuery = String(query || '').toLocaleLowerCase('tr-TR').trim();
+  const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
+  const withSourcePriority = [
+    ...trResults.map((item) => ({ ...item, _sourcePriority: 0 })),
+    ...wwResults.map((item) => ({ ...item, _sourcePriority: 1 })),
+    ...usdaResults.map((item) => ({ ...item, _sourcePriority: 2 })),
+  ];
 
-  for (const item of [...trResults, ...wwResults, ...usdaResults, ...edamamResults, ...calorieNinjaResults]) {
+  for (const item of withSourcePriority) {
     const key = `${item.name.toLowerCase()}_${item.brand || ''}`;
     if (!seen.has(key)) {
       seen.add(key);
@@ -298,8 +188,22 @@ export async function searchOpenFoodFacts(query) {
     }
   }
 
-  // Kalori'ye göre sırala (en bilinenleri üste)
-  return merged.slice(0, 20);
+  // Önce TR kaynak, sonra metin eşleşme gücü (Türkçe aramalarda daha isabetli sonuçlar üstte kalsın)
+  const sorted = merged.sort((a, b) => {
+    const aName = String(a.name || '').toLocaleLowerCase('tr-TR');
+    const bName = String(b.name || '').toLocaleLowerCase('tr-TR');
+    const aTokenHits = tokens.reduce((acc, t) => acc + (aName.includes(t) ? 1 : 0), 0);
+    const bTokenHits = tokens.reduce((acc, t) => acc + (bName.includes(t) ? 1 : 0), 0);
+
+    if (a._sourcePriority !== b._sourcePriority) return a._sourcePriority - b._sourcePriority;
+    if (aTokenHits !== bTokenHits) return bTokenHits - aTokenHits;
+    if (aName.startsWith(normalizedQuery) !== bName.startsWith(normalizedQuery)) {
+      return aName.startsWith(normalizedQuery) ? -1 : 1;
+    }
+    return 0;
+  });
+
+  return sorted.slice(0, 20).map(({ _sourcePriority, ...item }) => item);
 }
 
 // ─── 6: Groq AI (Türkçe gıda analizi) ───────────────────────────────────────

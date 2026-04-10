@@ -70,10 +70,6 @@ function getSourceBadgeMeta(source) {
       return { label: '🤖 AI', style: 'ai' };
     case 'usda':
       return { label: '🇺🇸 USDA', style: 'db' };
-    case 'edamam':
-      return { label: '🍏 Edamam', style: 'db' };
-    case 'calorieninja':
-      return { label: '🥷 CalorieNinja', style: 'db' };
     case 'openfoodfacts':
     default:
       return { label: '🌐 OFF', style: 'db' };
