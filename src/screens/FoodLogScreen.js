@@ -29,6 +29,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
@@ -82,6 +83,7 @@ export default function FoodLogScreen({ navigation }) {
   const { showToast } = useToast();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [logs, setLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [summary, setSummary] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
@@ -153,11 +155,22 @@ export default function FoodLogScreen({ navigation }) {
   const changeDate = (days) => {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() + days);
-    if (d > new Date()) return;
     setSelectedDate(d);
   };
 
   const isToday = toLocalDate(selectedDate) === toLocalDate(new Date());
+  const dateLabel = isToday
+    ? 'Bugün'
+    : selectedDate.toLocaleDateString('tr-TR', {
+        day: 'numeric',
+        month: 'long',
+        weekday: 'long',
+      });
+
+  const onDatePickerChange = (event, date) => {
+    if (Platform.OS === 'android') setShowDatePicker(false);
+    if (date) setSelectedDate(date);
+  };
 
   // Arama (Open Food Facts)
   const handleSearch = useCallback(async (text) => {
@@ -366,17 +379,12 @@ export default function FoodLogScreen({ navigation }) {
           <TouchableOpacity style={styles.dateArrow} onPress={() => changeDate(-1)}>
             <Ionicons name="chevron-back" size={18} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.dateLabel}>
-            {isToday
-              ? 'Bugün'
-              : selectedDate.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' })}
-          </Text>
-          <TouchableOpacity
-            style={[styles.dateArrow, isToday && styles.dateArrowDisabled]}
-            onPress={() => changeDate(1)}
-            disabled={isToday}
-          >
-            <Ionicons name="chevron-forward" size={18} color={isToday ? 'rgba(255,255,255,0.3)' : '#fff'} />
+          <TouchableOpacity style={styles.dateCenterTap} onPress={() => setShowDatePicker(true)}>
+            <Text style={styles.dateLabel}>{dateLabel}</Text>
+            <Text style={styles.dateLabelHint}>tarihe dokunarak değiştir</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.dateArrow} onPress={() => changeDate(1)}>
+            <Ionicons name="chevron-forward" size={18} color="#fff" />
           </TouchableOpacity>
         </View>
 
@@ -799,6 +807,50 @@ export default function FoodLogScreen({ navigation }) {
         </View>
       </Modal>
 
+      <Modal
+        visible={showDatePicker}
+        animationType="slide"
+        transparent
+        statusBarTranslucent
+        onRequestClose={() => setShowDatePicker(false)}
+      >
+        <TouchableOpacity
+          style={styles.dpOverlay}
+          activeOpacity={1}
+          onPress={() => setShowDatePicker(false)}
+        >
+          <View style={styles.dpSheet}>
+            <View style={styles.dpHandle} />
+            <View style={styles.dpHeader}>
+              <Text style={styles.dpTitle}>Tarih Seç</Text>
+              <TouchableOpacity onPress={() => setShowDatePicker(false)} style={styles.dpCloseBtn}>
+                <Ionicons name="close" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display="spinner"
+              onChange={onDatePickerChange}
+              locale="tr-TR"
+              style={{ width: '100%' }}
+            />
+            <TouchableOpacity
+              style={styles.dpDoneBtn}
+              onPress={() => setShowDatePicker(false)}
+            >
+              <LinearGradient
+                colors={[COLORS.primary, COLORS.primaryDark]}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={styles.dpDoneGradient}
+              >
+                <Text style={styles.dpDoneText}>Tamam</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Silme onayı */}
       <ConfirmModal
         visible={deleteId !== null}
@@ -1025,14 +1077,56 @@ const styles = StyleSheet.create({
 
   // Tarih seçici
   datePicker: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: SIZES.md, marginHorizontal: SIZES.containerPadding,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: SIZES.containerPadding,
+    marginBottom: SIZES.md,
     backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 999, paddingVertical: 8, marginBottom: SIZES.md,
+    borderRadius: SIZES.radiusMedium,
+    paddingVertical: 10,
   },
-  dateArrow: { padding: 4 },
-  dateArrowDisabled: { opacity: 0.3 },
-  dateLabel: { fontSize: SIZES.bodySmall, fontWeight: '700', color: '#fff', flex: 1, textAlign: 'center' },
+  dateArrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: SIZES.md,
+  },
+  dateCenterTap: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 38 },
+  dateLabel: { textAlign: 'center', fontSize: SIZES.body, fontWeight: '700', color: '#fff' },
+  dateLabelHint: { textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.72)', marginTop: 2 },
+  // Tarih seçici modal
+  dpOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
+  dpSheet: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    paddingBottom: Platform.OS === 'ios' ? 32 : 20,
+  },
+  dpHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: COLORS.border, alignSelf: 'center', marginTop: 12, marginBottom: 4,
+  },
+  dpHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: SIZES.containerPadding, paddingVertical: SIZES.sm,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  dpTitle: { fontSize: SIZES.h4, fontWeight: '800', color: COLORS.text, letterSpacing: -0.3 },
+  dpCloseBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: COLORS.surfaceAlt, justifyContent: 'center', alignItems: 'center',
+  },
+  dpDoneBtn: {
+    marginHorizontal: SIZES.containerPadding, marginTop: SIZES.sm,
+    borderRadius: SIZES.radiusMedium, overflow: 'hidden',
+  },
+  dpDoneGradient: {
+    alignItems: 'center', justifyContent: 'center', paddingVertical: 14,
+  },
+  dpDoneText: { fontSize: SIZES.body, fontWeight: '700', color: '#fff' },
 
   // Kalori kartı
   calorieCard: {
