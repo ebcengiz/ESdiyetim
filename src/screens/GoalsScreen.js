@@ -7,11 +7,11 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { COLORS, SIZES, SHADOWS } from '../constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { COLORS, SIZES, SHADOWS, scrollTabScreenBottomPad } from '../constants/theme';
 import { goalsService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from '../components/AIAdviceCard';
-import HealthSourcesCard from '../components/HealthSourcesCard';
 import GuestGateBanner from '../components/GuestGateBanner';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -28,6 +28,7 @@ const defaultTargetDate = () => {
 };
 
 export default function GoalsScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -198,7 +199,11 @@ export default function GoalsScreen() {
         </LinearGradient>
       )}
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: scrollTabScreenBottomPad(insets.bottom) }}
+      >
         <View style={styles.content}>
           {!user ? (
             <GuestGateBanner navigation={navigation} message="Kilo hedefleri hesabınıza bağlıdır. Oluşturmak ve senkronize etmek için giriş yapın." />
@@ -341,9 +346,6 @@ export default function GoalsScreen() {
           ) : null}
         </View>
 
-        <View style={{ paddingHorizontal: SIZES.containerPadding, marginBottom: 100 }}>
-          <HealthSourcesCard variant="general" />
-        </View>
       </ScrollView>
 
       <Modal visible={modal.visible} animationType="slide" transparent onRequestClose={modal.close}>

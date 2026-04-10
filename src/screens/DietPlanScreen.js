@@ -14,7 +14,6 @@ import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { dietPlanService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from '../components/AIAdviceCard';
-import HealthSourcesCard from '../components/HealthSourcesCard';
 import GuestGateBanner from '../components/GuestGateBanner';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -532,10 +531,6 @@ export default function DietPlanScreen() {
           />
         )}
 
-        <HealthSourcesCard
-          variant="dietPlan"
-          style={{ marginHorizontal: SIZES.containerPadding, marginTop: SIZES.lg }}
-        />
       </ScrollView>
 
       {/* ── DÜZENLEME MODAL ────────────────────────────────── */}

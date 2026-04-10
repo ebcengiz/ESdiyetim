@@ -20,7 +20,6 @@ import { weightService, dietPlanService, tipsService, homeSummaryService, foodLo
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import GuestGateBanner from '../components/GuestGateBanner';
-import HealthSourcesCard from '../components/HealthSourcesCard';
 
 const { width } = Dimensions.get('window');
 const toLocalDateString = (date = new Date()) => {
@@ -572,8 +571,6 @@ export default function HomeScreen({ navigation }) {
             </View>
           </View>
 
-          {/* App Store 1.4.1: ana sayfadaki tavsiye metni için uygulama içi kaynak bağlantıları */}
-          <HealthSourcesCard variant="tips" style={{ marginTop: SIZES.md }} />
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -31,6 +31,7 @@ import RegisterScreen from "../screens/RegisterScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import MealCalorieScreen from "../screens/MealCalorieScreen";
 import FoodLogScreen from "../screens/FoodLogScreen";
+import HealthSourcesInfoScreen from "../screens/HealthSourcesInfoScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -294,6 +295,23 @@ function AppStack() {
         name="FoodLog"
         component={FoodLogScreen}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="HealthSourcesInfo"
+        component={HealthSourcesInfoScreen}
+        options={{
+          headerShown: true,
+          title: "Kaynaklar ve uyarılar",
+          headerBackButtonDisplayMode: "minimal",
+          headerStyle: { backgroundColor: COLORS.primary },
+          headerTintColor: COLORS.textOnPrimary,
+          headerTitleStyle: {
+            fontWeight: "700",
+            fontSize: SIZES.h3,
+            letterSpacing: -0.3,
+          },
+          headerShadowVisible: false,
+        }}
       />
     </Stack.Navigator>
   );

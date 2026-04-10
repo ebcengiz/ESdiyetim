@@ -20,7 +20,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { aiService } from '../services/aiService';
-import HealthSourcesCard from '../components/HealthSourcesCard';
 import GuestGateBanner from '../components/GuestGateBanner';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -521,8 +520,6 @@ export default function MealCalorieScreen({ navigation }) {
             <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
           </Pressable>
         </View>
-
-        <HealthSourcesCard variant="meal" style={{ marginBottom: SIZES.lg }} />
 
         <View style={styles.footerLegal}>
           <Ionicons name="document-text-outline" size={16} color={COLORS.textLight} />

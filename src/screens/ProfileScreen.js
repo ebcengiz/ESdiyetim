@@ -143,6 +143,15 @@ export default function ProfileScreen({ navigation }) {
             takibi, VKİ ve hedefler için giriş yapın veya kayıt olun.
           </Text>
           <TouchableOpacity
+            style={styles.guestSourcesLink}
+            onPress={() => navigation.navigate('HealthSourcesInfo')}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="document-text-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.guestSourcesLinkText}>Kaynaklar ve sağlık uyarıları</Text>
+            <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
+          </TouchableOpacity>
+          <TouchableOpacity
             style={styles.guestPrimaryBtn}
             onPress={() => leaveGuestMode()}
             activeOpacity={0.88}
@@ -353,6 +362,24 @@ export default function ProfileScreen({ navigation }) {
                   <Ionicons name="trophy-outline" size={18} color={COLORS.primaryDark} />
                 </View>
                 <Text style={styles.menuText}>Hedeflerim</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('HealthSourcesInfo')}
+            >
+              <View style={styles.menuLeft}>
+                <View style={[styles.menuIcon, { backgroundColor: COLORS.accent }]}>
+                  <Ionicons name="library-outline" size={18} color={COLORS.primaryDark} />
+                </View>
+                <View>
+                  <Text style={styles.menuText}>Kaynaklar ve uyarılar</Text>
+                  <Text style={styles.menuSub}>Tıbbi uyarı, resmî bağlantılar</Text>
+                </View>
               </View>
               <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
             </TouchableOpacity>
@@ -678,6 +705,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: COLORS.text,
   },
+  menuSub: {
+    fontSize: SIZES.micro + 1,
+    color: COLORS.textLight,
+    marginTop: 2,
+  },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -715,7 +747,25 @@ const styles = StyleSheet.create({
     fontSize: SIZES.body,
     color: COLORS.textSecondary,
     lineHeight: 24,
-    marginBottom: SIZES.xl,
+    marginBottom: SIZES.md,
+  },
+  guestSourcesLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SIZES.sm,
+    paddingVertical: SIZES.sm,
+    paddingHorizontal: SIZES.md,
+    marginBottom: SIZES.lg,
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusMedium,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  guestSourcesLinkText: {
+    flex: 1,
+    fontSize: SIZES.small,
+    fontWeight: '600',
+    color: COLORS.text,
   },
   guestPrimaryBtn: {
     borderRadius: SIZES.radiusMedium,

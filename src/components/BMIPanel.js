@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, ActivityIndicator, Linking, Animated, Easing,
+  TouchableOpacity, ActivityIndicator, Animated, Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, SHADOWS } from '../constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { COLORS, SIZES, SHADOWS, scrollTabScreenBottomPad } from '../constants/theme';
 import { bodyInfoService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from './AIAdviceCard';
@@ -14,6 +15,8 @@ import { calculateBMI, getBMICategory, getBMICategoryName } from '../utils/bmi';
 import { useToast } from '../contexts/ToastContext';
 
 export default function BMIPanel({ latestWeight }) {
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [bodyInfo, setBodyInfo] = useState({ height: '', age: '', gender: 'male', weight: '' });
@@ -185,7 +188,11 @@ export default function BMIPanel({ latestWeight }) {
   };
 
   return (
-    <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={s.listContent}>
+    <ScrollView
+      style={{ flex: 1 }}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={[s.listContent, { paddingBottom: scrollTabScreenBottomPad(insets.bottom) }]}
+    >
       <LinearGradient
         colors={[COLORS.primary, COLORS.primaryLight]}
         start={{ x: 0, y: 0 }}
@@ -328,35 +335,21 @@ export default function BMIPanel({ latestWeight }) {
         </View>
       </LinearGradient>
 
-      <View style={s.sourcesCard}>
-        <View style={s.sourcesHeader}>
-          <View style={s.sourcesIconWrap}><Ionicons name="library" size={16} color={COLORS.primary} /></View>
-          <Text style={s.sourcesTitle}>Bilimsel Kaynaklar</Text>
-        </View>
-        {[
-          { org: 'WHO', label: 'Obezite ve VKİ Sınıflandırması', url: 'https://www.who.int/news-room/fact-sheets/detail/obesity-and-overweight', icon: 'globe-outline', color: COLORS.primaryDark },
-          { org: 'Sağlık Bakanlığı', label: 'Türkiye Beslenme Rehberi (TÜBER)', url: 'https://hsgm.saglik.gov.tr/tr/beslenme', icon: 'medkit-outline', color: COLORS.primary },
-          { org: 'NIH', label: 'Body Mass Index Classification', url: 'https://www.nhlbi.nih.gov/health/educational/lose_wt/BMI/bmicalc.htm', icon: 'flask-outline', color: COLORS.info },
-        ].map(({ org, label, url, icon, color }, i, arr) => (
-          <View key={org}>
-            <TouchableOpacity style={s.sourceRow} onPress={() => Linking.openURL(url)} activeOpacity={0.65}>
-              <View style={[s.sourceOrgBadge, { backgroundColor: color + '18' }]}>
-                <Ionicons name={icon} size={15} color={color} />
-                <Text style={[s.sourceOrgText, { color }]}>{org}</Text>
-              </View>
-              <Text style={s.sourceLabelText} numberOfLines={2}>{label}</Text>
-              <Ionicons name="open-outline" size={14} color={COLORS.textLight} />
-            </TouchableOpacity>
-            {i < arr.length - 1 && <View style={s.sourceDivider} />}
-          </View>
-        ))}
-      </View>
+      <TouchableOpacity
+        style={s.sourcesNavRow}
+        onPress={() => navigation.navigate('HealthSourcesInfo')}
+        activeOpacity={0.75}
+      >
+        <Ionicons name="library-outline" size={18} color={COLORS.primary} />
+        <Text style={s.sourcesNavText}>Bilimsel kaynaklar ve uyarılar (tüm liste)</Text>
+        <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
+      </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const s = StyleSheet.create({
-  listContent: { padding: SIZES.containerPadding, paddingBottom: 100 },
+  listContent: { padding: SIZES.containerPadding },
   heroCard: {
     borderRadius: SIZES.radiusLarge,
     padding: SIZES.md,
@@ -419,13 +412,18 @@ const s = StyleSheet.create({
   disclaimerIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.overlayLight, justifyContent: 'center', alignItems: 'center' },
   disclaimerBannerTitle: { fontSize: SIZES.small, fontWeight: '700', color: COLORS.disclaimerTitle, marginBottom: 3 },
   disclaimerBannerText: { fontSize: SIZES.tiny, color: COLORS.disclaimerText, lineHeight: 18 },
-  sourcesCard: { backgroundColor: COLORS.surface, borderRadius: SIZES.radiusLarge, marginBottom: SIZES.xl, overflow: 'hidden', ...SHADOWS.medium },
-  sourcesHeader: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm, paddingHorizontal: SIZES.md, paddingTop: SIZES.md, paddingBottom: SIZES.sm, borderBottomWidth: 1, borderBottomColor: COLORS.divider },
-  sourcesIconWrap: { width: 28, height: 28, borderRadius: 8, backgroundColor: COLORS.highlight, justifyContent: 'center', alignItems: 'center' },
-  sourcesTitle: { fontSize: SIZES.body, fontWeight: '700', color: COLORS.text },
-  sourceRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SIZES.md, paddingVertical: 14, gap: SIZES.sm },
-  sourceOrgBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: SIZES.sm, paddingVertical: 4, borderRadius: SIZES.radiusSmall, minWidth: 80 },
-  sourceOrgText: { fontSize: SIZES.tiny, fontWeight: '700' },
-  sourceLabelText: { flex: 1, fontSize: SIZES.small, color: COLORS.textSecondary, lineHeight: 18 },
-  sourceDivider: { height: 1, backgroundColor: COLORS.divider, marginHorizontal: SIZES.md },
+  sourcesNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SIZES.sm,
+    paddingVertical: SIZES.md,
+    paddingHorizontal: SIZES.md,
+    marginBottom: SIZES.xl,
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusMedium,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    ...SHADOWS.small,
+  },
+  sourcesNavText: { flex: 1, fontSize: SIZES.small, fontWeight: '600', color: COLORS.primary },
 });

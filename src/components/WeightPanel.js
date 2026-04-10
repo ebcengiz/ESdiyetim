@@ -4,10 +4,11 @@ import {
   View, Text, StyleSheet, ScrollView, TextInput,
   TouchableOpacity, Modal, Platform, KeyboardAvoidingView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { COLORS, SIZES, SHADOWS } from '../constants/theme';
+import { COLORS, SIZES, SHADOWS, scrollTabScreenBottomPad } from '../constants/theme';
 import { weightService, bodyInfoService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from './AIAdviceCard';
@@ -30,6 +31,7 @@ const toDateKey = (value) => {
 };
 
 export default function WeightPanel({ onWeightChange }) {
+  const insets = useSafeAreaInsets();
   const { showToast } = useToast();
   const [weights, setWeights] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -177,8 +179,12 @@ export default function WeightPanel({ onWeightChange }) {
         </LinearGradient>
       )}
 
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        <View style={{ padding: SIZES.containerPadding, paddingBottom: stats && (loadingAdvice || aiAdvice) ? SIZES.md : 100 }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: scrollTabScreenBottomPad(insets.bottom) }}
+      >
+        <View style={{ padding: SIZES.containerPadding, paddingBottom: stats && (loadingAdvice || aiAdvice) ? SIZES.sm : 0 }}>
           <View style={s.listHeader}>
             <Text style={s.listTitle}>Kilo Geçmişi</Text>
             <Text style={s.listSub}>{weights.length} kayıt</Text>
@@ -227,7 +233,7 @@ export default function WeightPanel({ onWeightChange }) {
         </View>
 
         {stats && (loadingAdvice || aiAdvice) ? (
-          <View style={{ marginBottom: 100 }}>
+          <View style={{ marginHorizontal: 0, marginTop: SIZES.xs }}>
             <AIAdviceCard visible loading={loadingAdvice} advice={aiAdvice} onRefresh={() => runWeightAIAdvice()} gradientColors={[COLORS.primary, COLORS.primaryLight]} iconTint={COLORS.primary} subtitle="Kilo kayıtlarınıza göre kişiselleştirilir" footerDisclaimer="Bu tavsiye genel bilgilendirme amaçlıdır; tıbbi teşhis ve tedavi yerine geçmez." />
           </View>
         ) : null}

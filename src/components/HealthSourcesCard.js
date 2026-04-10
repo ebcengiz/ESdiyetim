@@ -13,7 +13,7 @@ const VARIANTS = {
   meal: {
     title: 'Bilimsel ve resmî kaynaklar',
     headerIcon: 'library-outline',
-    headerIconSize: 18,
+    headerIconSize: 15,
     intro:
       'Tahmini kalori görüntüye dayalı yapay zeka çıkarımıdır. Besin enerjisi ve dengeli beslenme hakkında doğrulanabilir bilgi için:',
     links: [
@@ -34,7 +34,7 @@ const VARIANTS = {
   tips: {
     title: 'Kaynaklar',
     headerIcon: 'book-outline',
-    headerIconSize: 16,
+    headerIconSize: 15,
     intro:
       'Aşağıdaki bağlantılar genel sağlık ve beslenme bilgisinin resmî kaynaklarıdır. Yapay zeka metinleri bu kaynakların yerine geçmez.',
     links: [
@@ -55,7 +55,7 @@ const VARIANTS = {
   food: {
     title: 'Veri kaynakları ve uyarılar',
     headerIcon: 'information-circle-outline',
-    headerIconSize: 18,
+    headerIconSize: 15,
     intro:
       'Besin değerleri Open Food Facts, USDA veritabanları ve yapay zeka tahminlerinden derlenmektedir. Değerler yaklaşıktır; kesin bilgi için kaynaklara başvurun. Bu uygulama diyetisyen tavsiyesinin yerine geçmez.',
     links: [
@@ -80,7 +80,7 @@ const VARIANTS = {
   general: {
     title: 'Bilimsel ve resmî kaynaklar',
     headerIcon: 'library-outline',
-    headerIconSize: 18,
+    headerIconSize: 15,
     intro:
       'Yapay zeka önerileri ve uygulama içi bilgiler genel bilgilendirme amaçlıdır. Beslenme, kilo ve VKİ ile ilgili doğrulanabilir bilgi için:',
     links: [
@@ -106,7 +106,7 @@ const VARIANTS = {
   dietPlan: {
     title: 'Uyarılar ve güvenilir kaynaklar',
     headerIcon: 'shield-checkmark-outline',
-    headerIconSize: 18,
+    headerIconSize: 15,
     intro:
       'Diyet planı, günlük öğün notları ve kalori toplamları yalnızca kişisel kayıt ve genel bilgilendirme içindir; tıbbi teşhis, tedavi, terapi veya kişiye özel beslenme planı sunmaz ve bunların yerine geçmez. Uygulama tıbbi bir cihaz veya uzman sağlık hizmeti değildir. Hamilelik, emzirme, yeme bozukluğu, kronik hastalık, ilaç kullanımı veya özel beslenme ihtiyacınız varsa mutlaka hekim veya diyetisyene danışın. Veritabanı ve yapay zekâ ile hesaplanan kalori ve besin değerleri yaklaşık olabilir. Acil tıbbi durumlarda yerel acil hattınızı (ör. 112) arayın. Aşağıdaki bağlantılar bağımsız resmî ve bilimsel kaynaklardır.',
     links: [
@@ -168,7 +168,7 @@ export default function HealthSourcesCard({ variant = 'general', style }) {
           activeOpacity={0.7}
         >
           <Text style={styles.linkText}>{label}</Text>
-          <Ionicons name="open-outline" size={16} color={COLORS.info} />
+          <Ionicons name="open-outline" size={14} color={COLORS.info} style={styles.linkIcon} />
         </TouchableOpacity>
       ))}
     </View>
@@ -178,37 +178,38 @@ export default function HealthSourcesCard({ variant = 'general', style }) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radiusLarge,
-    padding: SIZES.md + 2,
-    borderWidth: 1,
+    borderRadius: SIZES.radiusSmall,
+    paddingHorizontal: SIZES.sm + 4,
+    paddingVertical: SIZES.sm + 2,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.border,
     ...SHADOWS.small,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SIZES.sm,
-    marginBottom: SIZES.sm,
+    gap: 6,
+    marginBottom: 6,
   },
   title: {
-    fontSize: SIZES.h5,
-    fontWeight: '800',
+    fontSize: SIZES.bodySmall,
+    fontWeight: '700',
     color: COLORS.text,
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
     flex: 1,
   },
   intro: {
-    fontSize: SIZES.small,
+    fontSize: SIZES.micro + 1,
     color: COLORS.textSecondary,
-    lineHeight: 20,
-    marginBottom: SIZES.md,
+    lineHeight: 17,
+    marginBottom: SIZES.sm,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: SIZES.sm,
-    paddingVertical: SIZES.sm,
+    gap: SIZES.xs + 2,
+    paddingVertical: 6,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: COLORS.border,
   },
@@ -218,9 +219,12 @@ const styles = StyleSheet.create({
   },
   linkText: {
     flex: 1,
-    fontSize: SIZES.small,
-    fontWeight: '600',
+    fontSize: SIZES.micro + 2,
+    fontWeight: '500',
     color: COLORS.info,
-    lineHeight: 20,
+    lineHeight: 18,
+  },
+  linkIcon: {
+    marginTop: 1,
   },
 });

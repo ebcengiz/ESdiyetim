@@ -40,7 +40,6 @@ import {
   calcNutritionForGrams,
 } from '../services/nutritionService';
 import GuestGateBanner from '../components/GuestGateBanner';
-import HealthSourcesCard from '../components/HealthSourcesCard';
 import ConfirmModal from '../components/ui/ConfirmModal';
 
 const { width } = Dimensions.get('window');
@@ -455,10 +454,6 @@ export default function FoodLogScreen({ navigation }) {
           />
         ))}
 
-        <HealthSourcesCard
-          variant="food"
-          style={{ marginHorizontal: SIZES.containerPadding, marginTop: SIZES.lg }}
-        />
         <View style={styles.bottomPad} />
       </ScrollView>
 

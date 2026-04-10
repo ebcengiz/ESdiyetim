@@ -74,7 +74,7 @@ export default function AIAdviceCard({
   children,
 }) {
   const accent = gradientColors[0] ?? iconTint;
-  const { width: windowWidth, fontScale } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight, fontScale } = useWindowDimensions();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const expandAnim = useRef(new Animated.Value(defaultExpanded ? 1 : 0)).current;
 
@@ -84,9 +84,11 @@ export default function AIAdviceCard({
     const padH = narrow ? SIZES.sm + 4 : SIZES.md;
     const titleSize = Math.min(SIZES.body + 1, SIZES.body * Math.min(fontScale, 1.12));
     const subtitleSize = Math.min(SIZES.small, SIZES.small * Math.min(fontScale, 1.08));
-    const bodyMax = Math.min(2400, Math.max(480, windowWidth * 2.1));
+    // Akordeon maxHeight: width*2.1 ~800px uzun AI metinlerini kesiyordu (overflow:hidden).
+    // Ekran yüksekliğine göre geniş üst sınır — tipik 300+ kelime metinler sığar.
+    const bodyMax = Math.min(48000, Math.max(windowHeight * 12, 9600));
     return { narrow, compact, padH, titleSize, subtitleSize, bodyMax };
-  }, [windowWidth, fontScale]);
+  }, [windowWidth, windowHeight, fontScale]);
 
   useEffect(() => {
     if (loading && !expanded) {

@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { DefaultTheme } from '@react-navigation/native';
 
 // ESdiyet — Modern yeşil + beyaz tasarım sistemi (tek kaynak)
@@ -218,3 +219,12 @@ export const LAYOUT = {
   tabBarHeight: 65,
   bottomSpace: 20,
 };
+
+/**
+ * Yüzen tab bar + güvenli alan: ScrollView contentContainerStyle paddingBottom
+ * (içerik tab’ın altında / home indicator arkasında kalmaması için)
+ */
+export function scrollTabScreenBottomPad(insetsBottom = 0) {
+  const tabFloat = Platform.OS === 'ios' ? 108 : 96;
+  return 20 + insetsBottom + tabFloat;
+}

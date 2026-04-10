@@ -10,10 +10,10 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, SHADOWS } from '../constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { COLORS, SIZES, SHADOWS, scrollTabScreenBottomPad } from '../constants/theme';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from '../components/AIAdviceCard';
-import HealthSourcesCard from '../components/HealthSourcesCard';
 
 const { width } = Dimensions.get('window');
 
@@ -57,6 +57,7 @@ const CATEGORIES = [
 ];
 
 export default function TipsScreen() {
+  const insets = useSafeAreaInsets();
   const [selected, setSelected] = useState('genel');
   // Her kategori için ayrı AI tavsiye cache
   const [adviceCache, setAdviceCache] = useState({});
@@ -168,7 +169,7 @@ export default function TipsScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollTabScreenBottomPad(insets.bottom) }]}
         showsVerticalScrollIndicator={false}
       >
         <AIAdviceCard
@@ -246,9 +247,6 @@ export default function TipsScreen() {
           </>
         )}
 
-        <HealthSourcesCard variant="tips" style={{ marginTop: SIZES.md }} />
-
-        <View style={{ height: 32 }} />
       </ScrollView>
     </View>
   );
