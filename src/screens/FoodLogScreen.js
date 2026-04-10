@@ -107,6 +107,8 @@ export default function FoodLogScreen({ navigation }) {
   // Progress animasyonu
   const calorieAnim = useRef(new Animated.Value(0)).current;
   const searchRequestIdRef = useRef(0);
+  const searchDebounceRef = useRef(null);
+  const searchCacheRef = useRef(new Map());
 
   const dateStr = toLocalDate(selectedDate);
 
@@ -143,6 +145,9 @@ export default function FoodLogScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => { loadLogs(); }, [loadLogs]));
   useEffect(() => { loadLogs(); }, [loadLogs]);
+  useEffect(() => () => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+  }, []);
 
   // Tarih değiştirme
   const changeDate = (days) => {
@@ -159,26 +164,43 @@ export default function FoodLogScreen({ navigation }) {
     setQuery(text);
     setSelectedFood(null);
     const normalized = text.trim();
-    const requestId = ++searchRequestIdRef.current;
+    const cacheKey = normalized.toLocaleLowerCase('tr-TR');
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
 
     if (normalized.length < 2) {
+      searchRequestIdRef.current += 1;
       setSearchResults([]);
       setSearching(false);
       return;
     }
 
-    setSearching(true);
-    try {
-      const results = await searchOpenFoodFacts(normalized);
-      if (requestId !== searchRequestIdRef.current) return; // Eski istek sonucunu yoksay
-      setSearchResults(results.slice(0, 12));
-    } catch {
-      if (requestId !== searchRequestIdRef.current) return;
-      setSearchResults([]);
-    } finally {
-      if (requestId !== searchRequestIdRef.current) return;
+    if (searchCacheRef.current.has(cacheKey)) {
+      setSearchResults(searchCacheRef.current.get(cacheKey));
       setSearching(false);
+      return;
     }
+
+    setSearching(true);
+    searchDebounceRef.current = setTimeout(async () => {
+      const requestId = ++searchRequestIdRef.current;
+      try {
+        const results = await searchOpenFoodFacts(normalized);
+        if (requestId !== searchRequestIdRef.current) return; // Eski istek sonucunu yoksay
+        const sliced = results.slice(0, 12);
+        searchCacheRef.current.set(cacheKey, sliced);
+        setSearchResults(sliced);
+      } catch {
+        if (requestId !== searchRequestIdRef.current) return;
+        setSearchResults([]);
+      } finally {
+        if (requestId !== searchRequestIdRef.current) return;
+        setSearching(false);
+      }
+    }, 450);
   }, []);
 
   // AI ile tam analiz
@@ -187,6 +209,17 @@ export default function FoodLogScreen({ navigation }) {
     setAiLoading(true);
     setSelectedFood(null);
     try {
+      // Önce Open Food Facts TR/WW veritabanını dene.
+      const dbResults = await searchOpenFoodFacts(query.trim());
+      if (dbResults.length > 0) {
+        const trFirst = dbResults.find((item) => item.source === 'openfoodfacts') || dbResults[0];
+        setSelectedFood(trFirst);
+        setSearchResults(dbResults.slice(0, 12));
+        showToast('Veritabanında bulundu, AI kullanılmadı.', 'success');
+        return;
+      }
+
+      // Veritabanında yoksa AI fallback (Gemini -> Groq)
       const food = await getFoodNutritionAI(query.trim(), activeMealType === 'drink');
       setSelectedFood(food);
       setSearchResults([]);
@@ -250,6 +283,10 @@ export default function FoodLogScreen({ navigation }) {
 
   const openModal = (mealType) => {
     searchRequestIdRef.current += 1;
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
     setActiveMealType(mealType);
     setQuery('');
     setSearchResults([]);
@@ -261,6 +298,10 @@ export default function FoodLogScreen({ navigation }) {
 
   const closeModal = () => {
     searchRequestIdRef.current += 1;
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
     setModalVisible(false);
     setSelectedFood(null);
     setSearchResults([]);
@@ -460,6 +501,10 @@ export default function FoodLogScreen({ navigation }) {
                 {query.length > 0 && (
                   <TouchableOpacity onPress={() => {
                     searchRequestIdRef.current += 1;
+                    if (searchDebounceRef.current) {
+                      clearTimeout(searchDebounceRef.current);
+                      searchDebounceRef.current = null;
+                    }
                     setQuery('');
                     setSearchResults([]);
                     setSelectedFood(null);

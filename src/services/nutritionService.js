@@ -8,7 +8,7 @@
  *  4. Groq AI               → Türkçe gıda adlarında tam besin analizi (fallback)
  */
 
-import { callGroq, parseJsonObjectFromLlmText } from './ai/providers';
+import { callGemini, callGroq, parseJsonObjectFromLlmText } from './ai/providers';
 
 // ─── Ortak yardımcılar ────────────────────────────────────────────────────────
 
@@ -243,7 +243,12 @@ Bilinmeyen veya anlamsız girdi için: {"found": false}
 Tüm sayısal değerler ${isDrink ? '100ml' : '100g'} için geçerlidir.`;
 
 export async function getFoodNutritionAI(foodName, isDrink = false) {
-  const raw = await callGroq(NUTRITION_PROMPT(foodName, isDrink));
+  let raw = '';
+  try {
+    raw = await callGemini(NUTRITION_PROMPT(foodName, isDrink));
+  } catch {
+    raw = await callGroq(NUTRITION_PROMPT(foodName, isDrink));
+  }
   const parsed = parseJsonObjectFromLlmText(raw);
 
   if (!parsed.found) throw new Error(`"${foodName}" için besin değeri bulunamadı.`);
