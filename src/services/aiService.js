@@ -19,6 +19,20 @@ async function call(prompt) {
   throw lastError || new Error('AI provider yanıt veremedi.');
 }
 
+/** Beklenen ağ kesintilerinde ERROR yerine WARN — Metro günlüğünü kirletmemek için */
+function logProviderError(contextLabel, error) {
+  const msg = error?.message || String(error);
+  const networkish =
+    /ağ bağlantısı|network request|fetch failed|internet|timeout|ECONNREFUSED|ENETUNREACH|offline|NSURLErrorDomain/i.test(
+      msg
+    );
+  if (networkish) {
+    console.warn(`⚠️ ${contextLabel}:`, msg);
+  } else {
+    console.error(`💥 ${contextLabel}:`, msg);
+  }
+}
+
 // ─── Prompt Builder'lar ───────────────────────────────────────────────────────
 
 function buildGoalPrompt({ title, currentWeight, targetWeight, startDate, targetDate }) {
@@ -172,7 +186,7 @@ export const aiService = {
       const { text: advice, provider } = await call(buildGoalPrompt(goalData));
       return { success: true, advice, provider };
     } catch (error) {
-      console.error('💥 AI hedef tavsiyesi hatası:', error.message);
+      logProviderError('AI hedef tavsiyesi hatası', error);
       return { success: false, advice: this.getFallbackAdvice(goalData), error: error.message, usingFallback: true };
     }
   },
@@ -182,7 +196,7 @@ export const aiService = {
       const { text: advice, provider } = await call(buildHealthTipPrompt(category));
       return { success: true, advice, category, provider };
     } catch (error) {
-      console.error('💥 Sağlık tavsiyesi hatası:', error.message);
+      logProviderError('Sağlık tavsiyesi (ağ veya API)', error);
       return { success: false, advice: FALLBACK_HEALTH_TIPS[category] || FALLBACK_HEALTH_TIPS.genel, error: error.message, usingFallback: true };
     }
   },
@@ -192,7 +206,7 @@ export const aiService = {
       const { text: advice, provider } = await call(buildBMIPrompt(bmiData));
       return { success: true, advice, provider };
     } catch (error) {
-      console.error('💥 VKİ tavsiyesi hatası:', error.message);
+      logProviderError('VKİ tavsiyesi (ağ veya API)', error);
       return { success: false, advice: FALLBACK_BMI_ADVICE[bmiData.category] || FALLBACK_BMI_ADVICE.Normal, error: error.message, usingFallback: true };
     }
   },
@@ -204,7 +218,7 @@ export const aiService = {
       if (bullets.length < 3) return { success: false, bullets: FALLBACK_BMI_BULLETS[bmiData.category] || FALLBACK_BMI_BULLETS.Normal, usingFallback: true, provider };
       return { success: true, bullets: bullets.slice(0, 5), provider };
     } catch (error) {
-      console.error('💥 VKİ madde önerileri hatası:', error.message);
+      logProviderError('VKİ madde önerileri (ağ veya API)', error);
       return { success: false, bullets: FALLBACK_BMI_BULLETS[bmiData.category] || FALLBACK_BMI_BULLETS.Normal, usingFallback: true, error: error.message };
     }
   },
@@ -214,7 +228,7 @@ export const aiService = {
       const { text: advice, provider } = await call(buildWeightTrackingPrompt(weightData));
       return { success: true, advice, provider };
     } catch (error) {
-      console.error('💥 Kilo takip tavsiyesi hatası:', error.message);
+      logProviderError('Kilo takip tavsiyesi (ağ veya API)', error);
       return { success: false, advice: this.getFallbackWeightTrackingAdvice(weightData), error: error.message, usingFallback: true };
     }
   },
@@ -224,7 +238,7 @@ export const aiService = {
       const { text: advice, provider } = await call(buildDietPlanPrompt(dietData));
       return { success: true, advice, provider };
     } catch (error) {
-      console.error('💥 Diyet planı tavsiyesi hatası:', error.message);
+      logProviderError('Diyet planı tavsiyesi (ağ veya API)', error);
       return { success: false, advice: this.getFallbackDietPlanAdvice(dietData), error: error.message, usingFallback: true };
     }
   },

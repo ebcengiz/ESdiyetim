@@ -1,15 +1,21 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
+  Pressable,
   TouchableOpacity,
   Animated,
   Easing,
+  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
+
+const MIN_TOUCH = 44;
+// Hermes / bazı sürümlerde Easing.ease edge-case; tek bir eğri kullan (ease hatası önlemi)
+const SMOOTH_EASING = Easing.bezier(0.42, 0, 0.58, 1);
 
 // ─── Animasyonlu yükleme noktaları ───────────────────────────────────────────
 function PulsingDots({ color }) {
@@ -22,8 +28,8 @@ function PulsingDots({ color }) {
       Animated.loop(
         Animated.sequence([
           Animated.delay(i * 140),
-          Animated.timing(dot, { toValue: 1, duration: 400, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-          Animated.timing(dot, { toValue: 0, duration: 400, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 1, duration: 400, easing: SMOOTH_EASING, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 400, easing: SMOOTH_EASING, useNativeDriver: true }),
         ])
       )
     );
@@ -32,12 +38,18 @@ function PulsingDots({ color }) {
   }, []);
 
   return (
-    <View style={{ flexDirection: 'row', gap: 5, alignItems: 'center' }}>
+    <View
+      style={styles.dotsRow}
+      accessibilityLiveRegion="polite"
+      accessibilityLabel="Yükleniyor"
+    >
       {dots.map((dot, i) => (
         <Animated.View
           key={i}
           style={{
-            width: 7, height: 7, borderRadius: 4,
+            width: 7,
+            height: 7,
+            borderRadius: 4,
             backgroundColor: color,
             opacity: dot,
             transform: [{ scale: dot.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }],
@@ -49,28 +61,27 @@ function PulsingDots({ color }) {
 }
 
 // ─── Sparkle animasyonu ───────────────────────────────────────────────────────
-function SparkleIcon({ tint }) {
-  const spin = useRef(new Animated.Value(0)).current;
+function SparkleIcon({ tint, size }) {
   const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.15, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1.12, duration: 900, easing: SMOOTH_EASING, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 900, easing: SMOOTH_EASING, useNativeDriver: true }),
       ])
     ).start();
   }, []);
 
   return (
     <Animated.View style={{ transform: [{ scale: pulse }] }}>
-      <Ionicons name="sparkles" size={20} color={tint} />
+      <Ionicons name="sparkles" size={size} color={tint} />
     </Animated.View>
   );
 }
 
 /**
- * Modern AI Tavsiye Kartı — akordion (açılır/kapanır)
+ * AI tavsiye kartı — akordion, responsive ve erişilebilir (production UI)
  */
 export default function AIAdviceCard({
   visible = true,
@@ -87,8 +98,20 @@ export default function AIAdviceCard({
   style,
   children,
 }) {
+  const { width: windowWidth, fontScale } = useWindowDimensions();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const expandAnim = useRef(new Animated.Value(defaultExpanded ? 1 : 0)).current;
+
+  const layout = useMemo(() => {
+    const narrow = windowWidth < 360;
+    const compact = windowWidth < 400;
+    const padH = narrow ? SIZES.sm + 6 : SIZES.md;
+    const iconBox = compact ? 40 : 46;
+    const titleSize = Math.min(SIZES.body + 2, (SIZES.body + 1) * Math.min(fontScale, 1.15));
+    const subtitleSize = Math.min(SIZES.small, SIZES.small * Math.min(fontScale, 1.12));
+    const bodyMax = Math.min(2400, Math.max(520, windowWidth * 2.2));
+    return { narrow, compact, padH, iconBox, titleSize, subtitleSize, bodyMax };
+  }, [windowWidth, fontScale]);
 
   // Yükleme başladığında otomatik aç
   useEffect(() => {
@@ -97,7 +120,7 @@ export default function AIAdviceCard({
       Animated.timing(expandAnim, {
         toValue: 1,
         duration: 260,
-        easing: Easing.inOut(Easing.ease),
+        easing: SMOOTH_EASING,
         useNativeDriver: false,
       }).start();
     }
@@ -109,14 +132,14 @@ export default function AIAdviceCard({
     Animated.timing(expandAnim, {
       toValue,
       duration: 280,
-      easing: Easing.inOut(Easing.ease),
+      easing: SMOOTH_EASING,
       useNativeDriver: false,
     }).start();
   };
 
   const bodyMaxHeight = expandAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 800],
+    outputRange: [0, layout.bodyMax],
   });
 
   const chevronRotate = expandAnim.interpolate({
@@ -130,64 +153,104 @@ export default function AIAdviceCard({
 
   return (
     <View style={[styles.wrap, style]}>
-      {/* ── Header (gradient + toggle) ────────────────────── */}
-      <TouchableOpacity onPress={toggle} activeOpacity={0.88}>
+      {/* TouchableOpacity: Fabric/Expo Go’da Pressable + LinearGradient iç içe bazen native prop hatasına yol açabiliyor */}
+      <TouchableOpacity
+        onPress={toggle}
+        activeOpacity={0.96}
+        accessibilityRole="button"
+        accessibilityLabel={`${title}. ${expanded ? 'Açık' : 'Kapalı'}`}
+        accessibilityHint="Tavsiye metnini gösterir veya gizler"
+        accessibilityState={{ expanded, busy: loading }}
+      >
         <LinearGradient
           colors={gradientColors}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.header}
+          style={[styles.header, { paddingHorizontal: layout.padH }]}
         >
-          {/* Sol üst: AI rozeti */}
-          <View style={styles.aiBadge}>
-            <Ionicons name="flash" size={10} color={gradientColors[0]} />
-            <Text style={[styles.aiBadgeText, { color: gradientColors[0] }]}>AI</Text>
+          <View style={styles.headerTopRow}>
+            <View style={styles.aiBadge}>
+              <Ionicons name="flash" size={11} color={gradientColors[0]} />
+              <Text style={[styles.aiBadgeText, { color: gradientColors[0] }]} maxFontSizeMultiplier={1.4}>
+                AI
+              </Text>
+            </View>
           </View>
 
-          <View style={styles.headerRow}>
-            {/* İkon kutusu */}
-            <View style={styles.iconBox}>
-              <SparkleIcon tint={gradientColors[0]} />
+          <View style={[styles.headerRow, layout.compact && styles.headerRowCompact]}>
+            <View style={[styles.iconBox, { width: layout.iconBox, height: layout.iconBox, borderRadius: layout.iconBox / 2 }]}>
+              <SparkleIcon tint={gradientColors[0]} size={layout.compact ? 18 : 22} />
             </View>
 
-            {/* Başlık + alt başlık */}
             <View style={styles.headerTexts}>
-              <Text style={styles.headerTitle}>{title}</Text>
+              <Text
+                style={[styles.headerTitle, { fontSize: layout.titleSize }]}
+                numberOfLines={2}
+                maxFontSizeMultiplier={1.35}
+              >
+                {title}
+              </Text>
               {subtitle ? (
-                <Text style={styles.headerSubtitle} numberOfLines={2}>{subtitle}</Text>
+                <Text
+                  style={[styles.headerSubtitle, { fontSize: layout.subtitleSize }]}
+                  numberOfLines={layout.narrow ? 2 : 3}
+                  maxFontSizeMultiplier={1.35}
+                >
+                  {subtitle}
+                </Text>
               ) : null}
             </View>
 
-            {/* Yenile butonu */}
-            {onRefresh ? (
-              <TouchableOpacity
-                onPress={(e) => { e.stopPropagation?.(); onRefresh(); }}
-                disabled={loading}
-                style={styles.refreshBtn}
-                activeOpacity={0.75}
-              >
-                <Ionicons name="refresh-outline" size={18} color="rgba(255,255,255,0.9)" />
-              </TouchableOpacity>
-            ) : null}
+            <View style={styles.headerActions}>
+              {onRefresh ? (
+                <Pressable
+                  onPress={(e) => {
+                    if (loading) return;
+                    e?.stopPropagation?.();
+                    onRefresh();
+                  }}
+                  disabled={loading}
+                  accessibilityRole="button"
+                  accessibilityLabel="Tavsiyeyi yenile"
+                  accessibilityState={{ disabled: loading }}
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.refreshBtn,
+                    { minWidth: MIN_TOUCH, minHeight: MIN_TOUCH },
+                    pressed && !loading && styles.refreshBtnPressed,
+                    loading && styles.refreshBtnDisabled,
+                  ]}
+                >
+                  <Ionicons name="refresh-outline" size={layout.compact ? 17 : 19} color="rgba(255,255,255,0.95)" />
+                </Pressable>
+              ) : null}
 
-            {/* Şevron */}
-            <Animated.View style={{ transform: [{ rotate: chevronRotate }] }}>
-              <Ionicons name="chevron-down" size={18} color="rgba(255,255,255,0.85)" />
-            </Animated.View>
+              <Animated.View
+                style={[styles.chevronWrap, { transform: [{ rotate: chevronRotate }] }]}
+                importantForAccessibility="no-hide-descendants"
+              >
+                <Ionicons name="chevron-down" size={layout.compact ? 20 : 22} color="rgba(255,255,255,0.9)" />
+              </Animated.View>
+            </View>
           </View>
 
-          {/* Alt ayraç çizgisi — sadece açıkken */}
-          {expanded ? <View style={styles.headerDivider} /> : null}
+          {expanded ? (
+            <View style={[styles.headerDivider, { marginHorizontal: -layout.padH }]} />
+          ) : null}
         </LinearGradient>
       </TouchableOpacity>
 
-      {/* ── Body (akordion) ───────────────────────────────── */}
-      <Animated.View style={{ maxHeight: bodyMaxHeight, overflow: 'hidden' }}>
-        <View style={styles.body}>
+      <Animated.View style={[styles.bodyClip, { maxHeight: bodyMaxHeight }]}>
+        <View style={[styles.body, { paddingHorizontal: layout.padH }]}>
           {loading ? (
             <View style={styles.loadingRow}>
               <PulsingDots color={iconTint} />
-              <Text style={[styles.loadingText, { color: iconTint }]}>{loadingText}</Text>
+              <Text
+                style={[styles.loadingText, { color: iconTint }]}
+                maxFontSizeMultiplier={1.35}
+              >
+                {loadingText}
+              </Text>
             </View>
           ) : showBodyContent ? (
             <>
@@ -195,15 +258,15 @@ export default function AIAdviceCard({
                 <View style={[styles.leftAccent, { backgroundColor: iconTint }]} />
                 <View style={styles.contentInner}>
                   {children != null ? children : (
-                    <Text style={styles.adviceText}>{advice}</Text>
+                    <Text style={styles.adviceText} maxFontSizeMultiplier={1.4}>{advice}</Text>
                   )}
                 </View>
               </View>
 
               {footerDisclaimer ? (
                 <View style={styles.footer}>
-                  <Ionicons name="shield-checkmark-outline" size={12} color={COLORS.textLight} />
-                  <Text style={styles.footerText}>{footerDisclaimer}</Text>
+                  <Ionicons name="shield-checkmark-outline" size={13} color={COLORS.textLight} style={styles.footerIcon} />
+                  <Text style={styles.footerText} maxFontSizeMultiplier={1.35}>{footerDisclaimer}</Text>
                 </View>
               ) : null}
             </>
@@ -220,131 +283,174 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radiusLarge,
     overflow: 'hidden',
     backgroundColor: COLORS.surface,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.border,
     ...SHADOWS.large,
   },
 
-  // ── Header
   header: {
-    paddingTop: SIZES.sm + 2,
-    paddingBottom: SIZES.md,
-    paddingHorizontal: SIZES.md,
+    paddingTop: SIZES.md,
+    paddingBottom: SIZES.md + 2,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SIZES.sm,
   },
   aiBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: 'rgba(255,255,255,0.94)',
     borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    gap: 3,
-    marginBottom: SIZES.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    gap: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.65)',
   },
   aiBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: SIZES.sm + 2,
+  },
+  headerRowCompact: {
     gap: SIZES.sm,
   },
   iconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: 'rgba(255,255,255,0.92)',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.5)',
     ...SHADOWS.small,
   },
   headerTexts: {
     flex: 1,
+    minWidth: 0,
   },
   headerTitle: {
-    fontSize: SIZES.body + 1,
     fontWeight: '800',
     color: '#fff',
-    letterSpacing: -0.3,
+    letterSpacing: -0.35,
+    textShadowColor: 'rgba(0,0,0,0.12)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   headerSubtitle: {
-    marginTop: 3,
-    fontSize: SIZES.small,
+    marginTop: 4,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.82)',
-    lineHeight: 17,
+    color: 'rgba(255,255,255,0.88)',
+    lineHeight: 20,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 0,
   },
   refreshBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.28)',
+  },
+  refreshBtnPressed: {
+    backgroundColor: 'rgba(255,255,255,0.28)',
+  },
+  refreshBtnDisabled: {
+    opacity: 0.45,
+  },
+  chevronWrap: {
+    width: MIN_TOUCH,
+    height: MIN_TOUCH,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.22)',
     marginTop: SIZES.md,
-    marginHorizontal: -SIZES.md,
   },
 
-  // ── Body
+  bodyClip: {
+    overflow: 'hidden',
+    backgroundColor: COLORS.surfaceAlt,
+  },
   body: {
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: SIZES.md,
     paddingVertical: SIZES.lg,
+    paddingBottom: SIZES.lg + 2,
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    gap: 5,
+    alignItems: 'center',
   },
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: SIZES.md,
     paddingVertical: SIZES.xs,
   },
   loadingText: {
     fontSize: SIZES.small,
     fontWeight: '600',
-    letterSpacing: 0.1,
+    letterSpacing: 0.15,
+    flex: 1,
+    minWidth: 120,
   },
   contentRow: {
     flexDirection: 'row',
-    gap: SIZES.sm,
+    gap: SIZES.sm + 2,
+    alignItems: 'flex-start',
   },
   leftAccent: {
-    width: 3,
-    borderRadius: 2,
-    minHeight: 20,
-    opacity: 0.7,
+    width: 4,
+    borderRadius: 3,
+    minHeight: 24,
+    opacity: 0.75,
+    marginTop: 2,
   },
   contentInner: {
     flex: 1,
+    minWidth: 0,
   },
   adviceText: {
     fontSize: SIZES.bodySmall,
     color: COLORS.text,
     lineHeight: 26,
-    letterSpacing: -0.1,
+    letterSpacing: -0.08,
   },
 
-  // ── Footer
   footer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 6,
+    gap: 8,
     marginTop: SIZES.lg,
     paddingTop: SIZES.md,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: COLORS.divider,
+    paddingHorizontal: SIZES.xs,
+    paddingBottom: 2,
+    borderRadius: SIZES.radiusSmall,
+    backgroundColor: COLORS.disclaimerBackground,
+    marginHorizontal: -SIZES.xs,
+  },
+  footerIcon: {
+    marginTop: 2,
   },
   footerText: {
     flex: 1,
     fontSize: 11,
-    lineHeight: 16,
+    lineHeight: 17,
     color: COLORS.textLight,
     fontWeight: '500',
   },
