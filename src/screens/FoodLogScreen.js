@@ -40,6 +40,7 @@ import {
   calcNutritionForGrams,
 } from '../services/nutritionService';
 import GuestGateBanner from '../components/GuestGateBanner';
+import MedicalInfoBanner from '../components/MedicalInfoBanner';
 import ConfirmModal from '../components/ui/ConfirmModal';
 
 const { width } = Dimensions.get('window');
@@ -440,6 +441,13 @@ export default function FoodLogScreen({ navigation }) {
             navigation={navigation}
             message="Besin günlüğü hesabınıza bağlıdır. Giriş yaparak kullanabilirsiniz."
           />
+        ) : null}
+
+        {user ? (
+          <MedicalInfoBanner title="Besin verileri hakkında">
+            Veritabanı ve yapay zeka ile üretilen değerler yaklaşıktır; tıbbi teşhis, klinik beslenme veya
+            tedavi planı yerine geçmez. Özel durumlarınız için hekim veya diyetisyene danışın.
+          </MedicalInfoBanner>
         ) : null}
 
         {/* Öğün bölümleri */}

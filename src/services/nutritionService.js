@@ -209,8 +209,8 @@ export async function searchOpenFoodFacts(query) {
 // ─── 6: Groq AI (Türkçe gıda analizi) ───────────────────────────────────────
 
 const NUTRITION_PROMPT = (foodName, isDrink) =>
-  `Sen bir beslenme uzmanı ve besin değerleri veritabanısın.
-"${foodName}" için ${isDrink ? '100 mililitre (100ml)' : '100 gram'} başına besin değerlerini hesapla.
+  `Sen yaklaşık besin referansı üreten bir asistansın (tıbbi teşhis veya klinik beslenme değerlendirmesi değil; bireysel tanı koyma).
+"${foodName}" için ${isDrink ? '100 mililitre (100ml)' : '100 gram'} başına tahmini besin değerlerini üret.
 
 SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir metin yazma:
 

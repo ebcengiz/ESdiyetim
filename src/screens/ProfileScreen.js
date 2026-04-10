@@ -152,6 +152,15 @@ export default function ProfileScreen({ navigation }) {
             <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
           </TouchableOpacity>
           <TouchableOpacity
+            style={styles.guestSourcesLink}
+            onPress={() => navigation.navigate('PrivacyPolicy')}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="shield-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.guestSourcesLinkText}>Gizlilik politikası</Text>
+            <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
+          </TouchableOpacity>
+          <TouchableOpacity
             style={styles.guestPrimaryBtn}
             onPress={() => leaveGuestMode()}
             activeOpacity={0.88}
@@ -379,6 +388,24 @@ export default function ProfileScreen({ navigation }) {
                 <View>
                   <Text style={styles.menuText}>Kaynaklar ve uyarılar</Text>
                   <Text style={styles.menuSub}>Tıbbi uyarı, resmî bağlantılar</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('PrivacyPolicy')}
+            >
+              <View style={styles.menuLeft}>
+                <View style={[styles.menuIcon, { backgroundColor: COLORS.highlight }]}>
+                  <Ionicons name="document-text-outline" size={18} color={COLORS.primary} />
+                </View>
+                <View>
+                  <Text style={styles.menuText}>Gizlilik politikası</Text>
+                  <Text style={styles.menuSub}>Veri toplama ve üçüncü taraflar</Text>
                 </View>
               </View>
               <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />

@@ -31,6 +31,7 @@ export default function RegisterScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [focusedField, setFocusedField] = useState(null);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const { signUp, continueAsGuest } = useAuth();
   const { showToast } = useToast();
 
@@ -61,8 +62,11 @@ export default function RegisterScreen({ navigation }) {
     }
     if (!confirmPassword.trim()) {
       errs.confirmPassword = 'Şifre tekrarı gerekli.';
-    } else if (password !== confirmPassword) {
+    } else     if (password !== confirmPassword) {
       errs.confirmPassword = 'Şifreler eşleşmiyor.';
+    }
+    if (!acceptedPrivacy) {
+      errs.privacy = 'Devam etmek için gizlilik politikasını kabul etmelisiniz.';
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -266,6 +270,38 @@ export default function RegisterScreen({ navigation }) {
             {errors.confirmPassword ? <ErrorRow text={errors.confirmPassword} /> : null}
           </View>
 
+          {/* App Store 5.1: açık rıza — gizlilik politikası */}
+          <View style={styles.privacyBlock}>
+            <View style={styles.privacyRow}>
+              <TouchableOpacity
+                onPress={() => {
+                  setAcceptedPrivacy(!acceptedPrivacy);
+                  if (errors.privacy) setErrors((prev) => ({ ...prev, privacy: undefined }));
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                disabled={loading}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: acceptedPrivacy }}
+              >
+                <Ionicons
+                  name={acceptedPrivacy ? 'checkbox' : 'square-outline'}
+                  size={24}
+                  color={acceptedPrivacy ? COLORS.primary : COLORS.textSecondary}
+                />
+              </TouchableOpacity>
+              <Text style={styles.privacyText}>
+                <Text
+                  onPress={() => navigation.navigate('PrivacyPolicy')}
+                  style={styles.privacyLink}
+                >
+                  Gizlilik Politikası
+                </Text>
+                <Text> metnini okudum ve kabul ediyorum.</Text>
+              </Text>
+            </View>
+            {errors.privacy ? <ErrorRow text={errors.privacy} /> : null}
+          </View>
+
           {/* Submit */}
           <TouchableOpacity
             style={[styles.registerButton, loading && styles.buttonDisabled]}
@@ -378,6 +414,25 @@ const styles = StyleSheet.create({
     fontSize: SIZES.body,
     color: COLORS.textSecondary,
     textAlign: 'center',
+  },
+  privacyBlock: {
+    marginBottom: SIZES.md,
+  },
+  privacyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  privacyText: {
+    flex: 1,
+    fontSize: SIZES.small,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+  },
+  privacyLink: {
+    color: COLORS.primary,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   fieldWrap: {
     marginBottom: SIZES.md,

@@ -11,6 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { COLORS, SIZES, SHADOWS, scrollTabScreenBottomPad } from '../constants/theme';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from '../components/AIAdviceCard';
@@ -58,6 +59,7 @@ const CATEGORIES = [
 
 export default function TipsScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const [selected, setSelected] = useState('genel');
   // Her kategori için ayrı AI tavsiye cache
   const [adviceCache, setAdviceCache] = useState({});
@@ -247,6 +249,16 @@ export default function TipsScreen() {
           </>
         )}
 
+        <TouchableOpacity
+          style={styles.sourcesLinkRow}
+          onPress={() => navigation.navigate('HealthSourcesInfo')}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="library-outline" size={18} color={COLORS.primary} />
+          <Text style={styles.sourcesLinkText}>Tıbbi uyarı, kaynaklar ve gizlilik özeti</Text>
+          <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
+        </TouchableOpacity>
+
       </ScrollView>
     </View>
   );
@@ -321,4 +333,18 @@ const styles = StyleSheet.create({
   miniCardCat: { fontSize: 11, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
   miniCardTitle: { fontSize: 14, fontWeight: '700', color: COLORS.text, marginBottom: 3 },
   miniCardSnippet: { fontSize: 12, color: COLORS.textSecondary, lineHeight: 17 },
+
+  sourcesLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: SIZES.sm,
+    paddingVertical: SIZES.md,
+    paddingHorizontal: SIZES.sm,
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusMedium,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  sourcesLinkText: { flex: 1, fontSize: SIZES.small, fontWeight: '600', color: COLORS.primary },
 });

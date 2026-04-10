@@ -276,6 +276,16 @@ export default function LoginScreen({ navigation }) {
             </Text>
           </View>
 
+          <View style={styles.privacyFooter}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate("PrivacyPolicy")}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              disabled={loading}
+            >
+              <Text style={styles.privacyFooterLink}>Gizlilik Politikası</Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.registerContainer}>
             <Text style={styles.registerText}>Hesabınız yok mu? </Text>
             <TouchableOpacity onPress={() => navigation.navigate("Register")} disabled={loading}>
@@ -457,6 +467,16 @@ const styles = StyleSheet.create({
     fontSize: SIZES.small,
     color: COLORS.textLight,
     lineHeight: 19,
+  },
+  privacyFooter: {
+    alignItems: "center",
+    marginBottom: SIZES.md,
+  },
+  privacyFooterLink: {
+    fontSize: SIZES.small,
+    color: COLORS.primary,
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
   registerContainer: {
     flexDirection: "row",

@@ -54,6 +54,8 @@ Lütfen bu kişiye:
 3. 3-4 pratik ve uygulanabilir tavsiye ver
 4. Motivasyon için kısa bir mesaj ekle
 
+Kısıtlar: Tıbbi teşhis veya kişisel tedavi/beslenme planı verme; yalnızca genel bilgilendirme ve güvenli motivasyon.
+
 Cevabını Türkçe, samimi ve cesaretlendirici bir dille yaz. Maksimum 300 kelime kullan.`;
 }
 
@@ -80,6 +82,8 @@ Lütfen bu kişiye:
 3. 4-5 pratik tavsiye ver (beslenme, egzersiz, motivasyon)
 4. Devam etmesi gereken olumlu davranışları vurgula
 
+Kısıtlar: Tıbbi teşhis verme; gerekirse bir hekim veya diyetisyene danışılması gerektiğini kısaca hatırlat.
+
 Cevabını Türkçe, samimi ve cesaretlendirici bir dille yaz. Maksimum 300 kelime kullan.`;
 }
 
@@ -94,9 +98,11 @@ function buildBMIPrompt({ bmi, category, height, weight, age, gender }) {
 
 Lütfen bu kişiye:
 1. VKİ değeri hakkında kısa bir değerlendirme yap
-2. Sağlık durumu açısından ne anlama geldiğini açıkla
-3. 4-5 pratik ve uygulanabilir beslenme ve yaşam tarzı tavsiyesi ver
-4. Hedef kilo aralığı öner (varsa)
+2. VKİ sınıflamasının popülasyon düzeyinde genel anlamını açıkla (bireysel sağlık teşhisi veya klinik yorum değildir)
+3. 4-5 pratik ve uygulanabilir genel yaşam tarzı ve beslenme önerisi ver
+4. İstenirse hedef kilo aralığı hakkında genel bilgi ver (kesin tıbbi hedef veya tedavi planı değildir)
+
+Kısıtlar: Tıbbi teşhis, ilaç veya tedavi önerisi verme; şüphede uzmana yönlendir.
 
 Cevabını Türkçe, samimi ve cesaretlendirici bir dille yaz. Maksimum 250 kelime kullan.`;
 }
@@ -120,7 +126,9 @@ function buildHealthTipPrompt(category) {
     egzersiz: 'egzersiz ve fiziksel aktivite',
     motivasyon: 'motivasyon ve zihinsel sağlık',
   };
-  return `${categoryInfo[category] || 'sağlıklı yaşam'} konusunda kısa, pratik ve uygulanabilir bir tavsiye ver.
+  return `Sen genel yaşam tarzı bilgisi veriyorsun; tıbbi teşhis, ilaç veya tedavi önerisi verme.
+
+${categoryInfo[category] || 'sağlıklı yaşam'} konusunda kısa, pratik ve uygulanabilir bir tavsiye ver.
 
 Tavsiye şunları içermeli:
 1. Bir başlık (kısa ve çarpıcı)
@@ -152,7 +160,7 @@ Lütfen bu kullanıcıya:
 3. 3-4 pratik beslenme tavsiyesi ver.
 4. Motivasyonunu artıracak samimi bir kapanış yap.
 
-Cevabını Türkçe, diyetisyen gibi yaz. Maksimum 350 kelime kullan.`;
+Cevabını Türkçe, genel bilgilendirme ve destekleyici bir tonla yaz (tıbbi teşhis veya kişisel diyetisyen planı değil). Maksimum 350 kelime kullan.`;
 }
 
 // ─── Fallback verileri ────────────────────────────────────────────────────────

@@ -32,6 +32,20 @@ import ProfileScreen from "../screens/ProfileScreen";
 import MealCalorieScreen from "../screens/MealCalorieScreen";
 import FoodLogScreen from "../screens/FoodLogScreen";
 import HealthSourcesInfoScreen from "../screens/HealthSourcesInfoScreen";
+import PrivacyPolicyScreen from "../screens/PrivacyPolicyScreen";
+
+const privacyHeaderOptions = {
+  headerShown: true,
+  headerBackButtonDisplayMode: "minimal",
+  headerStyle: { backgroundColor: COLORS.primary },
+  headerTintColor: COLORS.textOnPrimary,
+  headerTitleStyle: {
+    fontWeight: "700",
+    fontSize: SIZES.h3,
+    letterSpacing: -0.3,
+  },
+  headerShadowVisible: false,
+};
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -122,6 +136,14 @@ function AuthStack() {
     >
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen
+        name="PrivacyPolicy"
+        component={PrivacyPolicyScreen}
+        options={{
+          ...privacyHeaderOptions,
+          title: "Gizlilik Politikası",
+        }}
+      />
     </Stack.Navigator>
   );
 }
@@ -311,6 +333,14 @@ function AppStack() {
             letterSpacing: -0.3,
           },
           headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name="PrivacyPolicy"
+        component={PrivacyPolicyScreen}
+        options={{
+          ...privacyHeaderOptions,
+          title: "Gizlilik Politikası",
         }}
       />
     </Stack.Navigator>

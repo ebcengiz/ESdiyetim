@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SIZES, scrollTabScreenBottomPad } from '../constants/theme';
 import HealthSourcesCard from '../components/HealthSourcesCard';
@@ -27,6 +27,15 @@ export default function HealthSourcesInfoScreen() {
         bağlantılar bağımsız resmî ve bilimsel kaynaklardır.
       </Text>
 
+      <Text style={styles.aiNote}>
+        Yapay zeka metin ve (isteğe bağlı) görsel analizleri Groq ve/veya Google tarafında işlenir; ayrıntılar
+        Profil → Gizlilik politikası ekranındadır. Sağlık verisi reklam veya pazarlama amaçlı üçüncü taraflara
+        satılmaz (App Store İnceleme Kılavuzu 5.1.3 ile uyumlu kullanım).
+      </Text>
+      <Text style={styles.aiLink} onPress={() => Linking.openURL('https://developer.apple.com/app-store/review/guidelines/#health-and-fitness')}>
+        Apple — Sağlık ve gizlilik kuralları (5.1.3)
+      </Text>
+
       <HealthSourcesCard variant="dietPlan" style={styles.card} />
       <HealthSourcesCard variant="meal" style={styles.card} />
       <HealthSourcesCard variant="food" style={styles.card} />
@@ -48,6 +57,19 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: COLORS.textSecondary,
     marginBottom: SIZES.xs,
+  },
+  aiNote: {
+    fontSize: SIZES.tiny,
+    lineHeight: 18,
+    color: COLORS.textLight,
+    marginBottom: SIZES.xs,
+  },
+  aiLink: {
+    fontSize: SIZES.tiny,
+    color: COLORS.info,
+    fontWeight: '600',
+    marginBottom: SIZES.md,
+    textDecorationLine: 'underline',
   },
   card: {
     marginTop: 0,

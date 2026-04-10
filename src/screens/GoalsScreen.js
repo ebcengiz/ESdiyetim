@@ -13,6 +13,7 @@ import { goalsService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from '../components/AIAdviceCard';
 import GuestGateBanner from '../components/GuestGateBanner';
+import MedicalInfoBanner from '../components/MedicalInfoBanner';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useFormModal } from '../hooks/useFormModal';
@@ -207,6 +208,13 @@ export default function GoalsScreen() {
         <View style={styles.content}>
           {!user ? (
             <GuestGateBanner navigation={navigation} message="Kilo hedefleri hesabınıza bağlıdır. Oluşturmak ve senkronize etmek için giriş yapın." />
+          ) : null}
+
+          {user ? (
+            <MedicalInfoBanner title="Hedef ve yapay zeka">
+              Hedef önerileri genel bilgilendirme içindir; kişisel tıbbi veya beslenme planı değildir. Karar
+              vermeden önce uzmanınıza danışın.
+            </MedicalInfoBanner>
           ) : null}
 
           <View style={styles.infoChipRow}>
