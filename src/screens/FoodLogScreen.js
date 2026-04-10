@@ -28,7 +28,6 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
@@ -145,7 +144,7 @@ export default function FoodLogScreen({ navigation }) {
     }
   }, [user, dateStr]);
 
-  useFocusEffect(useCallback(() => { loadLogs(); }, [loadLogs]));
+  // Stack ekranı olduğu için her açılışta mount olur — useEffect yeterli
   useEffect(() => { loadLogs(); }, [loadLogs]);
   useEffect(() => () => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);

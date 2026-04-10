@@ -174,8 +174,16 @@ export default function DietPlanScreen() {
 
   // ── Veri yükleme ──────────────────────────────────────────────────────────
 
-  const loadPlan = useCallback(async () => {
+  const lastLoadRef = React.useRef(0);
+  const lastLoadedKey = React.useRef('');
+
+  const loadPlan = useCallback(async (force = false) => {
     if (!user) { setTodayPlan(null); return; }
+    const cacheKey = `${toDateStr(selectedDate)}_${user.id || ''}`;
+    const now = Date.now();
+    if (!force && cacheKey === lastLoadedKey.current && now - lastLoadRef.current < 30_000) return;
+    lastLoadRef.current = now;
+    lastLoadedKey.current = cacheKey;
     setLoading(true);
     try {
       const plan = await dietPlanService.getByDate(toDateStr(selectedDate));
@@ -187,6 +195,10 @@ export default function DietPlanScreen() {
     }
   }, [user, selectedDate]);
 
+  // İlk yükleme
+  useEffect(() => { loadPlan(true); }, [loadPlan]);
+
+  // Tab odağında — 30sn cache'i varsa atlar
   useFocusEffect(useCallback(() => { loadPlan(); }, [loadPlan]));
 
   // ── Tarih navigasyonu ──────────────────────────────────────────────────────

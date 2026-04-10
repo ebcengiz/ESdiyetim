@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -70,7 +70,7 @@ function SparkleIcon({ tint }) {
 }
 
 /**
- * Modern AI Tavsiye Kartı
+ * Modern AI Tavsiye Kartı — akordion (açılır/kapanır)
  */
 export default function AIAdviceCard({
   visible = true,
@@ -83,89 +83,133 @@ export default function AIAdviceCard({
   loadingText = 'Analiz yapılıyor',
   subtitle,
   footerDisclaimer,
+  defaultExpanded = false,
   style,
   children,
 }) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const expandAnim = useRef(new Animated.Value(defaultExpanded ? 1 : 0)).current;
+
+  // Yükleme başladığında otomatik aç
+  useEffect(() => {
+    if (loading && !expanded) {
+      setExpanded(true);
+      Animated.timing(expandAnim, {
+        toValue: 1,
+        duration: 260,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [loading]);
+
+  const toggle = () => {
+    const toValue = expanded ? 0 : 1;
+    setExpanded(!expanded);
+    Animated.timing(expandAnim, {
+      toValue,
+      duration: 280,
+      easing: Easing.inOut(Easing.ease),
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const bodyMaxHeight = expandAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 800],
+  });
+
+  const chevronRotate = expandAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '180deg'],
+  });
+
   if (!visible) return null;
 
   const showBodyContent = !loading && (children != null || (advice && advice.length > 0));
 
   return (
     <View style={[styles.wrap, style]}>
-      {/* ── Header (gradient) ─────────────────────────────── */}
-      <LinearGradient
-        colors={gradientColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        {/* Sol üst: AI rozeti */}
-        <View style={styles.aiBadge}>
-          <Ionicons name="flash" size={10} color={gradientColors[0]} />
-          <Text style={[styles.aiBadgeText, { color: gradientColors[0] }]}>AI</Text>
-        </View>
-
-        <View style={styles.headerRow}>
-          {/* İkon kutusu */}
-          <View style={styles.iconBox}>
-            <SparkleIcon tint={gradientColors[0]} />
+      {/* ── Header (gradient + toggle) ────────────────────── */}
+      <TouchableOpacity onPress={toggle} activeOpacity={0.88}>
+        <LinearGradient
+          colors={gradientColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.header}
+        >
+          {/* Sol üst: AI rozeti */}
+          <View style={styles.aiBadge}>
+            <Ionicons name="flash" size={10} color={gradientColors[0]} />
+            <Text style={[styles.aiBadgeText, { color: gradientColors[0] }]}>AI</Text>
           </View>
 
-          {/* Başlık + alt başlık */}
-          <View style={styles.headerTexts}>
-            <Text style={styles.headerTitle}>{title}</Text>
-            {subtitle ? (
-              <Text style={styles.headerSubtitle} numberOfLines={2}>{subtitle}</Text>
-            ) : null}
-          </View>
-
-          {/* Yenile butonu */}
-          {onRefresh ? (
-            <TouchableOpacity
-              onPress={onRefresh}
-              disabled={loading}
-              style={styles.refreshBtn}
-              activeOpacity={0.75}
-            >
-              <Ionicons name="refresh-outline" size={18} color="rgba(255,255,255,0.9)" />
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        {/* Alt ayraç çizgisi */}
-        <View style={styles.headerDivider} />
-      </LinearGradient>
-
-      {/* ── Body ──────────────────────────────────────────── */}
-      <View style={styles.body}>
-        {loading ? (
-          <View style={styles.loadingRow}>
-            <PulsingDots color={iconTint} />
-            <Text style={[styles.loadingText, { color: iconTint }]}>{loadingText}</Text>
-          </View>
-        ) : showBodyContent ? (
-          <>
-            {/* Sol renkli çizgi */}
-            <View style={styles.contentRow}>
-              <View style={[styles.leftAccent, { backgroundColor: iconTint }]} />
-              <View style={styles.contentInner}>
-                {children != null ? (
-                  children
-                ) : (
-                  <Text style={styles.adviceText}>{advice}</Text>
-                )}
-              </View>
+          <View style={styles.headerRow}>
+            {/* İkon kutusu */}
+            <View style={styles.iconBox}>
+              <SparkleIcon tint={gradientColors[0]} />
             </View>
 
-            {footerDisclaimer ? (
-              <View style={styles.footer}>
-                <Ionicons name="shield-checkmark-outline" size={12} color={COLORS.textLight} />
-                <Text style={styles.footerText}>{footerDisclaimer}</Text>
-              </View>
+            {/* Başlık + alt başlık */}
+            <View style={styles.headerTexts}>
+              <Text style={styles.headerTitle}>{title}</Text>
+              {subtitle ? (
+                <Text style={styles.headerSubtitle} numberOfLines={2}>{subtitle}</Text>
+              ) : null}
+            </View>
+
+            {/* Yenile butonu */}
+            {onRefresh ? (
+              <TouchableOpacity
+                onPress={(e) => { e.stopPropagation?.(); onRefresh(); }}
+                disabled={loading}
+                style={styles.refreshBtn}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="refresh-outline" size={18} color="rgba(255,255,255,0.9)" />
+              </TouchableOpacity>
             ) : null}
-          </>
-        ) : null}
-      </View>
+
+            {/* Şevron */}
+            <Animated.View style={{ transform: [{ rotate: chevronRotate }] }}>
+              <Ionicons name="chevron-down" size={18} color="rgba(255,255,255,0.85)" />
+            </Animated.View>
+          </View>
+
+          {/* Alt ayraç çizgisi — sadece açıkken */}
+          {expanded ? <View style={styles.headerDivider} /> : null}
+        </LinearGradient>
+      </TouchableOpacity>
+
+      {/* ── Body (akordion) ───────────────────────────────── */}
+      <Animated.View style={{ maxHeight: bodyMaxHeight, overflow: 'hidden' }}>
+        <View style={styles.body}>
+          {loading ? (
+            <View style={styles.loadingRow}>
+              <PulsingDots color={iconTint} />
+              <Text style={[styles.loadingText, { color: iconTint }]}>{loadingText}</Text>
+            </View>
+          ) : showBodyContent ? (
+            <>
+              <View style={styles.contentRow}>
+                <View style={[styles.leftAccent, { backgroundColor: iconTint }]} />
+                <View style={styles.contentInner}>
+                  {children != null ? children : (
+                    <Text style={styles.adviceText}>{advice}</Text>
+                  )}
+                </View>
+              </View>
+
+              {footerDisclaimer ? (
+                <View style={styles.footer}>
+                  <Ionicons name="shield-checkmark-outline" size={12} color={COLORS.textLight} />
+                  <Text style={styles.footerText}>{footerDisclaimer}</Text>
+                </View>
+              ) : null}
+            </>
+          ) : null}
+        </View>
+      </Animated.View>
     </View>
   );
 }

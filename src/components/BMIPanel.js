@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
   TouchableOpacity, ActivityIndicator, Linking, Animated, Easing,
@@ -23,6 +24,8 @@ export default function BMIPanel({ latestWeight }) {
   const [bulletRecs, setBulletRecs] = useState([]);
   const [loadingBullets, setLoadingBullets] = useState(false);
   const bmiRevealAnim = React.useRef(new Animated.Value(0)).current;
+  // AI başarısız oldu mu? Focus'ta yeniden dene
+  const aiFailedRef = useRef(false);
 
   const parsedWeight = () => {
     const w = parseFloat(bodyInfo.weight);
@@ -37,6 +40,19 @@ export default function BMIPanel({ latestWeight }) {
   const bmiCategory = useMemo(() => getBMICategory(bmi), [bmi]);
 
   useEffect(() => { loadBodyInfo(); }, []);
+
+  // Ekran her odağa geldiğinde önceki çağrı başarısız olduysa yeniden dene
+  useFocusEffect(useCallback(() => {
+    if (aiFailedRef.current && !loadingAdvice && !loadingBullets) {
+      const payload = buildAIParams();
+      if (payload) {
+        aiFailedRef.current = false;
+        // İki çağrıyı art arda başlat (rate limit için 300ms arayla)
+        fetchAIAdvice(payload);
+        setTimeout(() => fetchBulletRecommendations(payload), 300);
+      }
+    }
+  }, [loadingAdvice, loadingBullets]));
 
   const loadBodyInfo = async () => {
     try {
@@ -85,7 +101,9 @@ export default function BMIPanel({ latestWeight }) {
     try {
       const result = await aiService.getBMIAdvice(payload);
       setAiAdvice(result.advice || '');
+      aiFailedRef.current = false;
     } catch {
+      aiFailedRef.current = true;
       setAiAdvice('⚠️ Tavsiye alınırken bir hata oluştu.');
     } finally {
       setLoadingAdvice(false);
@@ -100,7 +118,9 @@ export default function BMIPanel({ latestWeight }) {
     try {
       const result = await aiService.getBMIBulletRecommendations(payload);
       setBulletRecs(result.bullets || []);
+      aiFailedRef.current = false;
     } catch {
+      aiFailedRef.current = true;
       setBulletRecs(aiService.getFallbackBMIBullets(payload.category));
     } finally {
       setLoadingBullets(false);

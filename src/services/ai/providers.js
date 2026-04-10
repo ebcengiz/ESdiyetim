@@ -11,12 +11,17 @@ const GROQ_TEXT_MODEL     = 'llama-3.1-8b-instant';
 
 // ─── JSON parse yardımcısı ───────────────────────────────────────────────────
 export function parseJsonObjectFromLlmText(text) {
+  const str = String(text || '').trim();
   try {
-    return JSON.parse(text);
+    return JSON.parse(str);
   } catch {
-    const match = String(text).match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('Kalori verisi ayrıştırılamadı.');
-    return JSON.parse(match[0]);
+    const match = str.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('Besin verisi alınamadı. Lütfen tekrar deneyin.');
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      throw new Error('Besin verisi alınamadı. Lütfen tekrar deneyin.');
+    }
   }
 }
 
@@ -57,23 +62,39 @@ export async function callHuggingFace(prompt) {
 
 export async function callGroq(prompt) {
   if (!GROQ_API_KEY) throw new Error('Groq API key tanımlı değil');
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: GROQ_TEXT_MODEL,
-      messages: [
-        { role: 'system', content: 'Sen bir diyet ve sağlık danışmanısın. Türkçe, samimi ve cesaretlendirici bir dille tavsiye veriyorsun.' },
-        { role: 'user', content: prompt },
-      ],
-      temperature: 0.7,
-      max_tokens: 512,
-    }),
-  });
-  if (!response.ok) throw new Error(`Groq API hatası (${response.status})`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  let response;
+  try {
+    response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: GROQ_TEXT_MODEL,
+        messages: [
+          { role: 'system', content: 'Sen bir diyet ve sağlık danışmanısın. Türkçe, samimi ve cesaretlendirici bir dille tavsiye veriyorsun.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 512,
+      }),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    if (e.name === 'AbortError') throw new Error('Groq zaman aşımı, lütfen tekrar deneyin.');
+    throw new Error('Ağ bağlantısı kurulamadı, internet bağlantınızı kontrol edin.');
+  }
+  clearTimeout(timer);
+  if (!response.ok) {
+    const status = response.status;
+    if (status === 429) throw new Error('AI istek limiti doldu, lütfen biraz bekleyin.');
+    if (status === 401) throw new Error('AI API anahtarı geçersiz.');
+    throw new Error(`Groq API hatası (${status})`);
+  }
   const data = await response.json();
   if (data.choices?.[0]?.message?.content) return data.choices[0].message.content;
-  throw new Error('Yanıt alınamadı');
+  throw new Error('AI yanıt üretemedi.');
 }
 
 export async function callCohere(prompt) {
@@ -91,20 +112,41 @@ export async function callCohere(prompt) {
 
 export async function callGemini(prompt) {
   if (!GEMINI_API_KEY) throw new Error('Gemini API key tanımlı değil');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, maxOutputTokens: 1024 },
-    }),
-  });
-  if (!response.ok) throw new Error(`Gemini API hatası (${response.status})`);
-  const data = await response.json();
-  if (data.candidates?.[0]?.content?.parts?.[0]?.text)
-    return data.candidates[0].content.parts[0].text;
-  throw new Error('Yanıt alınamadı');
+  // gemini-pro deprecated — güncel modelleri sırayla dene
+  const models = ['gemini-2.0-flash', 'gemini-1.5-flash-002', 'gemini-1.5-flash'];
+  let lastErr = 'Gemini yanıt veremedi.';
+  for (const model of models) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, maxOutputTokens: 1024 },
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!response.ok) {
+        lastErr = `Gemini API hatası (${response.status})`;
+        if (response.status === 429 || response.status === 404) continue;
+        throw new Error(lastErr);
+      }
+      let data;
+      try { data = await response.json(); } catch { continue; }
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text;
+      lastErr = 'Gemini boş yanıt döndürdü.';
+    } catch (e) {
+      if (e.name === 'AbortError') { lastErr = 'Gemini zaman aşımı.'; continue; }
+      if (e.message?.includes('Network request failed')) { lastErr = 'Gemini ağ hatası.'; continue; }
+      throw e;
+    }
+  }
+  throw new Error(lastErr);
 }
 
 // ─── Görsel analiz ───────────────────────────────────────────────────────────

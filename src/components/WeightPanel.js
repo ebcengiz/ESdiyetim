@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
   TouchableOpacity, Modal, Platform, KeyboardAvoidingView,
@@ -39,6 +40,7 @@ export default function WeightPanel({ onWeightChange }) {
   const [deleteTargetId, setDeleteTargetId] = useState(null);
 
   const modal = useFormModal(EMPTY_FORM);
+  const aiFailedRef = useRef(false);
 
   const stats = useMemo(() => {
     if (!weights?.length) return null;
@@ -50,6 +52,14 @@ export default function WeightPanel({ onWeightChange }) {
   }, [weights]);
 
   useEffect(() => { loadWeights(); }, []);
+
+  // Ekran odağa her geldiğinde önceki AI çağrısı başarısız olduysa yeniden dene
+  useFocusEffect(useCallback(() => {
+    if (aiFailedRef.current && !loadingAdvice && weights.length > 0) {
+      aiFailedRef.current = false;
+      runWeightAIAdvice(weights);
+    }
+  }, [loadingAdvice, weights]));
 
   const loadWeights = async () => {
     try {
@@ -75,7 +85,9 @@ export default function WeightPanel({ onWeightChange }) {
     try {
       const result = await aiService.getWeightTrackingAdvice({ weights: w, stats: st });
       setAiAdvice(result.advice || '');
+      aiFailedRef.current = false;
     } catch {
+      aiFailedRef.current = true;
       setAiAdvice('⚠️ Tavsiye alınırken bir hata oluştu.');
     } finally {
       setLoadingAdvice(false);

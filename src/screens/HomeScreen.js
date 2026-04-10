@@ -48,68 +48,69 @@ export default function HomeScreen({ navigation }) {
   const [loadingState, setLoadingState] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const heroEnterAnim = React.useRef(new Animated.Value(0)).current;
+  // Son yükleme zamanı — focus'ta 30sn içindeyse yeniden fetch etme
+  const lastLoadRef = React.useRef(0);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastLoadRef.current < 30_000) return;
+    lastLoadRef.current = now;
+
     setLoadingState(true);
     try {
-      const tip = await tipsService.getRandom();
-      setRandomTip(tip);
+      const today = toLocalDateString(new Date());
 
       if (!user) {
+        const tip = await tipsService.getRandom();
+        setRandomTip(tip);
         setLatestWeight(null);
         setTodayDiet(null);
         setTodayFoodSummary(null);
         return;
       }
 
-      const weight = await weightService.getLatest();
-      setLatestWeight(weight);
+      // Tüm istekleri paralel başlat
+      const [tip, weight, diet, summary, foodSummary] = await Promise.allSettled([
+        tipsService.getRandom(),
+        weightService.getLatest(),
+        dietPlanService.getByDate(today),
+        homeSummaryService.getDailySummary(today),
+        foodLogService.getDailySummary(today),
+      ]);
 
-      const today = toLocalDateString(new Date());
-      const diet = await dietPlanService.getByDate(today);
-      setTodayDiet(diet);
+      if (tip.status === 'fulfilled') setRandomTip(tip.value);
+      if (weight.status === 'fulfilled') setLatestWeight(weight.value);
+      if (diet.status === 'fulfilled') setTodayDiet(diet.value);
+      if (foodSummary.status === 'fulfilled') setTodayFoodSummary(foodSummary.value);
+      else setTodayFoodSummary(null);
 
-      const summary = await homeSummaryService.getDailySummary(today);
-      if (summary) {
+      if (summary.status === 'fulfilled' && summary.value) {
         setDailySummary({
-          active_goals_count: summary.active_goals_count ?? 0,
-          completed_goals_count: summary.completed_goals_count ?? 0,
-          meals_planned_count: summary.meals_planned_count ?? 0,
-          latest_weight: summary.latest_weight ?? null,
+          active_goals_count: summary.value.active_goals_count ?? 0,
+          completed_goals_count: summary.value.completed_goals_count ?? 0,
+          meals_planned_count: summary.value.meals_planned_count ?? 0,
+          latest_weight: summary.value.latest_weight ?? null,
         });
-      }
-
-      try {
-        const foodSummary = await foodLogService.getDailySummary(today);
-        setTodayFoodSummary(foodSummary);
-      } catch {
-        setTodayFoodSummary(null);
       }
 
       setLastUpdatedAt(new Date());
     } catch (error) {
       console.error('Veri yükleme hatası:', error);
-      if (user) {
-        showToast('Veriler yüklenirken bir hata oluştu.', 'error');
-      }
+      if (user) showToast('Veriler yüklenirken bir hata oluştu.', 'error');
     } finally {
       setLoadingState(false);
     }
   }, [user]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  // İlk yükleme
+  useEffect(() => { loadData(true); }, [loadData]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [loadData])
-  );
+  // Tab odağına gelince — 30sn cache'i varsa atlar
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await loadData(true);
     setRefreshing(false);
   };
 
