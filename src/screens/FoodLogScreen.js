@@ -64,6 +64,22 @@ const toLocalDate = (d = new Date()) => {
 
 const fmt = (n) => (n == null ? '—' : Number(n).toFixed(1));
 
+function getSourceBadgeMeta(source) {
+  switch (source) {
+    case 'ai':
+      return { label: '🤖 AI', style: 'ai' };
+    case 'usda':
+      return { label: '🇺🇸 USDA', style: 'db' };
+    case 'edamam':
+      return { label: '🍏 Edamam', style: 'db' };
+    case 'calorieninja':
+      return { label: '🥷 CalorieNinja', style: 'db' };
+    case 'openfoodfacts':
+    default:
+      return { label: '🌐 OFF', style: 'db' };
+  }
+}
+
 export default function FoodLogScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user, isGuest } = useAuth();
@@ -508,9 +524,9 @@ export default function FoodLogScreen({ navigation }) {
                       )}
                     </View>
                     <View style={[styles.sourceBadge,
-                      selectedFood.source === 'ai' ? styles.sourceBadgeAI : styles.sourceBadgeOFF]}>
+                      getSourceBadgeMeta(selectedFood.source).style === 'ai' ? styles.sourceBadgeAI : styles.sourceBadgeDB]}>
                       <Text style={styles.sourceBadgeText}>
-                        {selectedFood.source === 'ai' ? '🤖 AI' : '🌐 OFF'}
+                        {getSourceBadgeMeta(selectedFood.source).label}
                       </Text>
                     </View>
                   </View>
@@ -1064,7 +1080,7 @@ const styles = StyleSheet.create({
     borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start',
   },
   sourceBadgeAI: { backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: COLORS.primary + '40' },
-  sourceBadgeOFF: { backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#93C5FD' },
+  sourceBadgeDB: { backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#93C5FD' },
   sourceBadgeText: { fontSize: SIZES.tiny, fontWeight: '700' },
   per100Label: {
     fontSize: SIZES.small, fontWeight: '600', color: COLORS.textSecondary,

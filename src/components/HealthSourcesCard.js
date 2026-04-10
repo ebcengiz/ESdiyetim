@@ -57,7 +57,7 @@ const VARIANTS = {
     headerIcon: 'information-circle-outline',
     headerIconSize: 18,
     intro:
-      'Besin değerleri Open Food Facts veritabanı ve yapay zeka tahminlerinden derlenmektedir. Değerler yaklaşıktır; kesin bilgi için kaynaklara başvurun. Bu uygulama diyetisyen tavsiyesinin yerine geçmez.',
+      'Besin değerleri Open Food Facts, USDA, Edamam, CalorieNinja veritabanları ve yapay zeka tahminlerinden derlenmektedir. Değerler yaklaşıktır; kesin bilgi için kaynaklara başvurun. Bu uygulama diyetisyen tavsiyesinin yerine geçmez.',
     links: [
       {
         label: 'Open Food Facts — açık kaynak besin veritabanı',
@@ -66,6 +66,14 @@ const VARIANTS = {
       {
         label: 'USDA FoodData Central — besin bileşimi',
         url: 'https://fdc.nal.usda.gov/',
+      },
+      {
+        label: 'Edamam Nutrition API — besin analizi',
+        url: 'https://developer.edamam.com/edamam-nutrition-api',
+      },
+      {
+        label: 'CalorieNinja API — besin bilgisi',
+        url: 'https://calorieninjas.com/api',
       },
       {
         label: 'T.C. Sağlık Bakanlığı — TÜBER beslenme rehberi',
