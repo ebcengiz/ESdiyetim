@@ -4,9 +4,20 @@
 
 import { callProvider, callGroqVision, callGeminiVision, GROQ_API_KEY, GEMINI_API_KEY } from './ai/providers';
 
-const AI_PROVIDER = 'groq'; // BURADAN DEĞİŞTİRİN
+const AI_PROVIDER_CHAIN = ['gemini', 'groq']; // Kalite odaklı fallback: önce Gemini, sonra Groq
 
-const call = (prompt) => callProvider(AI_PROVIDER, prompt);
+async function call(prompt) {
+  let lastError = null;
+  for (const provider of AI_PROVIDER_CHAIN) {
+    try {
+      const text = await callProvider(provider, prompt);
+      return { text, provider };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('AI provider yanıt veremedi.');
+}
 
 // ─── Prompt Builder'lar ───────────────────────────────────────────────────────
 
@@ -158,8 +169,8 @@ const FALLBACK_BMI_BULLETS = {
 export const aiService = {
   async getGoalAdvice(goalData) {
     try {
-      const advice = await call(buildGoalPrompt(goalData));
-      return { success: true, advice, provider: AI_PROVIDER };
+      const { text: advice, provider } = await call(buildGoalPrompt(goalData));
+      return { success: true, advice, provider };
     } catch (error) {
       console.error('💥 AI hedef tavsiyesi hatası:', error.message);
       return { success: false, advice: this.getFallbackAdvice(goalData), error: error.message, usingFallback: true };
@@ -168,8 +179,8 @@ export const aiService = {
 
   async getHealthTip(category = 'genel') {
     try {
-      const advice = await call(buildHealthTipPrompt(category));
-      return { success: true, advice, category, provider: AI_PROVIDER };
+      const { text: advice, provider } = await call(buildHealthTipPrompt(category));
+      return { success: true, advice, category, provider };
     } catch (error) {
       console.error('💥 Sağlık tavsiyesi hatası:', error.message);
       return { success: false, advice: FALLBACK_HEALTH_TIPS[category] || FALLBACK_HEALTH_TIPS.genel, error: error.message, usingFallback: true };
@@ -178,8 +189,8 @@ export const aiService = {
 
   async getBMIAdvice(bmiData) {
     try {
-      const advice = await call(buildBMIPrompt(bmiData));
-      return { success: true, advice, provider: AI_PROVIDER };
+      const { text: advice, provider } = await call(buildBMIPrompt(bmiData));
+      return { success: true, advice, provider };
     } catch (error) {
       console.error('💥 VKİ tavsiyesi hatası:', error.message);
       return { success: false, advice: FALLBACK_BMI_ADVICE[bmiData.category] || FALLBACK_BMI_ADVICE.Normal, error: error.message, usingFallback: true };
@@ -188,10 +199,10 @@ export const aiService = {
 
   async getBMIBulletRecommendations(bmiData) {
     try {
-      const raw = await call(buildBMIBulletsPrompt(bmiData));
+      const { text: raw, provider } = await call(buildBMIBulletsPrompt(bmiData));
       const bullets = this.parseBMIBulletLines(raw);
-      if (bullets.length < 3) return { success: false, bullets: FALLBACK_BMI_BULLETS[bmiData.category] || FALLBACK_BMI_BULLETS.Normal, usingFallback: true, provider: AI_PROVIDER };
-      return { success: true, bullets: bullets.slice(0, 5), provider: AI_PROVIDER };
+      if (bullets.length < 3) return { success: false, bullets: FALLBACK_BMI_BULLETS[bmiData.category] || FALLBACK_BMI_BULLETS.Normal, usingFallback: true, provider };
+      return { success: true, bullets: bullets.slice(0, 5), provider };
     } catch (error) {
       console.error('💥 VKİ madde önerileri hatası:', error.message);
       return { success: false, bullets: FALLBACK_BMI_BULLETS[bmiData.category] || FALLBACK_BMI_BULLETS.Normal, usingFallback: true, error: error.message };
@@ -200,8 +211,8 @@ export const aiService = {
 
   async getWeightTrackingAdvice(weightData) {
     try {
-      const advice = await call(buildWeightTrackingPrompt(weightData));
-      return { success: true, advice, provider: AI_PROVIDER };
+      const { text: advice, provider } = await call(buildWeightTrackingPrompt(weightData));
+      return { success: true, advice, provider };
     } catch (error) {
       console.error('💥 Kilo takip tavsiyesi hatası:', error.message);
       return { success: false, advice: this.getFallbackWeightTrackingAdvice(weightData), error: error.message, usingFallback: true };
@@ -210,8 +221,8 @@ export const aiService = {
 
   async getDietPlanAdvice(dietData) {
     try {
-      const advice = await call(buildDietPlanPrompt(dietData));
-      return { success: true, advice, provider: AI_PROVIDER };
+      const { text: advice, provider } = await call(buildDietPlanPrompt(dietData));
+      return { success: true, advice, provider };
     } catch (error) {
       console.error('💥 Diyet planı tavsiyesi hatası:', error.message);
       return { success: false, advice: this.getFallbackDietPlanAdvice(dietData), error: error.message, usingFallback: true };
