@@ -106,6 +106,7 @@ export default function FoodLogScreen({ navigation }) {
 
   // Progress animasyonu
   const calorieAnim = useRef(new Animated.Value(0)).current;
+  const searchRequestIdRef = useRef(0);
 
   const dateStr = toLocalDate(selectedDate);
 
@@ -157,14 +158,25 @@ export default function FoodLogScreen({ navigation }) {
   const handleSearch = useCallback(async (text) => {
     setQuery(text);
     setSelectedFood(null);
-    if (text.trim().length < 2) { setSearchResults([]); return; }
+    const normalized = text.trim();
+    const requestId = ++searchRequestIdRef.current;
+
+    if (normalized.length < 2) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+
     setSearching(true);
     try {
-      const results = await searchOpenFoodFacts(text.trim());
+      const results = await searchOpenFoodFacts(normalized);
+      if (requestId !== searchRequestIdRef.current) return; // Eski istek sonucunu yoksay
       setSearchResults(results.slice(0, 12));
     } catch {
+      if (requestId !== searchRequestIdRef.current) return;
       setSearchResults([]);
     } finally {
+      if (requestId !== searchRequestIdRef.current) return;
       setSearching(false);
     }
   }, []);
@@ -237,19 +249,23 @@ export default function FoodLogScreen({ navigation }) {
   };
 
   const openModal = (mealType) => {
+    searchRequestIdRef.current += 1;
     setActiveMealType(mealType);
     setQuery('');
     setSearchResults([]);
     setSelectedFood(null);
+    setSearching(false);
     setGrams('100');
     setModalVisible(true);
   };
 
   const closeModal = () => {
+    searchRequestIdRef.current += 1;
     setModalVisible(false);
     setSelectedFood(null);
     setSearchResults([]);
     setQuery('');
+    setSearching(false);
     setGrams('100');
   };
 
@@ -442,7 +458,13 @@ export default function FoodLogScreen({ navigation }) {
                   onSubmitEditing={handleAISearch}
                 />
                 {query.length > 0 && (
-                  <TouchableOpacity onPress={() => { setQuery(''); setSearchResults([]); setSelectedFood(null); }}>
+                  <TouchableOpacity onPress={() => {
+                    searchRequestIdRef.current += 1;
+                    setQuery('');
+                    setSearchResults([]);
+                    setSelectedFood(null);
+                    setSearching(false);
+                  }}>
                     <Ionicons name="close-circle" size={18} color={COLORS.textLight} />
                   </TouchableOpacity>
                 )}
