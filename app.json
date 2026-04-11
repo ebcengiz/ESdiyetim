@@ -26,7 +26,7 @@
         {
           "ios": {
             "deploymentTarget": "15.1",
-            "buildReactNativeFromSource": false
+            "buildReactNativeFromSource": true
           }
         }
       ],

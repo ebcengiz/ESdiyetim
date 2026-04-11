@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Xcode "module map not found", RNScreens Fabric, fmt consteval (Xcode 16.4+) ve benzeri
 # native hatalar için temiz kurulum. fmt yaması: app.json → plugins/with-ios-fmt-consteval-fix.js
+# SDK 54: app.json içinde ios.buildReactNativeFromSource: true tutulmalı (ön derlemeli RN bazen ExpoModulesCore Swift hataları verir).
 #
 # Kullanım:
 #   bash scripts/fix-ios-xcode-build.sh           # mevcut ios/ + pod install
