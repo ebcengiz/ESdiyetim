@@ -13,19 +13,21 @@ const GROQ_TEXT_MODEL     = 'llama-3.1-8b-instant';
  * Google AI Studio (aistudio.google.com/apikey) — generativelanguage.googleapis.com
  * Kısa adlar (ör. gemini-2.0-flash) çoğu projede 404 verir; sürüm ekli / güncel kimlikler kullanılmalı.
  * @see https://ai.google.dev/gemini-api/docs/models
+ * Not: `gemini-1.5-flash` (takma ad) bazı projelerde v1 ile 404 verir; sürümlü ad kullanın.
  */
 const GEMINI_TEXT_MODELS = [
   'gemini-2.5-flash',
   'gemini-2.0-flash-001',
   'gemini-2.5-flash-lite',
-  'gemini-1.5-flash',
+  'gemini-1.5-flash-002',
 ];
 
-/** Çok modlu (metin+görsel) — Flash ailesi */
+/** Çok modlu (metin+görsel) — Flash ailesi (generateContent + görüntü girişi) */
 const GEMINI_VISION_MODELS = [
   'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
   'gemini-2.0-flash-001',
-  'gemini-1.5-flash',
+  'gemini-1.5-flash-002',
 ];
 
 /**
@@ -264,8 +266,16 @@ export async function callGroqVision(dataUrl, prompt) {
 
 export async function callGeminiVision(cleanMime, cleanB64, prompt) {
   if (!GEMINI_API_KEY) throw new Error('Gemini API anahtarı yok. .env içinde EXPO_PUBLIC_GEMINI_API_KEY tanımlayın.');
+  // Resmi REST örnekleri: inline_data + mime_type (metin parçası önce).
   const body = {
-    contents: [{ parts: [{ inline_data: { mime_type: cleanMime, data: cleanB64 } }, { text: prompt }] }],
+    contents: [
+      {
+        parts: [
+          { text: prompt },
+          { inline_data: { mime_type: cleanMime, data: cleanB64 } },
+        ],
+      },
+    ],
     generationConfig: { temperature: 0.35, maxOutputTokens: 2048 },
   };
   let lastErr = '';
