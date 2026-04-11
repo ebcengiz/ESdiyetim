@@ -9,6 +9,47 @@ const GEMINI_API_KEY      = process.env.EXPO_PUBLIC_GEMINI_API_KEY      || '';
 const GROQ_VISION_MODEL   = 'meta-llama/llama-4-scout-17b-16e-instruct';
 const GROQ_TEXT_MODEL     = 'llama-3.1-8b-instant';
 
+/**
+ * Google AI Studio (aistudio.google.com/apikey) — generativelanguage.googleapis.com
+ * Kısa adlar (ör. gemini-2.0-flash) çoğu projede 404 verir; sürüm ekli / güncel kimlikler kullanılmalı.
+ * @see https://ai.google.dev/gemini-api/docs/models
+ */
+const GEMINI_TEXT_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash-001',
+  'gemini-2.5-flash-lite',
+  'gemini-1.5-flash',
+];
+
+/** Çok modlu (metin+görsel) — Flash ailesi */
+const GEMINI_VISION_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash-001',
+  'gemini-1.5-flash',
+];
+
+/**
+ * v1beta 404 dönerse aynı model için v1 dene (bazı anahtar/konfigürasyonlarda yol farkı).
+ */
+async function geminiGenerateContentFetch(model, body, signal) {
+  const key = encodeURIComponent(GEMINI_API_KEY);
+  const bases = ['v1beta', 'v1'];
+  let last = null;
+  for (const ver of bases) {
+    const url = `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${key}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal,
+    });
+    last = response;
+    if (response.ok) return response;
+    if (response.status !== 404) return response;
+  }
+  return last;
+}
+
 // ─── JSON parse yardımcısı ───────────────────────────────────────────────────
 export function parseJsonObjectFromLlmText(text) {
   const str = String(text || '').trim();
@@ -49,7 +90,7 @@ export async function callHuggingFace(prompt) {
       headers: { Authorization: `Bearer ${HUGGINGFACE_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         inputs: prompt,
-        parameters: { max_new_tokens: 512, temperature: 0.7, top_p: 0.9, return_full_text: false },
+        parameters: { max_new_tokens: 1536, temperature: 0.7, top_p: 0.9, return_full_text: false },
       }),
     }
   );
@@ -63,7 +104,7 @@ export async function callHuggingFace(prompt) {
 export async function callGroq(prompt) {
   if (!GROQ_API_KEY) throw new Error('Groq API key tanımlı değil');
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15000);
+  const timer = setTimeout(() => controller.abort(), 90000);
   let response;
   try {
     response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -76,7 +117,8 @@ export async function callGroq(prompt) {
           { role: 'user', content: prompt },
         ],
         temperature: 0.7,
-        max_tokens: 512,
+        /* 512 Türkçe uzun yanıtta ortada kesiyordu; promptlar 250–350+ kelime isteyebiliyor */
+        max_tokens: 4096,
       }),
       signal: controller.signal,
     });
@@ -99,12 +141,26 @@ export async function callGroq(prompt) {
 
 export async function callCohere(prompt) {
   if (!COHERE_API_KEY) throw new Error('Cohere API key tanımlı değil');
-  const response = await fetch('https://api.cohere.ai/v1/generate', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${COHERE_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'command', prompt, max_tokens: 512, temperature: 0.7 }),
-  });
-  if (!response.ok) throw new Error(`Cohere API hatası (${response.status})`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  let response;
+  try {
+    response = await fetch('https://api.cohere.ai/v1/generate', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${COHERE_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'command', prompt, max_tokens: 2048, temperature: 0.7 }),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    if (e.name === 'AbortError') throw new Error('Cohere zaman aşımı.');
+    throw e;
+  }
+  clearTimeout(timer);
+  if (!response.ok) {
+    if (response.status === 429) throw new Error('AI istek limiti doldu, lütfen biraz bekleyin.');
+    throw new Error(`Cohere API hatası (${response.status})`);
+  }
   const data = await response.json();
   if (data.generations?.[0]?.text) return data.generations[0].text;
   throw new Error('Yanıt alınamadı');
@@ -112,60 +168,95 @@ export async function callCohere(prompt) {
 
 export async function callGemini(prompt) {
   if (!GEMINI_API_KEY) throw new Error('Gemini API key tanımlı değil');
-  // gemini-pro deprecated — güncel modelleri sırayla dene
-  const models = ['gemini-2.0-flash', 'gemini-1.5-flash-002', 'gemini-1.5-flash'];
+  const body = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, maxOutputTokens: 8192 },
+  };
   let lastErr = 'Gemini yanıt veremedi.';
-  for (const model of models) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+  for (const model of GEMINI_TEXT_MODELS) {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 12000);
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, maxOutputTokens: 1024 },
-        }),
-        signal: controller.signal,
-      });
+      const timer = setTimeout(() => controller.abort(), 90000);
+      const response = await geminiGenerateContentFetch(model, body, controller.signal);
       clearTimeout(timer);
       if (!response.ok) {
-        lastErr = `Gemini API hatası (${response.status})`;
+        let errDetail = '';
+        try {
+          const j = await response.clone().json();
+          errDetail = j?.error?.message || '';
+        } catch {
+          errDetail = await response.text().catch(() => '');
+        }
+        lastErr = errDetail || `Gemini API hatası (${response.status})`;
         if (response.status === 429 || response.status === 404) continue;
-        throw new Error(lastErr);
+        throw new Error(lastErr.slice(0, 200) || `Gemini API hatası (${response.status})`);
       }
       let data;
-      try { data = await response.json(); } catch { continue; }
+      try {
+        data = await response.json();
+      } catch {
+        continue;
+      }
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) return text;
       lastErr = 'Gemini boş yanıt döndürdü.';
     } catch (e) {
-      if (e.name === 'AbortError') { lastErr = 'Gemini zaman aşımı.'; continue; }
-      if (e.message?.includes('Network request failed')) { lastErr = 'Gemini ağ hatası.'; continue; }
+      if (e.name === 'AbortError') {
+        lastErr = 'Gemini zaman aşımı.';
+        continue;
+      }
+      if (e.message?.includes('Network request failed')) {
+        lastErr = 'Gemini ağ hatası.';
+        continue;
+      }
       throw e;
     }
   }
-  throw new Error(lastErr);
+  if (/429|Resource exhausted|quota/i.test(String(lastErr))) {
+    throw new Error('AI istek limiti doldu, lütfen biraz bekleyin.');
+  }
+  throw new Error(
+    `${lastErr} — Model listesi güncellenemedi; https://ai.google.dev/gemini-api/docs/models adresinden geçerli model adlarını kontrol edin.`
+  );
 }
 
 // ─── Görsel analiz ───────────────────────────────────────────────────────────
 export async function callGroqVision(dataUrl, prompt) {
   if (!GROQ_API_KEY) throw new Error('Groq API key tanımlı değil');
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: GROQ_VISION_MODEL,
-      messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: dataUrl } }] }],
-      temperature: 0.35,
-      max_completion_tokens: 1024,
-      response_format: { type: 'json_object' },
-    }),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60000);
+  let response;
+  try {
+    response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: GROQ_VISION_MODEL,
+        messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: dataUrl } }] }],
+        temperature: 0.35,
+        max_completion_tokens: 2048,
+        response_format: { type: 'json_object' },
+      }),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    if (e.name === 'AbortError') throw new Error('Groq görsel zaman aşımı.');
+    throw e;
+  }
+  clearTimeout(timer);
   const rawText = await response.text();
-  if (!response.ok) throw new Error(`Groq ${response.status}: ${rawText.slice(0, 400)}`);
-  const data = JSON.parse(rawText);
+  if (!response.ok) {
+    if (response.status === 429) throw new Error('AI istek limiti doldu, lütfen biraz bekleyin.');
+    if (response.status === 401) throw new Error('Groq API anahtarı geçersiz.');
+    throw new Error(`Groq görsel API hatası (${response.status}): ${rawText.slice(0, 400)}`);
+  }
+  let data;
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    throw new Error('Groq yanıtı okunamadı.');
+  }
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error('Groq boş yanıt verdi.');
   return mealCalorieResultFromParsed(parseJsonObjectFromLlmText(content), 'groq-vision');
@@ -173,25 +264,39 @@ export async function callGroqVision(dataUrl, prompt) {
 
 export async function callGeminiVision(cleanMime, cleanB64, prompt) {
   if (!GEMINI_API_KEY) throw new Error('Gemini API anahtarı yok. .env içinde EXPO_PUBLIC_GEMINI_API_KEY tanımlayın.');
-  const visionModels = ['gemini-2.0-flash', 'gemini-1.5-flash-002', 'gemini-2.5-flash'];
   const body = {
     contents: [{ parts: [{ inline_data: { mime_type: cleanMime, data: cleanB64 } }, { text: prompt }] }],
-    generationConfig: { temperature: 0.35, maxOutputTokens: 1024 },
+    generationConfig: { temperature: 0.35, maxOutputTokens: 2048 },
   };
   let lastErr = '';
   let lastStatus = 0;
-  for (const model of visionModels) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  for (const model of GEMINI_VISION_MODELS) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 60000);
+    let response;
+    try {
+      response = await geminiGenerateContentFetch(model, body, controller.signal);
+    } finally {
+      clearTimeout(timer);
+    }
     const rawText = await response.text();
     lastStatus = response.status;
     if (!response.ok) {
-      try { const e = JSON.parse(rawText); lastErr = e?.error?.message || rawText; } catch { lastErr = rawText; }
+      try {
+        const e = JSON.parse(rawText);
+        lastErr = e?.error?.message || rawText;
+      } catch {
+        lastErr = rawText;
+      }
       if (response.status === 404 || response.status === 429) continue;
       throw new Error(`Gemini API (${response.status}). ${lastErr || 'Anahtar veya kota kontrol edin.'}`);
     }
     let data;
-    try { data = JSON.parse(rawText); } catch { throw new Error('Sunucu yanıtı okunamadı.'); }
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      throw new Error('Sunucu yanıtı okunamadı.');
+    }
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text ||
       data.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text;
     if (!text) {
@@ -200,9 +305,12 @@ export async function callGeminiVision(cleanMime, cleanB64, prompt) {
     }
     return mealCalorieResultFromParsed(parseJsonObjectFromLlmText(text), 'gemini-vision');
   }
-  if (lastStatus === 429 || String(lastErr).includes('quota'))
+  if (lastStatus === 429 || String(lastErr).includes('quota')) {
     throw new Error('Gemini ücretsiz kota veya dakika limiti dolmuş olabilir.');
-  if (lastStatus === 404) throw new Error(`Gemini görsel modeli bulunamadı. ${lastErr || ''}`);
+  }
+  if (lastStatus === 404) {
+    throw new Error(`Gemini görsel modeli bulunamadı. ${lastErr || ''}`);
+  }
   throw new Error(`Gemini API (${lastStatus || '?'}). ${lastErr || 'Bilinmeyen hata.'}`);
 }
 
@@ -219,4 +327,72 @@ export async function callProvider(providerName, prompt) {
   }
 }
 
-export { GROQ_API_KEY, GEMINI_API_KEY };
+/**
+ * Ücretsiz katmanlar: kota dolunca sıradakine geçer.
+ * Sıra: Gemini → Groq → Cohere → Hugging Face (yalnızca ilgili EXPO_PUBLIC_* anahtarı tanımlıysa).
+ */
+export async function callTextWithProviderChain(prompt) {
+  const steps = [
+    { id: 'gemini', hasKey: !!GEMINI_API_KEY, run: () => callGemini(prompt) },
+    { id: 'groq', hasKey: !!GROQ_API_KEY, run: () => callGroq(prompt) },
+    { id: 'cohere', hasKey: !!COHERE_API_KEY, run: () => callCohere(prompt) },
+    { id: 'huggingface', hasKey: !!HUGGINGFACE_API_KEY, run: () => callHuggingFace(prompt) },
+  ];
+
+  let lastError = null;
+  const tried = [];
+  for (const step of steps) {
+    if (!step.hasKey) continue;
+    tried.push(step.id);
+    try {
+      const text = await step.run();
+      if (text && String(text).trim()) {
+        return { text: String(text), provider: step.id };
+      }
+      lastError = new Error(`${step.id} boş yanıt döndürdü.`);
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      const msg = lastError.message || '';
+      console.warn(`⚠️ AI [${step.id}] atlandı:`, msg);
+    }
+  }
+
+  if (!tried.length) {
+    throw new Error(
+      'Hiçbir AI anahtarı tanımlı değil. .env içinde en az biri: EXPO_PUBLIC_GEMINI_API_KEY, EXPO_PUBLIC_GROQ_API_KEY, EXPO_PUBLIC_COHERE_API_KEY, EXPO_PUBLIC_HUGGINGFACE_API_KEY'
+    );
+  }
+  throw lastError || new Error('Tüm AI sağlayıcıları başarısız oldu.');
+}
+
+/**
+ * Fotoğraftan kalori: önce Gemini Vision, kota/hata olursa Groq Vision.
+ */
+export async function callMealCalorieVisionChain({ cleanMime, cleanB64, dataUrl, prompt }) {
+  let lastError = null;
+
+  if (GEMINI_API_KEY) {
+    try {
+      return await callGeminiVision(cleanMime, cleanB64, prompt);
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      console.warn('⚠️ Gemini vision (kalori) atlandı:', lastError.message);
+    }
+  }
+
+  if (GROQ_API_KEY) {
+    try {
+      return await callGroqVision(dataUrl, prompt);
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      console.warn('⚠️ Groq vision (kalori) atlandı:', lastError.message);
+    }
+  }
+
+  if (lastError) throw lastError;
+  throw new Error(
+    'Görsel analiz için EXPO_PUBLIC_GEMINI_API_KEY veya EXPO_PUBLIC_GROQ_API_KEY tanımlayın.'
+  );
+}
+
+export { GROQ_API_KEY, GEMINI_API_KEY, COHERE_API_KEY, HUGGINGFACE_API_KEY };

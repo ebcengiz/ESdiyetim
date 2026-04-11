@@ -8,6 +8,7 @@ import {
   Animated,
   Easing,
   useWindowDimensions,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
@@ -69,7 +70,7 @@ export default function AIAdviceCard({
   loadingText = 'Analiz yapılıyor',
   subtitle,
   footerDisclaimer,
-  defaultExpanded = false,
+  defaultExpanded = true,
   style,
   children,
 }) {
@@ -84,18 +85,19 @@ export default function AIAdviceCard({
     const padH = narrow ? SIZES.sm + 4 : SIZES.md;
     const titleSize = Math.min(SIZES.body + 1, SIZES.body * Math.min(fontScale, 1.12));
     const subtitleSize = Math.min(SIZES.small, SIZES.small * Math.min(fontScale, 1.08));
-    // Akordeon maxHeight: width*2.1 ~800px uzun AI metinlerini kesiyordu (overflow:hidden).
-    // Ekran yüksekliğine göre geniş üst sınır — tipik 300+ kelime metinler sığar.
-    const bodyMax = Math.min(48000, Math.max(windowHeight * 12, 9600));
-    return { narrow, compact, padH, titleSize, subtitleSize, bodyMax };
+    /* İçerik alanı: kaydırılabilir; animasyon yüksekliği sabit ve makul — uzun metin kesilmez */
+    const scrollBodyMax = Math.min(720, Math.max(340, windowHeight * 0.74));
+    const footerReserve = 88;
+    const bodyMax = scrollBodyMax + footerReserve;
+    return { narrow, compact, padH, titleSize, subtitleSize, bodyMax, scrollBodyMax };
   }, [windowWidth, windowHeight, fontScale]);
 
   useEffect(() => {
-    if (loading && !expanded) {
+    if (loading) {
       setExpanded(true);
       Animated.timing(expandAnim, {
         toValue: 1,
-        duration: 240,
+        duration: 220,
         easing: SMOOTH_EASING,
         useNativeDriver: false,
       }).start();
@@ -217,9 +219,23 @@ export default function AIAdviceCard({
             </View>
           ) : showBodyContent ? (
             <>
-              <View style={styles.contentInner}>
-                {children != null ? children : <Text style={styles.adviceText} maxFontSizeMultiplier={1.35}>{advice}</Text>}
-              </View>
+              <ScrollView
+                style={[styles.contentScroll, { maxHeight: layout.scrollBodyMax }]}
+                nestedScrollEnabled
+                showsVerticalScrollIndicator
+                keyboardShouldPersistTaps="handled"
+                bounces={false}
+              >
+                <View style={styles.contentInner}>
+                  {children != null ? (
+                    children
+                  ) : (
+                    <Text style={styles.adviceText} maxFontSizeMultiplier={1.35}>
+                      {advice}
+                    </Text>
+                  )}
+                </View>
+              </ScrollView>
 
               {footerDisclaimer ? (
                 <View style={styles.footer}>
@@ -349,8 +365,12 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 120,
   },
+  contentScroll: {
+    minWidth: 0,
+  },
   contentInner: {
     minWidth: 0,
+    paddingBottom: 2,
   },
   adviceText: {
     fontSize: SIZES.bodySmall,

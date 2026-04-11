@@ -7,7 +7,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "fix:ios": "bash scripts/fix-ios-xcode-build.sh"
+    "fix:ios": "bash scripts/fix-ios-xcode-build.sh",
+    "env:check": "node scripts/check-ai-env.js"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
@@ -31,6 +32,7 @@
   "devDependencies": {
     "@types/react": "~19.1.10",
     "babel-preset-expo": "~54.0.10",
+    "dotenv": "^16.6.1",
     "typescript": "~5.9.2"
   }
 }

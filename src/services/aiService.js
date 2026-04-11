@@ -1,32 +1,23 @@
 // AI Servis Orchestrator
-// Provider implementasyonları: src/services/ai/providers.js
-// HANGİ AI KULLANILACAK? ('huggingface', 'groq', 'cohere' veya 'gemini')
+// Metin: providers.callTextWithProviderChain → Gemini → Groq → Cohere → Hugging Face
+// Görsel: providers.callMealCalorieVisionChain → Gemini Vision → Groq Vision
 
-import { callProvider, callGroqVision, callGeminiVision, GROQ_API_KEY, GEMINI_API_KEY } from './ai/providers';
-
-const AI_PROVIDER_CHAIN = ['gemini', 'groq']; // Kalite odaklı fallback: önce Gemini, sonra Groq
+import { callTextWithProviderChain, callMealCalorieVisionChain } from './ai/providers';
 
 async function call(prompt) {
-  let lastError = null;
-  for (const provider of AI_PROVIDER_CHAIN) {
-    try {
-      const text = await callProvider(provider, prompt);
-      return { text, provider };
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError || new Error('AI provider yanıt veremedi.');
+  return callTextWithProviderChain(prompt);
 }
 
-/** Beklenen ağ kesintilerinde ERROR yerine WARN — Metro günlüğünü kirletmemek için */
+/** Beklenen ağ/kota durumlarında ERROR yerine WARN — Metro günlüğünü kirletmemek için */
 function logProviderError(contextLabel, error) {
   const msg = error?.message || String(error);
   const networkish =
     /ağ bağlantısı|network request|fetch failed|internet|timeout|ECONNREFUSED|ENETUNREACH|offline|NSURLErrorDomain/i.test(
       msg
     );
-  if (networkish) {
+  const rateOrQuota =
+    /limiti doldu|429|rate limit|quota|kota|too many requests|resource exhausted/i.test(msg);
+  if (networkish || rateOrQuota) {
     console.warn(`⚠️ ${contextLabel}:`, msg);
   } else {
     console.error(`💥 ${contextLabel}:`, msg);
@@ -269,13 +260,7 @@ Yanıtını SADECE geçerli bir JSON nesnesi olarak ver, başka metin veya markd
 
 Kurallar: items en fazla 8 eleman; emin değilsen confidence düşük yap.`;
 
-    let groqError = null;
-    if (GROQ_API_KEY) {
-      try { return await callGroqVision(dataUrl, prompt); } catch (e) { groqError = e; console.warn('Groq vision (kalori):', e?.message || e); }
-    }
-    if (GEMINI_API_KEY) return await callGeminiVision(cleanMime, cleanB64, prompt);
-    if (groqError) throw groqError instanceof Error ? groqError : new Error(String(groqError));
-    throw new Error('Görsel analiz için .env içinde en az biri gerekli: EXPO_PUBLIC_GROQ_API_KEY veya EXPO_PUBLIC_GEMINI_API_KEY.');
+    return callMealCalorieVisionChain({ cleanMime, cleanB64, dataUrl, prompt });
   },
 
   // ─── Deprecated provider wrappers (geriye uyumluluk) ──────────────────────
