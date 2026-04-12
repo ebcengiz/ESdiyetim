@@ -266,7 +266,6 @@ export async function callGroqVision(dataUrl, prompt) {
 
 export async function callGeminiVision(cleanMime, cleanB64, prompt) {
   if (!GEMINI_API_KEY) throw new Error('Gemini API anahtarı yok. .env içinde EXPO_PUBLIC_GEMINI_API_KEY tanımlayın.');
-  // Resmi REST örnekleri: inline_data + mime_type (metin parçası önce).
   const body = {
     contents: [
       {
@@ -286,26 +285,33 @@ export async function callGeminiVision(cleanMime, cleanB64, prompt) {
     let response;
     try {
       response = await geminiGenerateContentFetch(model, body, controller.signal);
-    } finally {
       clearTimeout(timer);
+    } catch (e) {
+      clearTimeout(timer);
+      // Ağ hatası veya zaman aşımı → bu modeli atla, bir sonrakini dene
+      if (e.name === 'AbortError') { lastErr = 'Gemini görsel zaman aşımı.'; continue; }
+      if (e.message?.includes('Network request failed')) { lastErr = 'Gemini görsel ağ hatası.'; continue; }
+      throw e;
     }
     const rawText = await response.text();
     lastStatus = response.status;
     if (!response.ok) {
       try {
-        const e = JSON.parse(rawText);
-        lastErr = e?.error?.message || rawText;
+        const j = JSON.parse(rawText);
+        lastErr = j?.error?.message || rawText;
       } catch {
         lastErr = rawText;
       }
-      if (response.status === 404 || response.status === 429) continue;
+      // Kota veya model bulunamadı → sonraki modeli dene
+      if (response.status === 429 || response.status === 404) continue;
       throw new Error(`Gemini API (${response.status}). ${lastErr || 'Anahtar veya kota kontrol edin.'}`);
     }
     let data;
     try {
       data = JSON.parse(rawText);
     } catch {
-      throw new Error('Sunucu yanıtı okunamadı.');
+      lastErr = 'Gemini yanıtı okunamadı.';
+      continue;
     }
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text ||
       data.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text;
@@ -315,13 +321,11 @@ export async function callGeminiVision(cleanMime, cleanB64, prompt) {
     }
     return mealCalorieResultFromParsed(parseJsonObjectFromLlmText(text), 'gemini-vision');
   }
-  if (lastStatus === 429 || String(lastErr).includes('quota')) {
-    throw new Error('Gemini ücretsiz kota veya dakika limiti dolmuş olabilir.');
+  // Tüm Gemini vision modelleri başarısız — callMealCalorieVisionChain Groq'a geçer
+  if (lastStatus === 429 || /quota|exhausted/i.test(String(lastErr))) {
+    throw new Error('Gemini görsel kota doldu.');
   }
-  if (lastStatus === 404) {
-    throw new Error(`Gemini görsel modeli bulunamadı. ${lastErr || ''}`);
-  }
-  throw new Error(`Gemini API (${lastStatus || '?'}). ${lastErr || 'Bilinmeyen hata.'}`);
+  throw new Error(`Gemini görsel başarısız (${lastStatus || '?'}). ${lastErr || 'Bilinmeyen hata.'}`);
 }
 
 // ─── Provider seçici ─────────────────────────────────────────────────────────
