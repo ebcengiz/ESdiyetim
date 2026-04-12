@@ -24,8 +24,9 @@ const CATEGORIES = [
     name: 'Genel',
     icon: 'bulb-outline',
     activeIcon: 'bulb',
-    gradient: [COLORS.primaryDark, COLORS.primaryLight],
-    emoji: '💡',
+    gradient: ['#6366F1', '#818CF8'],
+    miniIcon: 'bulb',
+    miniGradient: ['#6366F1', '#818CF8'],
     desc: 'Günlük sağlık önerileri',
   },
   {
@@ -33,8 +34,9 @@ const CATEGORIES = [
     name: 'Beslenme',
     icon: 'nutrition-outline',
     activeIcon: 'nutrition',
-    gradient: [COLORS.primary, COLORS.primaryMuted],
-    emoji: '🥗',
+    gradient: ['#10B981', '#34D399'],
+    miniIcon: 'leaf',
+    miniGradient: ['#10B981', '#34D399'],
     desc: 'Sağlıklı beslenme rehberi',
   },
   {
@@ -42,8 +44,9 @@ const CATEGORIES = [
     name: 'Egzersiz',
     icon: 'barbell-outline',
     activeIcon: 'barbell',
-    gradient: [COLORS.accentDark, COLORS.primary],
-    emoji: '💪',
+    gradient: ['#F59E0B', '#FBBF24'],
+    miniIcon: 'barbell',
+    miniGradient: ['#F59E0B', '#FBBF24'],
     desc: 'Fitness ve hareket',
   },
   {
@@ -51,8 +54,9 @@ const CATEGORIES = [
     name: 'Motivasyon',
     icon: 'trophy-outline',
     activeIcon: 'trophy',
-    gradient: [COLORS.primaryDark, COLORS.secondary],
-    emoji: '🌟',
+    gradient: ['#EC4899', '#F472B6'],
+    miniIcon: 'star',
+    miniGradient: ['#EC4899', '#F472B6'],
     desc: 'Zihinsel güç & hedef',
   },
 ];
@@ -224,12 +228,17 @@ export default function TipsScreen() {
                   activeOpacity={0.85}
                 >
                   <LinearGradient
-                    colors={cat.gradient}
+                    colors={cat.miniGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.miniCardLeft}
                   >
-                    <Text style={styles.miniEmoji}>{cat.emoji}</Text>
+                    <Ionicons
+                      name={cat.miniIcon}
+                      size={24}
+                      color="white"
+                      style={{ textShadowColor: 'rgba(0,0,0,0.15)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}
+                    />
                   </LinearGradient>
                   <View style={styles.miniCardRight}>
                     <View style={styles.miniCardHeader}>
@@ -317,15 +326,20 @@ const styles = StyleSheet.create({
   miniCard: {
     flexDirection: 'row',
     backgroundColor: COLORS.surface,
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
     ...SHADOWS.small,
   },
   miniCardLeft: {
-    width: 56, justifyContent: 'center', alignItems: 'center',
+    width: 70,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderTopLeftRadius: 18,
+    borderBottomLeftRadius: 18,
   },
-  miniEmoji: { fontSize: 22 },
-  miniCardRight: { flex: 1, padding: 12 },
+  miniCardRight: { flex: 1, padding: 14 },
   miniCardHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     marginBottom: 4,
