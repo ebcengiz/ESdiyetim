@@ -32,7 +32,7 @@ export const PLAN_META = [
     key: 'monthly',
     label: 'Aylık',
     duration: '1 Ay',
-    monthlyRate: '$4.99/ay',
+    monthlyRate: '₺249,99/ay',
     savingPct: null,
     highlight: false,
   },
@@ -41,8 +41,8 @@ export const PLAN_META = [
     key: 'quarterly',
     label: '3 Aylık',
     duration: '3 Ay',
-    monthlyRate: '$2.50/ay',
-    savingPct: '50%',
+    monthlyRate: '₺50/ay',
+    savingPct: '80',
     highlight: false,
   },
   {
@@ -50,8 +50,8 @@ export const PLAN_META = [
     key: 'yearly',
     label: 'Yıllık',
     duration: '1 Yıl',
-    monthlyRate: '$2.00/ay',
-    savingPct: '60%',
+    monthlyRate: '₺7/ay',
+    savingPct: '97',
     highlight: true,   // "En İyi Değer" badge
   },
 ];
