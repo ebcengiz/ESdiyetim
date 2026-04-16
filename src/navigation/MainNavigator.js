@@ -15,6 +15,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, SIZES, NavigationTheme } from "../constants/theme";
 import { useAuth } from "../contexts/AuthContext";
+import { useSubscription } from "../contexts/SubscriptionContext";
 
 const { width } = Dimensions.get("window");
 const iconSize = width < 375 ? 22 : 24;
@@ -33,6 +34,7 @@ import MealCalorieScreen from "../screens/MealCalorieScreen";
 import FoodLogScreen from "../screens/FoodLogScreen";
 import HealthSourcesInfoScreen from "../screens/HealthSourcesInfoScreen";
 import PrivacyPolicyScreen from "../screens/PrivacyPolicyScreen";
+import PaywallScreen from "../screens/PaywallScreen";
 
 const privacyHeaderOptions = {
   headerShown: true,
@@ -343,6 +345,11 @@ function AppStack() {
           title: "Gizlilik Politikası",
         }}
       />
+      <Stack.Screen
+        name="Paywall"
+        component={PaywallScreen}
+        options={{ presentation: "modal", headerShown: false }}
+      />
     </Stack.Navigator>
   );
 }
@@ -359,11 +366,17 @@ function LoadingScreen() {
 // Main Navigator
 export default function MainNavigator() {
   const { user, loading, isGuest } = useAuth();
+  const { setNavigationRef } = useSubscription();
+  const navRef = React.useRef(null);
 
   const showMainApp = !!user || isGuest;
 
   return (
-    <NavigationContainer theme={NavigationTheme}>
+    <NavigationContainer
+      theme={NavigationTheme}
+      ref={navRef}
+      onReady={() => setNavigationRef(navRef.current)}
+    >
       {loading ? <LoadingScreen /> : showMainApp ? <AppStack /> : <AuthStack />}
     </NavigationContainer>
   );

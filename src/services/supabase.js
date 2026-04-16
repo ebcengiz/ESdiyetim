@@ -586,3 +586,60 @@ export const foodLogService = {
     );
   },
 };
+
+// ─── Günlük Fotoğraf Analiz Kredisi ─────────────────────────────────────────
+export const userCreditsService = {
+  // Kredileri getir (gün sıfırlama dahil)
+  async getOrInit() {
+    const user = await getCurrentUser();
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    const { data, error } = await supabase
+      .from('user_credits')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    // İlk kez → oluştur
+    if (!data) {
+      const { data: created, error: createErr } = await supabase
+        .from('user_credits')
+        .insert([{ user_id: user.id, daily_photo_used: 0, last_reset_date: today }])
+        .select()
+        .single();
+      if (createErr) throw createErr;
+      return created;
+    }
+
+    // Yeni gün → sayacı sıfırla
+    if (data.last_reset_date < today) {
+      const { data: reset, error: resetErr } = await supabase
+        .from('user_credits')
+        .update({ daily_photo_used: 0, last_reset_date: today })
+        .eq('user_id', user.id)
+        .select()
+        .single();
+      if (resetErr) throw resetErr;
+      return reset;
+    }
+
+    return data;
+  },
+
+  // Sayacı +1 artır (max 3)
+  async increment() {
+    const user = await getCurrentUser();
+    const credits = await userCreditsService.getOrInit();
+    const newCount = Math.min((credits.daily_photo_used || 0) + 1, 99);
+
+    const { error } = await supabase
+      .from('user_credits')
+      .update({ daily_photo_used: newCount })
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+    return newCount;
+  },
+};

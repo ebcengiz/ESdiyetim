@@ -10,6 +10,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_IS_TESTFLIGHT": "true"
+      },
       "ios": {
         "image": "macos-sequoia-15.3-xcode-16.2"
       }

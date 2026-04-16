@@ -23,6 +23,8 @@ import { aiService } from '../services/aiService';
 import GuestGateBanner from '../components/GuestGateBanner';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
+import { bypassPaywall } from '../utils/environment';
 
 const DISCLAIMER_STORAGE_KEY = 'mealCalorieHealthDisclaimerV1';
 
@@ -67,6 +69,7 @@ export default function MealCalorieScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { isSubscribed, canUsePhotoToday, openPaywall, incrementDailyPhotoCredit } = useSubscription();
   const [imageUri, setImageUri] = useState(null);
   const [base64, setBase64] = useState(null);
   const [mimeType, setMimeType] = useState('image/jpeg');
@@ -157,6 +160,18 @@ export default function MealCalorieScreen({ navigation }) {
       showToast('Önce bir fotoğraf seçin.', 'warning');
       return;
     }
+
+    if (!bypassPaywall) {
+      if (!isSubscribed) {
+        openPaywall();
+        return;
+      }
+      if (!canUsePhotoToday) {
+        showToast('Günlük 3 fotoğraf hakkınızı kullandınız. Yarın tekrar deneyebilirsiniz.', 'warning');
+        return;
+      }
+    }
+
     setLoading(true);
     setResult(null);
     try {
@@ -165,6 +180,7 @@ export default function MealCalorieScreen({ navigation }) {
         mimeType,
       });
       setResult(data);
+      if (!bypassPaywall) await incrementDailyPhotoCredit();
     } catch (e) {
       showToast(e.message || 'Analiz başarısız. Tekrar deneyin.', 'error');
     } finally {
