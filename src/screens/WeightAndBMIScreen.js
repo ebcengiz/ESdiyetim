@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import WeightPanel from '../components/WeightPanel';
 import BMIPanel from '../components/BMIPanel';
 import GuestGateBanner from '../components/GuestGateBanner';
+import PremiumGate from '../components/PremiumGate';
 
 export default function WeightAndBMIScreen() {
   const navigation = useNavigation();
@@ -26,6 +27,11 @@ export default function WeightAndBMIScreen() {
   }, [user]);
 
   return (
+    <PremiumGate
+      icon="fitness"
+      title="Kilo & VKİ Premium'a Özel"
+      description="Kilo takibi, VKİ hesaplama ve yapay zeka analizine erişmek için premium üyelik gereklidir."
+    >
     <View style={s.container}>
       <LinearGradient
         colors={[COLORS.primary, COLORS.primaryLight]}
@@ -74,6 +80,7 @@ export default function WeightAndBMIScreen() {
         <BMIPanel latestWeight={latestWeight} />
       )}
     </View>
+    </PremiumGate>
   );
 }
 

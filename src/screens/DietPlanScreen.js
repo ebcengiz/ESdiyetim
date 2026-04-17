@@ -15,6 +15,7 @@ import { dietPlanService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from '../components/AIAdviceCard';
 import GuestGateBanner from '../components/GuestGateBanner';
+import PremiumGate from '../components/PremiumGate';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ui/ConfirmModal';
@@ -342,6 +343,11 @@ export default function DietPlanScreen() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
+    <PremiumGate
+      icon="restaurant"
+      title="Diyet Planı Premium'a Özel"
+      description="Günlük öğün planlaması ve yapay zeka beslenme analizine erişmek için premium üyelik gereklidir."
+    >
     <View style={styles.container}>
 
       {/* ── HEADER ─────────────────────────────────────────── */}
@@ -923,6 +929,7 @@ export default function DietPlanScreen() {
         onCancel={() => setDeleteVisible(false)}
       />
     </View>
+    </PremiumGate>
   );
 }
 
