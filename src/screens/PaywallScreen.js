@@ -23,10 +23,14 @@ import { useSubscription } from '../contexts/SubscriptionContext';
 import { useToast } from '../contexts/ToastContext';
 
 const FEATURES = [
+  { icon: 'home', text: 'Kişisel ana sayfa ve günlük özet' },
+  { icon: 'restaurant', text: 'AI destekli günlük diyet planı' },
   { icon: 'camera', text: 'Günde 3 fotoğraftan kalori analizi' },
-  { icon: 'flash',  text: 'Yapay zeka destekli anlık sonuç' },
-  { icon: 'stats-chart', text: 'Besin değeri detayları' },
-  { icon: 'refresh', text: 'Her gün sıfırlanan kullanım hakkı' },
+  { icon: 'fitness', text: 'Kilo & VKİ takibi ve grafik geçmişi' },
+  { icon: 'trophy', text: 'Hedef belirleme ve ilerleme takibi' },
+  { icon: 'bulb', text: 'Kişiselleştirilmiş sağlık tavsiyeleri' },
+  { icon: 'stats-chart', text: 'Detaylı besin değeri analizi' },
+  { icon: 'infinite', text: 'Reklamsız ve sınırsız kullanım' },
 ];
 
 export default function PaywallScreen({ navigation }) {
@@ -105,12 +109,13 @@ export default function PaywallScreen({ navigation }) {
           end={{ x: 1, y: 1 }}
           style={styles.iconWrap}
         >
-          <Ionicons name="camera" size={34} color="white" />
+          <Ionicons name="star" size={34} color="white" />
         </LinearGradient>
 
-        <Text style={styles.title}>Fotoğraftan Kalori</Text>
+        <Text style={styles.title}>ESdiyet Premium</Text>
         <Text style={styles.subtitle}>
-          Yemeğini fotoğrafla, yapay zeka anında kalori ve besin değerlerini hesaplasın.
+          Tüm premium özelliklere sınırsız eriş: diyet planı, kilo & VKİ takibi, hedefler,
+          kişisel tavsiyeler ve fotoğraftan kalori analizi.
         </Text>
 
         {/* Özellik listesi */}

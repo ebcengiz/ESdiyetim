@@ -1,11 +1,14 @@
 /**
- * Ortam tespiti — TestFlight ve Simulator için paywall bypass
+ * Ortam tespiti — Paywall her ortamda gösterilir
  *
- * bypassPaywall = true  → Simulator (__DEV__) veya TestFlight (preview EAS build)
- * bypassPaywall = false → Production build (App Store)
+ * bypassPaywall = false → Simulator, TestFlight ve Production'da paywall görünür
+ *
+ * Not: Geliştirme/test sırasında paywall'u geçici olarak atlamak istersen
+ * EXPO_PUBLIC_BYPASS_PAYWALL=true ortam değişkenini kullan.
  */
 
 export const isTestFlight = process.env.EXPO_PUBLIC_IS_TESTFLIGHT === 'true';
 
-// __DEV__ = true hem simulator'da hem de development client'ta
-export const bypassPaywall = __DEV__ || isTestFlight;
+// Paywall artık TestFlight ve Simulator dahil tüm ortamlarda görünür.
+// Yalnızca açıkça EXPO_PUBLIC_BYPASS_PAYWALL=true verilirse bypass edilir.
+export const bypassPaywall = process.env.EXPO_PUBLIC_BYPASS_PAYWALL === 'true';

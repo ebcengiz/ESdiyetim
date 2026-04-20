@@ -45,10 +45,6 @@ export default function PremiumGate({ children, icon = 'star', title, descriptio
           <Text style={styles.btnText}>Premium'a Geç</Text>
         </LinearGradient>
       </TouchableOpacity>
-
-      <Text style={styles.sub}>
-        Aylık ₺249,99 · İstediğin zaman iptal et
-      </Text>
     </View>
   );
 }
@@ -103,7 +99,6 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 14,
     overflow: 'hidden',
-    marginBottom: 12,
     ...SHADOWS.medium,
   },
   btnGradient: {
@@ -117,10 +112,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: 'white',
-  },
-  sub: {
-    fontSize: 12,
-    color: COLORS.textLight,
-    textAlign: 'center',
   },
 });
