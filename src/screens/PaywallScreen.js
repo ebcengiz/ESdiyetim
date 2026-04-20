@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -218,8 +219,31 @@ export default function PaywallScreen({ navigation }) {
 
         {/* Yasal uyarı */}
         <Text style={styles.legal}>
-          Abonelikler iTunes hesabınızdan otomatik olarak yenilenir. Yenileme döneminden en az 24 saat önce iptal edilebilir. Ödeme onaylandıktan sonra mevcut dönem için iade yapılmaz.
+          Abonelikler iTunes hesabınızdan otomatik olarak yenilenir. Yenileme döneminden en az 24 saat önce iptal edilmezse dönem sonunda aynı fiyattan otomatik yenilenir. Aboneliği iTunes hesap ayarlarından yönetebilir ve satın alma sonrası iptal edebilirsiniz. Ödeme onaylandıktan sonra mevcut dönem için iade yapılmaz.
         </Text>
+
+        {/* EULA + Gizlilik bağlantıları (Apple 3.1.2(c) zorunluluk) */}
+        <View style={styles.legalLinksRow}>
+          <TouchableOpacity
+            onPress={() =>
+              Linking.openURL(
+                'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/'
+              )
+            }
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.linkText}>Kullanım Koşulları (EULA)</Text>
+          </TouchableOpacity>
+          <Text style={styles.linkSeparator}>·</Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('PrivacyPolicy')}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.linkText}>Gizlilik Politikası</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -368,5 +392,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 16,
     paddingHorizontal: 8,
+    marginBottom: 10,
+  },
+  legalLinksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    paddingHorizontal: 8,
+  },
+  linkText: {
+    fontSize: 12,
+    color: COLORS.primary,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
+  linkSeparator: {
+    fontSize: 12,
+    color: COLORS.textLight,
   },
 });
