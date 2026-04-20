@@ -1,22 +1,28 @@
 /**
- * Subscription Service — expo-iap üzerinden StoreKit 2
+ * Subscription Service — expo-iap v4.x üzerinden StoreKit 2 / Play Billing
  *
  * Ürünler App Store Connect'te tanımlanmış olmalıdır:
- *   com.esdiyet.app.premium.monthly   — $4.99/ay
- *   com.esdiyet.app.premium.quarterly — $7.49/3 ay
- *   com.esdiyet.app.premium.yearly    — $23.99/yıl
+ *   com.esdiyet.app.premium.monthly   — Aylık
+ *   com.esdiyet.app.premium.quarterly — 3 aylık
+ *   com.esdiyet.app.premium.yearly    — Yıllık
+ *
+ * v4'te API değişti:
+ *   getSubscriptions → fetchProducts({ skus, type: 'subs' })
+ *   requestSubscription → requestPurchase({ request: { ios:{sku}, android:{skus} }, type: 'subs' })
  */
 
+import { Platform } from 'react-native';
 import {
   initConnection,
   endConnection,
-  getSubscriptions,
-  requestSubscription,
+  fetchProducts,
+  requestPurchase,
   getAvailablePurchases,
   finishTransaction,
   purchaseErrorListener,
   purchaseUpdatedListener,
 } from 'expo-iap';
+import { isTestEnv } from '../utils/environment';
 
 export const PRODUCT_IDS = {
   monthly:   'com.esdiyet.app.premium.monthly',
@@ -52,7 +58,7 @@ export const PLAN_META = [
     duration: '1 Yıl',
     monthlyRate: '₺7/ay',
     savingPct: '97',
-    highlight: true,   // "En İyi Değer" badge
+    highlight: true,
   },
 ];
 
@@ -80,8 +86,8 @@ export async function closeIAP() {
 
 export async function loadProducts() {
   try {
-    const products = await getSubscriptions({ skus: ALL_PRODUCT_IDS });
-    return products || [];
+    const products = await fetchProducts({ skus: ALL_PRODUCT_IDS, type: 'subs' });
+    return Array.isArray(products) ? products : [];
   } catch (e) {
     console.warn('IAP loadProducts:', e?.message);
     return [];
@@ -89,13 +95,27 @@ export async function loadProducts() {
 }
 
 // ─── Satın al ───────────────────────────────────────────────────────────────
+// TestFlight ve simülatörde gerçek satın alma akışı devre dışı — sadece bilgi döner.
 
 export async function purchaseSubscription(productId) {
+  if (isTestEnv) {
+    return {
+      success: false,
+      cancelled: false,
+      testBlocked: true,
+      message: 'Satın alma test ortamında devre dışı. App Store\'da yayınlandıktan sonra aktif olacak.',
+    };
+  }
   try {
-    await requestSubscription({ sku: productId });
+    const request =
+      Platform.OS === 'ios'
+        ? { ios: { sku: productId } }
+        : { android: { skus: [productId] } };
+
+    await requestPurchase({ request, type: 'subs' });
     return { success: true };
   } catch (e) {
-    const cancelled = e?.code === 'E_USER_CANCELLED' || e?.message?.includes('cancel');
+    const cancelled = e?.code === 'E_USER_CANCELLED' || /cancel/i.test(e?.message || '');
     if (cancelled) return { success: false, cancelled: true };
     throw e;
   }
@@ -117,8 +137,6 @@ export async function restorePurchases() {
 
 export function isActivePurchase(purchase) {
   if (!purchase) return false;
-  // transactionDate mevcutsa expiry kontrolü yapmak için StoreKit receipt lazım.
-  // Burada sadece ürün ID'si kontrolü yapıyoruz; gerçek validation StoreKit tarafından yönetilir.
   return ALL_PRODUCT_IDS.includes(purchase.productId);
 }
 
@@ -126,7 +144,7 @@ export function isActivePurchase(purchase) {
 
 export function setupPurchaseListeners(onSuccess, onError) {
   const successSub = purchaseUpdatedListener(async (purchase) => {
-    if (purchase?.transactionId) {
+    if (purchase?.transactionId || purchase?.id) {
       try {
         await finishTransaction({ purchase, isConsumable: false });
       } catch {
@@ -142,7 +160,7 @@ export function setupPurchaseListeners(onSuccess, onError) {
   });
 
   return () => {
-    successSub?.remove();
-    errorSub?.remove();
+    successSub?.remove?.();
+    errorSub?.remove?.();
   };
 }

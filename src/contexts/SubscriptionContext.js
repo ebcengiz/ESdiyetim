@@ -10,7 +10,7 @@ import {
   ALL_PRODUCT_IDS,
 } from '../services/subscriptionService';
 import { userCreditsService } from '../services/supabase';
-import { bypassPaywall } from '../utils/environment';
+import { bypassPaywall, isTestEnv } from '../utils/environment';
 
 const SUBSCRIPTION_CACHE_KEY = 'esdiyet_sub_status_v1';
 const DAILY_LIMIT = 3;
@@ -30,6 +30,9 @@ export function SubscriptionProvider({ children }) {
       // Önce cache'den oku (hızlı UI)
       const cached = await AsyncStorage.getItem(SUBSCRIPTION_CACHE_KEY);
       if (cached) setIsSubscribed(cached === 'true');
+
+      // Test/Simulator: StoreKit güvenilir değil — cache'e güven.
+      if (isTestEnv) return;
 
       // StoreKit'ten gerçek durumu doğrula
       const purchases = await restorePurchases();
@@ -116,6 +119,18 @@ export function SubscriptionProvider({ children }) {
     await loadDailyCredits();
   }, [loadSubscriptionStatus, loadDailyCredits]);
 
+  // ─── Test/Simulator için sahte aktivasyon ────────────────────────────────
+  // TestFlight ve simülatörde StoreKit açılamadığı için premium ekranları
+  // önizleyebilmek amacıyla lokal olarak abonelik durumunu açar.
+  const activateTestSubscription = useCallback(async () => {
+    setIsSubscribed(true);
+    try {
+      await AsyncStorage.setItem(SUBSCRIPTION_CACHE_KEY, 'true');
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   return (
     <SubscriptionContext.Provider
       value={{
@@ -128,6 +143,7 @@ export function SubscriptionProvider({ children }) {
         incrementDailyPhotoCredit,
         openPaywall,
         refreshSubscription,
+        activateTestSubscription,
         // navigationRef dışarıdan set edilir
         setNavigationRef: (ref) => { navigationRef.current = ref; },
       }}

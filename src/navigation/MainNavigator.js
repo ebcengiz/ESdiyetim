@@ -245,6 +245,7 @@ function MainTabs() {
         options={{
           title: TAB_ITEMS.Goals.title,
           tabBarLabel: TAB_ITEMS.Goals.label,
+          headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <ModernTabIcon
               icon={TAB_ITEMS.Goals.icon}

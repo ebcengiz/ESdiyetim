@@ -183,7 +183,7 @@ export default function GoalsScreen() {
         colors={[COLORS.primary, COLORS.primaryLight]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.heroHeader}
+        style={[styles.heroHeader, { paddingTop: Math.max(insets.top, 8) + 10 }]}
       >
         <View style={styles.heroTopRow}>
           <View style={styles.heroBadge}>

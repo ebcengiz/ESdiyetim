@@ -36,7 +36,7 @@ const FEATURES = [
 export default function PaywallScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
-  const { refreshSubscription, products } = useSubscription();
+  const { refreshSubscription, products, activateTestSubscription } = useSubscription();
 
   const [selectedPlan, setSelectedPlan] = useState(PLAN_META[2].id); // yearly default
   const [purchasing, setPurchasing] = useState(false);
@@ -55,6 +55,14 @@ export default function PaywallScreen({ navigation }) {
     setPurchasing(true);
     try {
       const result = await purchaseSubscription(selectedPlan);
+      if (result?.testBlocked) {
+        // Test/Simulator: Apple StoreKit sheet açılamaz. Kullanıcının premium
+        // ekranları önizleyebilmesi için aboneliği lokal olarak aktif ediyoruz.
+        await activateTestSubscription();
+        showToast('Test modu: Premium aktif edildi.', 'success');
+        navigation.goBack();
+        return;
+      }
       if (result?.cancelled) return;
       if (result?.success) {
         await refreshSubscription();
