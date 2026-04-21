@@ -47,7 +47,7 @@ export default function PaywallScreen({ navigation }) {
   const getPriceLabel = (planKey) => {
     const storeProduct = products.find((p) => p.productId === planKey);
     if (storeProduct?.localizedPrice) return storeProduct.localizedPrice;
-    const meta = { monthly: '₺249,99', quarterly: '₺149,99', yearly: '₺899,99' };
+    const meta = { monthly: '₺249,99', quarterly: '₺499,99', yearly: '₺899,99' };
     return meta[PLAN_META.find((p) => p.id === planKey)?.key] ?? '—';
   };
 

@@ -47,8 +47,8 @@ export const PLAN_META = [
     key: 'quarterly',
     label: '3 Aylık',
     duration: '3 Ay',
-    monthlyRate: '₺50/ay',
-    savingPct: '80',
+    monthlyRate: '₺166,66/ay',
+    savingPct: '33',
     highlight: false,
   },
   {
