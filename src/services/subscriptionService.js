@@ -56,8 +56,8 @@ export const PLAN_META = [
     key: 'yearly',
     label: 'Yıllık',
     duration: '1 Yıl',
-    monthlyRate: '₺7/ay',
-    savingPct: '97',
+    monthlyRate: '₺74,99/ay',
+    savingPct: '70',
     highlight: true,
   },
 ];
