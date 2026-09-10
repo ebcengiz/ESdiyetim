@@ -21,6 +21,24 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-10 — ProfileScreen Switch clipping düzeltmesi + FoodLogScreen refactor (aynı yaklaşım devam)
+
+Kullanıcı ekran görüntüsüyle bir bug bildirdi + "aynı yaklaşımla devam et" dedi.
+
+1. **Bug düzeltmesi:** Profil ekranındaki "Yapay Zeka Veri Paylaşımı" satırında `Switch` sağdan kırpılıyordu (ekran görüntüsünde sadece yarım bir daire görünüyordu). Kök neden: `menuLeft` container'a `flex: 1` verilmemişti, uzun alt metin (`"Kapalı — AI önerileri ve fotoğraf analizi çalışmaz"`) satırı doğal genişliğine göre büyüyor, `menuCard`'ın `overflow: 'hidden'`'ı Switch'i kırpıyordu. `src/screens/ProfileScreen.js`: `menuLeft`'e `{ flex: 1 }` + subtitle'a `numberOfLines={2}` + Switch'e `flexShrink: 0` eklendi.
+2. **`src/components/ui/DatePickerSheet.js`:** DietPlanScreen refactor'ünde oluşturulan tarih seçici sheet'i `dietPlan/` klasöründen genel `ui/` klasörüne taşındı (FoodLogScreen'de birebir aynı desen tekrar kullanılıyordu — kod tekrarını önlemek için).
+3. **FoodLogScreen.js refactor (1357 → 369 satır, ~%73 azalma):** Aynı prensip — güvenli/mekanik parçalar çıkarıldı, riskli olan yok zaten (arama modalı kendi state'ine sahip, parent'a bağımlı değildi):
+   - `src/constants/foodLogFields.js` (MEAL_TYPES, DAILY_GOAL_KCAL, DAILY_GOAL)
+   - `src/utils/foodLogUtils.js` (toLocalDate, fmt, getSourceBadgeMeta)
+   - `src/components/foodLog/MacroWidgets.js` (MacroPill, MacroGridCell, CalcChip — 3 küçük sunum bileşeni)
+   - `src/components/foodLog/MealSection.js` (öğün kartı + log listesi)
+   - `src/components/foodLog/FoodSearchModal.js` (en büyük parça — arama/AI analiz/gram hesaplama/kaydetme; kendi state'ini taşıyor, parent'tan sadece `visible`/`initialMealType`/`dateStr`/`onClose`/`onSaved` alıyor — MealFoodPickerSection'daki "kendi state'i olan bileşen" desenini tekrarlıyor)
+   - Ana dosyada kalan: state yönetimi (selectedDate, logs, summary), veri yükleme (loadLogs), tarih navigasyonu, header/kalori kartı JSX, öğün listesi döngüsü.
+   - **Doğrulama:** Babel syntax + `expo export` bundle testi + gerçek simulator build'i (`expo run:ios`, bu sefer log dosyasına yönlendirilip `until grep` ile arka planda beklendi — önceki "takılı görünme" `tail | pipe` buffer sorunuydu, çözüldü). Ekran görüntüsü: uygulama açıldı, oturum korunmuş, sistem/Metro loglarında `error`/`TypeError`/`undefined is not` yok, native build "0 error(s), 0 warning(s)".
+   - **Kısıt (önceki girdide de belirtildi):** `idb` kurulu değil, DietPlanScreen ve FoodLogScreen'in gerçek ekranlarına (premium gate arkasında) tap ile ulaşıp görsel doğrulama yapılamadı — kullanıcının elle kontrol etmesi önerilir.
+
+**Kalan (henüz dokunulmadı, backlog):** HomeScreen (1166 satır) aynı yaklaşımla ayrıştırılabilir; kullanıcı onayı bekleniyor.
+
 ### 2026-09-10 — Orta vadeli iyileştirmeler: AI caching/kuyruk, skeleton screen, streaming+haptic, DietPlanScreen refactor
 
 Önceki analiz raporundaki "Orta Vadeli İyileştirmeler" listesine geçildi (commit + devam talebi üzerine). Kullanıcı kısıtı hatırlatması: **hiçbir ücretli AI/servis katmanına geçilmeyecek** — bu oturumdaki hiçbir değişiklik ek maliyet getirmiyor (tamamı client-side).

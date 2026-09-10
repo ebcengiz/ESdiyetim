@@ -20,7 +20,7 @@ import ConfirmModal from '../components/ui/ConfirmModal';
 import MealCard, { SectionTitle } from '../components/dietPlan/MealCard';
 import MealFoodPickerSection from '../components/dietPlan/MealFoodPickerSection';
 import DietPlanHistorySheet from '../components/dietPlan/DietPlanHistorySheet';
-import DatePickerSheet from '../components/dietPlan/DatePickerSheet';
+import DatePickerSheet from '../components/ui/DatePickerSheet';
 import { MEAL_FIELDS, EMPTY_FORM } from '../constants/dietPlanFields';
 import { toDateStr, sumAllMealKcal } from '../utils/dietPlanUtils';
 

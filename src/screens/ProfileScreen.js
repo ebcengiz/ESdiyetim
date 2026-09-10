@@ -437,13 +437,13 @@ export default function ProfileScreen({ navigation }) {
             <View style={styles.divider} />
 
             <View style={styles.menuItem}>
-              <View style={styles.menuLeft}>
+              <View style={[styles.menuLeft, { flex: 1 }]}>
                 <View style={[styles.menuIcon, { backgroundColor: COLORS.highlight }]}>
                   <Ionicons name="hardware-chip-outline" size={18} color={COLORS.primary} />
                 </View>
                 <View style={{ flex: 1, paddingRight: 8 }}>
                   <Text style={styles.menuText}>Yapay Zeka Veri Paylaşımı</Text>
-                  <Text style={styles.menuSub}>
+                  <Text style={styles.menuSub} numberOfLines={2}>
                     {aiConsent.granted
                       ? `${aiProviders.join(' ve ')} ile paylaşım açık`
                       : 'Kapalı — AI önerileri ve fotoğraf analizi çalışmaz'}
@@ -455,6 +455,7 @@ export default function ProfileScreen({ navigation }) {
                 onValueChange={(value) => (value ? grantConsent() : revokeConsent())}
                 trackColor={{ false: COLORS.border, true: COLORS.primary }}
                 thumbColor="#FFFFFF"
+                style={{ flexShrink: 0 }}
               />
             </View>
           </View>
