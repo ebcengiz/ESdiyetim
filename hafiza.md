@@ -21,6 +21,9 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-10 — Oturum değişiklikleri commit + push edildi
+SDK 57 yükseltmesi + IAP/Supabase düzeltmeleri + AGENTS.md/CLAUDE.md/hafiza.md güncellemeleri tek commit'te birleştirildi: `2551437` — "Expo SDK 54'ten 57'ye yükselt, IAP crash ve Supabase config sorunlarını düzelt". 8 dosya değişti: `AGENTS.md` (yeni), `hafiza.md` (yeni), `CLAUDE.md`, `app.json`, `package.json`, `package-lock.json`, `src/services/subscriptionService.js`, `src/services/supabase.js`. `origin/master`'a push edildi (`17fc30c..2551437`). Bu hafiza.md güncellemesi (bu girdi + commit-durumu/TODO düzeltmeleri) ayrı bir takip commit'i olarak eklenecek.
+
 ### 2026-09-10 — AGENTS.md / CLAUDE.md güncellendi
 Bir önceki SDK 57 yükseltmesinden beri bu iki dosya eskiydi (hâlâ SDK 54 / deploymentTarget 15.1 / hardcoded Supabase bilgisi yazıyordu). İkisi de (içerikleri aynı) güncellendi:
 - Teknoloji tablosu: Expo SDK 57, RN 0.86.3, React 19.2.3, TypeScript ~6.0.3.
@@ -52,7 +55,7 @@ Kullanıcının telefonunda Expo Go SDK 57 kullanıyordu, proje SDK 54'teydi →
 
 **Çözülmeden kalan / kullanıcıya bildirilen:** `expo-iap` (satın alma) Expo Go'da hiçbir zaman gerçek çalışmaz — bu Expo Go'nun temel kısıtı, kod tarafında giderilemez. Gerçek IAP testi için **development build** (`npx expo run:ios` / EAS build) gerekiyor.
 
-**Commit durumu:** Bu oturumdaki değişiklikler **henüz commit edilmedi** (kullanıcı commit istemedi). `git status`: `app.json`, `package.json`, `package-lock.json`, `src/services/subscriptionService.js`, `src/services/supabase.js` değişti; `AGENTS.md` untracked (bu oturumdan önce eklenmiş, kim tarafından belirsiz).
+**Commit durumu:** Commit + push edildi — bkz. üstteki "2026-09-10 — Oturum değişiklikleri commit + push edildi" girdisi (`2551437`, `origin/master`).
 
 ---
 
@@ -69,7 +72,7 @@ Kullanıcının telefonunda Expo Go SDK 57 kullanıyordu, proje SDK 54'teydi →
 ## 4. Yapılacaklar / Öneriler (öncelik sırasız)
 
 - [x] ~~AGENTS.md ve CLAUDE.md dosyalarını bugünkü SDK 57 / deploymentTarget 16.4 / env-based Supabase config değişiklikleriyle güncelle.~~ (2026-09-10 tamamlandı)
-- [ ] Bu oturumdaki değişiklikleri (SDK 57 yükseltmesi + supabase.js + subscriptionService.js düzeltmeleri) uygun bir commit mesajıyla commit'le (kullanıcı onayı gerekir).
+- [x] ~~Bu oturumdaki değişiklikleri commit'le ve push et.~~ (2026-09-10 tamamlandı, commit `2551437`, `origin/master`'a push edildi)
 - [ ] `eas.json` build image'ının SDK 57/RN 0.86 ile uyumluluğunu bir sonraki EAS build denemesinde doğrula.
 - [ ] Gerçek cihazda development build alıp `expo-iap` akışını (satın alma, restore) uçtan uca test et — Expo Go'da test edilemiyor.
 - [ ] `tsconfig.json`'a `supabase/functions/**` için `exclude` ekleyerek Deno kaynaklı sahte `tsc` hatalarını temizle (opsiyonel, kozmetik).
