@@ -21,6 +21,35 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-10 — Monetizasyon stratejisi kökten değişti: paywall gevşetildi, fiyatlar düşürüldü, ücretsiz deneme eklendi
+
+**Bağlam:** Kullanıcı "kimse uygulamayı satın almıyor, nasıl çözelim?" diye sordu. Web araştırması + kod incelemesi yapıldı; kök nedenler bulundu:
+1. **Ana Sayfa (girişten sonraki ilk ekran) tamamen paywall arkasındaydı** — kullanıcı hiç değer görmeden "Premium'a Geç" duvarıyla karşılaşıyordu. DietPlan/Hedefler/Kilo&VKİ de tamamen kilitliydi.
+2. **Hiç ücretsiz deneme yoktu.**
+3. Buna karşın Besin Takibi (AI destekli, en "wow" özellik) tamamen ücretsiz ve sınırsızdı — freemium mantığı ters kurulmuştu.
+4. **Fiyat rakiplere göre çok yüksekti:** ₺249,99/ay — YAZIO Pro'nun ₺44,99/ay'ına göre ~5,5 kat.
+
+Kullanıcı "hepsini birden yap" dedi + "TestFlight/Expo denemeleri için tamamen ücretsiz yap" ek talebi geldi. Yapılanlar:
+
+**A) Kod tarafı:**
+- `src/utils/environment.js`: `bypassPaywall` artık `isTestEnv` (TestFlight + dev/Expo Go) durumunda otomatik `true` — test edenler hiçbir şey için ödeme yapmadan tüm özellikleri dener. Production'da gerçek kullanıcılar etkilenmez.
+- **`PremiumGate` tamamen kaldırıldı** (`HomeScreen`, `DietPlanScreen`, `GoalsScreen`, `WeightAndBMIScreen`'den import + JSX sarmalayıcı silindi) — artık `src/components/PremiumGate.js` dosyası da kullanılmadığı için silindi. Bu 4 ekran artık tamamen ücretsiz.
+- **Freemium yeniden dengelendi** (`SubscriptionContext.js`): Fotoğraf analizi artık ücretsiz kullanıcıya günde 1, premium'a günde 5 hak veriyor (`FREE_DAILY_LIMIT`/`PREMIUM_DAILY_LIMIT`) — önceden ücretsiz kullanıcı 0 hak alıyordu (`isSubscribed &&` şartı vardı), bu tersine çevrildi.
+- **`MealCalorieScreen.js`**: Sert `if (!isSubscribed) openPaywall()` engeli kaldırıldı, artık `canUsePhotoToday` (yeni limit mantığıyla) kontrol ediliyor; limit dolunca ücretsiz kullanıcıya yükseltme mesajı + paywall, premium kullanıcıya "yarın tekrar dene" mesajı.
+- **Yeni:** `src/services/dailyUsageService.js` — cihaz-yerel (AsyncStorage) genel amaçlı günlük sayaç servisi (yumuşak limit, sunucu doğrulaması yok).
+- **`FoodSearchModal.js`**: "AI ile tam analiz" butonu artık ücretsiz kullanıcı için günde 3 ile sınırlı (`dailyUsageService` ile), premium sınırsız. Veritabanı (Open Food Facts/USDA) araması hâlâ tamamen serbest — sadece AI fallback'i sınırlı.
+- **Fiyatlar kod içinde güncellendi** (`subscriptionService.js` PLAN_META, `PaywallScreen.js` fallback + FEATURES listesi + üst açıklama metni): Aylık ₺249,99→₺99,99, 3 Aylık ₺166,66/ay→₺66,66/ay, Yıllık ₺74,99/ay→₺29,17/ay (gerçek ASC fiyatına göre — bkz. aşağı). PaywallScreen'in özellik listesi artık "her şey ücretsiz zaten, premium = AI limitlerini kaldırır" mesajını veriyor (önceden "diyet planı/hedefler premium'a özel" diyordu, artık yanlış).
+
+**B) App Store Connect (kullanıcının izniyle, `claude-in-chrome`):**
+- **3 abonelik planının gerçek fiyatı Türkiye'de değiştirildi** (sadece TR, diğer ülkeler dokunulmadı): Aylık ₺249,99→**₺99,99**, 3 Aylık ₺499,99→**₺199,99**, Yıllık ₺899,99→**₺349,99** (hedeflenen ₺359,99 yerine mevcut fiyat kademesindeki en yakın değer alındı — kod buna göre düzeltildi).
+- **Her 3 plana da 175 ülkede geçerli "Free for the first 3 days" (3 gün ücretsiz deneme) Introductory Offer eklendi** — sektör araştırmasında "sweet spot" olarak öne çıkan model.
+- ESdiyet Aylık'ın App Store açıklaması ("3 daily photo calorie analyses" / "Yapay zeka ile kalori...") yeni limitlere göre güncellendi ama **sadece taslak olarak kaydedildi, Apple incelemesine gönderilmedi** — bu ayrı bir "yayınlama" kararı olduğu için kullanıcının onayı bekleniyor.
+- **Not:** Oturum bir kez düştü (App Store Connect), kullanıcı yeniden giriş yaptı, 3 Aylık planın fiyat değişikliği baştan yapıldı (ilk deneme kaydedilmemişti).
+
+**Doğrulama:** Babel syntax + `expo export` bundle testi (temiz) + gerçek simulator build'i, Ana Sayfa ve Diyet Planı ekranlarının artık paywall'sız açıldığı ekran görüntüsüyle doğrulandı.
+
+**Açık madde:** Kullanıcı onayı bekleyen — ESdiyet Aylık'ın güncellenen App Store açıklamasını Apple incelemesine gönder ("Add for Review" App Store Connect'te).
+
 ### 2026-09-10 — HomeScreen refactor (aynı yaklaşım devam, 3 büyük ekranın tamamı bitti)
 
 Kullanıcı "devam et" dedi, backlog'daki son büyük dosyaya geçildi. HomeScreen, DietPlanScreen/FoodLogScreen'den farklı olarak büyük "kendi state'ine sahip" bir alt bileşen içermiyordu (arama modalı gibi) — bunun yerine çok sayıda bağımsız/tekrar eden sunum bloğu vardı. Aynı çıkarma prensibi (props-driven, parent state'e dokunmadan) uygulandı:

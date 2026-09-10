@@ -24,14 +24,9 @@ import { useSubscription } from '../contexts/SubscriptionContext';
 import { useToast } from '../contexts/ToastContext';
 
 const FEATURES = [
-  { icon: 'home', text: 'Kişisel ana sayfa ve günlük özet' },
-  { icon: 'restaurant', text: 'AI destekli günlük diyet planı' },
-  { icon: 'camera', text: 'Günde 3 fotoğraftan kalori analizi' },
-  { icon: 'fitness', text: 'Kilo & VKİ takibi ve grafik geçmişi' },
-  { icon: 'trophy', text: 'Hedef belirleme ve ilerleme takibi' },
-  { icon: 'bulb', text: 'Kişiselleştirilmiş sağlık tavsiyeleri' },
-  { icon: 'stats-chart', text: 'Detaylı besin değeri analizi' },
-  { icon: 'infinite', text: 'Reklamsız ve sınırsız kullanım' },
+  { icon: 'camera', text: 'Günde 5 fotoğraftan kalori analizi (ücretsiz planda günde 1)' },
+  { icon: 'sparkles', text: 'AI ile sınırsız besin analizi (ücretsiz planda günde 3)' },
+  { icon: 'infinite', text: 'Uygulamanın tamamına reklamsız, sınırsız erişim' },
 ];
 
 export default function PaywallScreen({ navigation }) {
@@ -47,7 +42,7 @@ export default function PaywallScreen({ navigation }) {
   const getPriceLabel = (planKey) => {
     const storeProduct = products.find((p) => p.productId === planKey);
     if (storeProduct?.localizedPrice) return storeProduct.localizedPrice;
-    const meta = { monthly: '₺249,99', quarterly: '₺499,99', yearly: '₺899,99' };
+    const meta = { monthly: '₺99,99', quarterly: '₺199,99', yearly: '₺349,99' };
     return meta[PLAN_META.find((p) => p.id === planKey)?.key] ?? '—';
   };
 
@@ -123,8 +118,8 @@ export default function PaywallScreen({ navigation }) {
 
         <Text style={styles.title}>ESdiyet Premium</Text>
         <Text style={styles.subtitle}>
-          Tüm premium özelliklere sınırsız eriş: diyet planı, kilo & VKİ takibi, hedefler,
-          kişisel tavsiyeler ve fotoğraftan kalori analizi.
+          Diyet planı, kilo & VKİ takibi, hedefler ve tavsiyeler zaten ücretsiz. Premium,
+          yapay zeka destekli fotoğraf ve besin analizinde günlük limitleri kaldırır.
         </Text>
 
         {/* Özellik listesi */}

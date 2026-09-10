@@ -15,7 +15,6 @@ import { weightService, dietPlanService, tipsService, homeSummaryService, foodLo
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import GuestGateBanner from '../components/GuestGateBanner';
-import PremiumGate from '../components/PremiumGate';
 import HomeHeroHeader from '../components/home/HomeHeroHeader';
 import { HomeStatsRow, FoodSummaryCard } from '../components/home/HomeStatsRow';
 import { TodayDietSection, DailyTipSection, QuickActionsSection } from '../components/home/HomeSections';
@@ -156,11 +155,6 @@ export default function HomeScreen({ navigation }) {
     : 'Son güncelleme: -';
 
   return (
-    <PremiumGate
-      icon="home"
-      title="Ana Sayfa Premium'a Özel"
-      description="Günlük özet, diyet takibi ve tüm kişisel sağlık verilerine erişmek için premium üyelik gereklidir."
-    >
     <SafeAreaView style={styles.root} edges={['left', 'right']}>
       {/*
         Başlık ScrollView dışında: çekince / yenileyince üstte açılan alan yeşil kalır
@@ -267,7 +261,6 @@ export default function HomeScreen({ navigation }) {
         </View>
       </ScrollView>
     </SafeAreaView>
-    </PremiumGate>
   );
 }
 

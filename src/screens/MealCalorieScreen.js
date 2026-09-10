@@ -71,7 +71,7 @@ export default function MealCalorieScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { showToast } = useToast();
-  const { isSubscribed, canUsePhotoToday, openPaywall, incrementDailyPhotoCredit } = useSubscription();
+  const { isSubscribed, canUsePhotoToday, dailyLimit, openPaywall, incrementDailyPhotoCredit } = useSubscription();
   const { requestConsentPrompt } = useAIConsent();
   const [imageUri, setImageUri] = useState(null);
   const [base64, setBase64] = useState(null);
@@ -164,15 +164,14 @@ export default function MealCalorieScreen({ navigation }) {
       return;
     }
 
-    if (!bypassPaywall) {
+    if (!bypassPaywall && !canUsePhotoToday) {
       if (!isSubscribed) {
+        showToast(`Günlük ücretsiz analiz hakkınızı kullandınız (${dailyLimit}/gün). Daha fazlası için Premium'a geçin.`, 'warning');
         openPaywall();
-        return;
+      } else {
+        showToast(`Günlük ${dailyLimit} analiz hakkınızı kullandınız. Yarın tekrar deneyebilirsiniz.`, 'warning');
       }
-      if (!canUsePhotoToday) {
-        showToast('Günlük 3 fotoğraf hakkınızı kullandınız. Yarın tekrar deneyebilirsiniz.', 'warning');
-        return;
-      }
+      return;
     }
 
     setLoading(true);

@@ -17,16 +17,22 @@ import { COLORS, SIZES, SHADOWS } from '../../constants/theme';
 import { MEAL_TYPES } from '../../constants/foodLogFields';
 import { getSourceBadgeMeta } from '../../utils/foodLogUtils';
 import { useToast } from '../../contexts/ToastContext';
+import { useSubscription } from '../../contexts/SubscriptionContext';
 import { foodLogService } from '../../services/supabase';
 import {
   searchOpenFoodFacts,
   getFoodNutritionAI,
   calcNutritionForGrams,
 } from '../../services/nutritionService';
+import { hasReachedDailyLimit, incrementDailyUsage } from '../../services/dailyUsageService';
 import { MacroGridCell, CalcChip } from './MacroWidgets';
 
 const { width } = Dimensions.get('window');
 const MACRO_CELL_WIDTH = (width - SIZES.containerPadding * 2 - SIZES.md * 3) / 4;
+
+// Ücretsiz kullanıcılar için günlük "AI ile tam analiz" hakkı — cihaz-yerel yumuşak limit.
+const FREE_AI_SEARCH_DAILY_LIMIT = 3;
+const AI_SEARCH_USAGE_KEY = 'food_ai_search';
 
 /**
  * Yiyecek/içecek arama, AI tam analiz ve günlüğe ekleme sheet'i.
@@ -35,6 +41,7 @@ const MACRO_CELL_WIDTH = (width - SIZES.containerPadding * 2 - SIZES.md * 3) / 4
  */
 export default function FoodSearchModal({ visible, initialMealType, dateStr, onClose, onSaved }) {
   const { showToast } = useToast();
+  const { isSubscribed, openPaywall } = useSubscription();
 
   const [activeMealType, setActiveMealType] = useState(initialMealType || 'breakfast');
   const [query, setQuery] = useState('');
@@ -143,8 +150,18 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
         return;
       }
 
-      // Veritabanında yoksa AI fallback (Gemini -> Groq)
+      // Veritabanında yoksa AI fallback (Gemini -> Groq) — ücretsiz kullanıcılar için günlük yumuşak limit
+      if (!isSubscribed) {
+        const reached = await hasReachedDailyLimit(AI_SEARCH_USAGE_KEY, FREE_AI_SEARCH_DAILY_LIMIT);
+        if (reached) {
+          showToast(`Günlük ücretsiz AI analiz hakkınızı kullandınız (${FREE_AI_SEARCH_DAILY_LIMIT}/gün). Sınırsız analiz için Premium'a geçin.`, 'warning');
+          openPaywall();
+          return;
+        }
+      }
+
       const food = await getFoodNutritionAI(query.trim(), activeMealType === 'drink');
+      if (!isSubscribed) await incrementDailyUsage(AI_SEARCH_USAGE_KEY);
       setSelectedFood(food);
       setSearchResults([]);
     } catch (e) {

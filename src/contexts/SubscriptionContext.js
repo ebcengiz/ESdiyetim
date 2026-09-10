@@ -13,7 +13,10 @@ import { userCreditsService } from '../services/supabase';
 import { bypassPaywall, isTestEnv } from '../utils/environment';
 
 const SUBSCRIPTION_CACHE_KEY = 'esdiyet_sub_status_v1';
-const DAILY_LIMIT = 3;
+// Ücretsiz kullanıcılar günde 1 fotoğraf analizini deneyebilir (freemium tadımlık);
+// premium kullanıcılar günde 5 hakka sahip.
+const FREE_DAILY_LIMIT = 1;
+const PREMIUM_DAILY_LIMIT = 5;
 
 const SubscriptionContext = createContext(null);
 
@@ -95,7 +98,8 @@ export function SubscriptionProvider({ children }) {
   }, []);
 
   // ─── Analiz hakkı ────────────────────────────────────────────────────────
-  const canUsePhotoToday = bypassPaywall || (isSubscribed && dailyPhotoUsed < DAILY_LIMIT);
+  const dailyPhotoLimit = isSubscribed ? PREMIUM_DAILY_LIMIT : FREE_DAILY_LIMIT;
+  const canUsePhotoToday = bypassPaywall || dailyPhotoUsed < dailyPhotoLimit;
 
   // ─── Krediyi artır ───────────────────────────────────────────────────────
   const incrementDailyPhotoCredit = useCallback(async () => {
@@ -137,7 +141,7 @@ export function SubscriptionProvider({ children }) {
         isSubscribed,
         canUsePhotoToday,
         dailyPhotoUsed,
-        dailyLimit: DAILY_LIMIT,
+        dailyLimit: dailyPhotoLimit,
         products,
         loadingSubscription,
         incrementDailyPhotoCredit,

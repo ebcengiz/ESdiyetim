@@ -13,7 +13,6 @@ import { goalsService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from '../components/AIAdviceCard';
 import GuestGateBanner from '../components/GuestGateBanner';
-import PremiumGate from '../components/PremiumGate';
 import MedicalInfoBanner from '../components/MedicalInfoBanner';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -173,11 +172,6 @@ export default function GoalsScreen() {
   };
 
   return (
-    <PremiumGate
-      icon="trophy"
-      title="Hedefler Premium'a Özel"
-      description="Kişisel sağlık hedefleri ve yapay zeka motivasyon analizine erişmek için premium üyelik gereklidir."
-    >
     <View style={styles.container}>
       <LinearGradient
         colors={[COLORS.primary, COLORS.primaryLight]}
@@ -468,7 +462,6 @@ export default function GoalsScreen() {
         onCancel={() => setDeleteTargetId(null)}
       />
     </View>
-    </PremiumGate>
   );
 }
 
