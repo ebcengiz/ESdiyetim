@@ -3,9 +3,15 @@
 // Görsel: providers.callMealCalorieVisionChain → Gemini Vision → Groq Vision
 
 import { callTextWithProviderChain, callMealCalorieVisionChain } from './ai/providers';
+import { AIConsentRequiredError } from './aiConsentService';
 
 async function call(prompt) {
   return callTextWithProviderChain(prompt);
+}
+
+/** AI veri paylaşımı onayı verilmemişse true — bu durumda hata loglanmaz, sessizce fallback'e düşülür. */
+function isConsentError(error) {
+  return error instanceof AIConsentRequiredError || error?.code === 'AI_CONSENT_REQUIRED';
 }
 
 /** Beklenen ağ/kota durumlarında ERROR yerine WARN — Metro günlüğünü kirletmemek için */
@@ -185,8 +191,8 @@ export const aiService = {
       const { text: advice, provider } = await call(buildGoalPrompt(goalData));
       return { success: true, advice, provider };
     } catch (error) {
-      logProviderError('AI hedef tavsiyesi hatası', error);
-      return { success: false, advice: this.getFallbackAdvice(goalData), error: error.message, usingFallback: true };
+      if (!isConsentError(error)) logProviderError('AI hedef tavsiyesi hatası', error);
+      return { success: false, advice: this.getFallbackAdvice(goalData), error: error.message, usingFallback: true, consentRequired: isConsentError(error) };
     }
   },
 
@@ -195,8 +201,8 @@ export const aiService = {
       const { text: advice, provider } = await call(buildHealthTipPrompt(category));
       return { success: true, advice, category, provider };
     } catch (error) {
-      logProviderError('Sağlık tavsiyesi (ağ veya API)', error);
-      return { success: false, advice: FALLBACK_HEALTH_TIPS[category] || FALLBACK_HEALTH_TIPS.genel, error: error.message, usingFallback: true };
+      if (!isConsentError(error)) logProviderError('Sağlık tavsiyesi (ağ veya API)', error);
+      return { success: false, advice: FALLBACK_HEALTH_TIPS[category] || FALLBACK_HEALTH_TIPS.genel, error: error.message, usingFallback: true, consentRequired: isConsentError(error) };
     }
   },
 
@@ -205,8 +211,8 @@ export const aiService = {
       const { text: advice, provider } = await call(buildBMIPrompt(bmiData));
       return { success: true, advice, provider };
     } catch (error) {
-      logProviderError('VKİ tavsiyesi (ağ veya API)', error);
-      return { success: false, advice: FALLBACK_BMI_ADVICE[bmiData.category] || FALLBACK_BMI_ADVICE.Normal, error: error.message, usingFallback: true };
+      if (!isConsentError(error)) logProviderError('VKİ tavsiyesi (ağ veya API)', error);
+      return { success: false, advice: FALLBACK_BMI_ADVICE[bmiData.category] || FALLBACK_BMI_ADVICE.Normal, error: error.message, usingFallback: true, consentRequired: isConsentError(error) };
     }
   },
 
@@ -217,8 +223,8 @@ export const aiService = {
       if (bullets.length < 3) return { success: false, bullets: FALLBACK_BMI_BULLETS[bmiData.category] || FALLBACK_BMI_BULLETS.Normal, usingFallback: true, provider };
       return { success: true, bullets: bullets.slice(0, 5), provider };
     } catch (error) {
-      logProviderError('VKİ madde önerileri (ağ veya API)', error);
-      return { success: false, bullets: FALLBACK_BMI_BULLETS[bmiData.category] || FALLBACK_BMI_BULLETS.Normal, usingFallback: true, error: error.message };
+      if (!isConsentError(error)) logProviderError('VKİ madde önerileri (ağ veya API)', error);
+      return { success: false, bullets: FALLBACK_BMI_BULLETS[bmiData.category] || FALLBACK_BMI_BULLETS.Normal, usingFallback: true, error: error.message, consentRequired: isConsentError(error) };
     }
   },
 
@@ -227,8 +233,8 @@ export const aiService = {
       const { text: advice, provider } = await call(buildWeightTrackingPrompt(weightData));
       return { success: true, advice, provider };
     } catch (error) {
-      logProviderError('Kilo takip tavsiyesi (ağ veya API)', error);
-      return { success: false, advice: this.getFallbackWeightTrackingAdvice(weightData), error: error.message, usingFallback: true };
+      if (!isConsentError(error)) logProviderError('Kilo takip tavsiyesi (ağ veya API)', error);
+      return { success: false, advice: this.getFallbackWeightTrackingAdvice(weightData), error: error.message, usingFallback: true, consentRequired: isConsentError(error) };
     }
   },
 
@@ -237,8 +243,8 @@ export const aiService = {
       const { text: advice, provider } = await call(buildDietPlanPrompt(dietData));
       return { success: true, advice, provider };
     } catch (error) {
-      logProviderError('Diyet planı tavsiyesi (ağ veya API)', error);
-      return { success: false, advice: this.getFallbackDietPlanAdvice(dietData), error: error.message, usingFallback: true };
+      if (!isConsentError(error)) logProviderError('Diyet planı tavsiyesi (ağ veya API)', error);
+      return { success: false, advice: this.getFallbackDietPlanAdvice(dietData), error: error.message, usingFallback: true, consentRequired: isConsentError(error) };
     }
   },
 

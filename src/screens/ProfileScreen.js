@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,12 +16,14 @@ import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { bodyInfoService } from '../services/supabase';
 import { useToast } from '../contexts/ToastContext';
+import { useAIConsent } from '../contexts/AIConsentContext';
 import ConfirmModal from '../components/ui/ConfirmModal';
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user, signOut, deleteAccount, updateProfile, leaveGuestMode, isGuest } = useAuth();
   const { showToast } = useToast();
+  const { consent: aiConsent, providers: aiProviders, grantConsent, revokeConsent } = useAIConsent();
   const [bodyInfo, setBodyInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editingName, setEditingName] = useState(false);
@@ -410,6 +413,30 @@ export default function ProfileScreen({ navigation }) {
               </View>
               <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
             </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            <View style={styles.menuItem}>
+              <View style={styles.menuLeft}>
+                <View style={[styles.menuIcon, { backgroundColor: COLORS.highlight }]}>
+                  <Ionicons name="hardware-chip-outline" size={18} color={COLORS.primary} />
+                </View>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text style={styles.menuText}>Yapay Zeka Veri Paylaşımı</Text>
+                  <Text style={styles.menuSub}>
+                    {aiConsent.granted
+                      ? `${aiProviders.join(' ve ')} ile paylaşım açık`
+                      : 'Kapalı — AI önerileri ve fotoğraf analizi çalışmaz'}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={!!aiConsent.granted}
+                onValueChange={(value) => (value ? grantConsent() : revokeConsent())}
+                trackColor={{ false: COLORS.border, true: COLORS.primary }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
           </View>
         </View>
 

@@ -24,6 +24,7 @@ import GuestGateBanner from '../components/GuestGateBanner';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useAIConsent } from '../contexts/AIConsentContext';
 import { bypassPaywall } from '../utils/environment';
 
 const DISCLAIMER_STORAGE_KEY = 'mealCalorieHealthDisclaimerV1';
@@ -70,6 +71,7 @@ export default function MealCalorieScreen({ navigation }) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const { isSubscribed, canUsePhotoToday, openPaywall, incrementDailyPhotoCredit } = useSubscription();
+  const { requestConsentPrompt } = useAIConsent();
   const [imageUri, setImageUri] = useState(null);
   const [base64, setBase64] = useState(null);
   const [mimeType, setMimeType] = useState('image/jpeg');
@@ -182,7 +184,12 @@ export default function MealCalorieScreen({ navigation }) {
       setResult(data);
       if (!bypassPaywall) await incrementDailyPhotoCredit();
     } catch (e) {
-      showToast(e.message || 'Analiz başarısız. Tekrar deneyin.', 'error');
+      if (e?.code === 'AI_CONSENT_REQUIRED') {
+        showToast('Fotoğraf analizi için yapay zeka veri paylaşımı onayı gerekiyor.', 'warning');
+        requestConsentPrompt();
+      } else {
+        showToast(e.message || 'Analiz başarısız. Tekrar deneyin.', 'error');
+      }
     } finally {
       setLoading(false);
     }

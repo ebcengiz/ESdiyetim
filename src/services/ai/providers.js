@@ -1,6 +1,8 @@
 // AI Provider implementasyonları
 // Her provider ayrı bir fetch fonksiyonu; aiService.js orkestrasyonu yapar.
 
+import { assertAIConsent } from '../aiConsentService';
+
 const HUGGINGFACE_API_KEY = process.env.EXPO_PUBLIC_HUGGINGFACE_API_KEY || '';
 const GROQ_API_KEY        = process.env.EXPO_PUBLIC_GROQ_API_KEY        || '';
 const COHERE_API_KEY      = process.env.EXPO_PUBLIC_COHERE_API_KEY      || '';
@@ -346,6 +348,7 @@ export async function callProvider(providerName, prompt) {
  * Sıra: Gemini → Groq → Cohere → Hugging Face (yalnızca ilgili EXPO_PUBLIC_* anahtarı tanımlıysa).
  */
 export async function callTextWithProviderChain(prompt) {
+  await assertAIConsent();
   const steps = [
     { id: 'gemini', hasKey: !!GEMINI_API_KEY, run: () => callGemini(prompt) },
     { id: 'groq', hasKey: !!GROQ_API_KEY, run: () => callGroq(prompt) },
@@ -383,6 +386,7 @@ export async function callTextWithProviderChain(prompt) {
  * Fotoğraftan kalori: önce Gemini Vision, kota/hata olursa Groq Vision.
  */
 export async function callMealCalorieVisionChain({ cleanMime, cleanB64, dataUrl, prompt }) {
+  await assertAIConsent();
   let lastError = null;
 
   if (GEMINI_API_KEY) {
