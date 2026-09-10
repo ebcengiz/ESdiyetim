@@ -568,6 +568,7 @@ const styles = StyleSheet.create({
     fontSize: SIZES.body,
     fontWeight: '600',
     color: COLORS.text,
+    marginLeft: 26, // ikon (18) + nameBlockTitleRow gap (SIZES.sm=8) ile hizalı
   },
   nameEditBox: {
     gap: SIZES.md,
