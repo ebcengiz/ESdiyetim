@@ -1,8 +1,6 @@
-# CLAUDE.md — ESdiyet Projesi
+# AGENTS.md — ESdiyet Projesi
 
-Bu dosya, `ESdiyet` (diyet & sağlık takip) React Native / Expo uygulaması üzerinde çalışırken Claude Code'a bağlam sağlamak için hazırlanmıştır. Projenin mimarisini, konvansiyonlarını, servislerini ve kritik uyarılarını özetler. Kod önerileri verirken bu rehbere bağlı kal.
-
-> Proje geçmişi ve güncel durum için `hafiza.md` dosyasına da bak — bu dosya mimari/konvansiyon referansıdır, `hafiza.md` ise "ne yapıldı / sırada ne var" günlüğüdür.
+Bu dosya, `ESdiyet` (diyet & sağlık takip) React Native / Expo uygulaması üzerinde çalışırken Codex'a bağlam sağlamak için hazırlanmıştır. Projenin mimarisini, konvansiyonlarını, servislerini ve kritik uyarılarını özetler. Kod önerileri verirken bu rehbere bağlı kal.
 
 ---
 
@@ -185,7 +183,6 @@ Proje içi dokümanlar:
 - `APP_STORE_HEALTH_AI_NOTLARI.md` — App Store health policy notları
 - `IOS_APP_STORE_YAYINLAMA_REHBERI.md` — yayın süreci
 - `PRIVACY.md` — gizlilik politikası
-- `hafiza.md` — proje geçmişi / yapılanlar / yapılacaklar günlüğü (her görev sonrası güncellenir)
 
 ---
 

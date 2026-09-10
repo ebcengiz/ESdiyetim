@@ -3,10 +3,15 @@ import { createClient } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Supabase yapılandırması
-// NOT: Bu bilgileri kendi Supabase proje bilgilerinizle değiştirin
-export const SUPABASE_URL = "https://qyfagnhmhovhlpbllioq.supabase.co";
-export const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5ZmFnbmhtaG92aGxwYmxsaW9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MTA5NzksImV4cCI6MjA4OTE4Njk3OX0.pa7V7a3aHN11fXeHQZBFLokuJUo_0n4fuCBvP7QF-0A";
+// Değerler .env dosyasından okunur (bkz. EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY)
+export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error(
+    "Supabase yapılandırması eksik: .env dosyasında EXPO_PUBLIC_SUPABASE_URL ve EXPO_PUBLIC_SUPABASE_ANON_KEY tanımlı olmalı."
+  );
+}
 
 // Supabase client oluştur
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

@@ -143,24 +143,29 @@ export function isActivePurchase(purchase) {
 // ─── Purchase listener yönetimi ─────────────────────────────────────────────
 
 export function setupPurchaseListeners(onSuccess, onError) {
-  const successSub = purchaseUpdatedListener(async (purchase) => {
-    if (purchase?.transactionId || purchase?.id) {
-      try {
-        await finishTransaction({ purchase, isConsumable: false });
-      } catch {
-        /* ignore */
+  try {
+    const successSub = purchaseUpdatedListener(async (purchase) => {
+      if (purchase?.transactionId || purchase?.id) {
+        try {
+          await finishTransaction({ purchase, isConsumable: false });
+        } catch {
+          /* ignore */
+        }
+        onSuccess?.(purchase);
       }
-      onSuccess?.(purchase);
-    }
-  });
+    });
 
-  const errorSub = purchaseErrorListener((error) => {
-    const cancelled = error?.code === 'E_USER_CANCELLED';
-    if (!cancelled) onError?.(error);
-  });
+    const errorSub = purchaseErrorListener((error) => {
+      const cancelled = error?.code === 'E_USER_CANCELLED';
+      if (!cancelled) onError?.(error);
+    });
 
-  return () => {
-    successSub?.remove?.();
-    errorSub?.remove?.();
-  };
+    return () => {
+      successSub?.remove?.();
+      errorSub?.remove?.();
+    };
+  } catch (e) {
+    console.warn('IAP setupPurchaseListeners:', e?.message);
+    return () => {};
+  }
 }
