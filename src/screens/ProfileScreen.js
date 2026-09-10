@@ -18,6 +18,7 @@ import { bodyInfoService } from '../services/supabase';
 import { useToast } from '../contexts/ToastContext';
 import { useAIConsent } from '../contexts/AIConsentContext';
 import ConfirmModal from '../components/ui/ConfirmModal';
+import Skeleton from '../components/ui/Skeleton';
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -218,7 +219,26 @@ export default function ProfileScreen({ navigation }) {
           </View>
 
           {loading ? (
-            <ActivityIndicator color={COLORS.primary} style={{ marginVertical: SIZES.lg }} />
+            <>
+              <View style={styles.statsGrid}>
+                <View style={styles.statItem}>
+                  <Skeleton width={22} height={22} borderRadius={11} />
+                  <Skeleton width={30} height={18} style={{ marginTop: 4 }} />
+                  <Skeleton width={44} height={10} />
+                </View>
+                <View style={styles.statItem}>
+                  <Skeleton width={22} height={22} borderRadius={11} />
+                  <Skeleton width={30} height={18} style={{ marginTop: 4 }} />
+                  <Skeleton width={44} height={10} />
+                </View>
+                <View style={styles.statItem}>
+                  <Skeleton width={22} height={22} borderRadius={11} />
+                  <Skeleton width={30} height={18} style={{ marginTop: 4 }} />
+                  <Skeleton width={44} height={10} />
+                </View>
+              </View>
+              <Skeleton height={44} borderRadius={SIZES.radiusMedium} />
+            </>
           ) : bodyInfo ? (
             <>
               <View style={styles.statsGrid}>

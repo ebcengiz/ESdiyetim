@@ -21,6 +21,24 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-10 — Orta vadeli iyileştirmeler: AI caching/kuyruk, skeleton screen, streaming+haptic, DietPlanScreen refactor
+
+Önceki analiz raporundaki "Orta Vadeli İyileştirmeler" listesine geçildi (commit + devam talebi üzerine). Kullanıcı kısıtı hatırlatması: **hiçbir ücretli AI/servis katmanına geçilmeyecek** — bu oturumdaki hiçbir değişiklik ek maliyet getirmiyor (tamamı client-side).
+
+1. **`IOS_APP_STORE_YAYINLAMA_REHBERI.md` güncellendi** (kozmetik): Eski `1.0.0`/`13.4` referansları gerçek değerlere (`1.2`/`16.4`) çekildi, "iPhone ve iPad seçili" → "yalnızca iPhone" düzeltildi (uygulama tablet desteklemiyor).
+2. **AI önbellekleme + istek kuyruğu:** `src/services/aiCacheService.js` (AsyncStorage, prompt hash → 6 saat TTL) ve `src/services/aiRequestQueue.js` (tek kanallı sıra — eşzamanlı AI çağrılarını art arda yürütür, kota baskısını azaltır) eklendi. `aiService.js`'teki tek merkezi `call()` fonksiyonu bu ikisini sarmalayacak şekilde güncellendi — **tüm 6 metin tabanlı AI metodu otomatik olarak kapsandı**, tek tek değiştirilmelerine gerek kalmadı. `getMealCaloriesFromImage` de kuyruğa alındı (cache'lenmedi, her fotoğraf benzersiz).
+3. **Skeleton screen:** Yeniden kullanılabilir `src/components/ui/Skeleton.js` (nabız animasyonlu placeholder) eklendi. `ProfileScreen.js`'teki vücut bilgisi yükleme `ActivityIndicator`'ı gerçek layout'u taklit eden skeleton'a çevrildi. `MealCalorieScreen.js`'e analiz sırasında sonuç kartının yerini tutan bir skeleton eklendi. **Not:** `PaywallScreen.js` incelendi — oradaki `ActivityIndicator`'lar buton-içi yükleme spinner'ları (satın alma/restore), gerçek bir "içerik yükleniyor" anı yok (plan kartları statik `PLAN_META`'dan anında render oluyor) — skeleton'a çevrilmedi, gereksiz olurdu.
+4. **AI yanıtlarında simüle streaming + haptic:** `expo-haptics` eklendi. `AIAdviceCard.js`'e karakter-karakter açılan (typewriter benzeri, adım büyüklüğü metne göre ölçeklenen) bir reveal efekti + yanıt geldiğinde hafif (`Light`) haptic tık eklendi. `children` prop'uyla özel render eden çağrılar (bazı ekranlarda madde listesi) bu efekti almıyor, sadece düz `advice` metni.
+5. **DietPlanScreen.js refactor (1620 → 955 satır, ~%41 azalma):** Kullanıcıyla onaylanan kapsam: sadece en büyük dosyayla başla, güvenli/mekanik parçalarla sınırla, riskli düzenleme-formu modalına dokunma. Çıkarılanlar:
+   - `src/constants/dietPlanFields.js` (MEAL_FIELDS, EMPTY_FORM, MONTHS_TR — paylaşılan sabitler)
+   - `src/utils/dietPlanUtils.js` (toDateStr, sumKcalFromMealText, sumAllMealKcal — saf fonksiyonlar)
+   - `src/components/dietPlan/MealCard.js` (SectionTitle + MealCard)
+   - `src/components/dietPlan/MealFoodPickerSection.js` (kendi state'i olan besin arama/ekleme paneli)
+   - `src/components/dietPlan/DietPlanHistorySheet.js` (geçmiş planlar arama/filtre sheet'i)
+   - `src/components/dietPlan/DatePickerSheet.js` (tarih seçici sheet'i)
+   - Ana dosyada kalanlar: state yönetimi, veri yükleme, kaydet/sil, AI tavsiye çağrısı, ana ekran + düzenleme-formu modalı (bilinçli olarak dokunulmadı — çok fazla parent state'e bağımlı, ayırma riski/kazanç oranı düşük).
+   - **Doğrulama:** Her adımda Babel sözdizimi kontrolü + `npx expo export --platform ios` hatasız bundle. Simulator build'i (`expo run:ios --device "iPhone 17 Pro"`) tam CocoaPods yeniden kurulumu nedeniyle uzun sürdü (arka planda "takılı" görünüyordu ama aslında `tail -N | pipe` buffer'ı yüzündendi — süreç canlıydı); ekran görüntüsüyle doğrulandı: uygulama çökmeden açıldı, login ekranı normal render oldu, sistem loglarında `error`/`exception`/`TypeError` yok. **Kısıt:** Simulator'de tap simülasyonu için `idb` kurulu değil, bu yüzden DietPlanScreen'in (guest/login arkasında) gerçek ekran görüntüsü alınamadı — kullanıcının "Diyetim" sekmesini elle açıp görsel olarak kontrol etmesi önerilir. Metro/build süreci iş bitince temizlendi (`pkill`).
+
 ### 2026-09-10 — `PrivacyInfo.xcprivacy` App Store Connect beyanıyla eşleştirildi
 
 Kalan son kritik App Store maddesi tamamlandı. Önce App Store Connect'e (`claude-in-chrome`, kullanıcının açık izniyle) girilip mevcut "App Privacy" beyanı okundu — **beklenenin aksine ASC tarafı zaten doğru ve eksiksizdi**: 6 veri tipi (Name, Email Address, Health, Fitness, Photos or Videos, User ID) hepsi "Linked to the user's identity" olarak, App Functionality + Product Personalization amaçlarıyla beyan edilmiş. Asıl sorun, uygulama içindeki (`.ipa`'ya gömülen) `PrivacyInfo.xcprivacy` dosyasının bu beyanla **tutarsız** olmasıydı (`NSPrivacyCollectedDataTypes: []`).

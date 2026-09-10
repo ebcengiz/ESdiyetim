@@ -4,9 +4,18 @@
 
 import { callTextWithProviderChain, callMealCalorieVisionChain } from './ai/providers';
 import { AIConsentRequiredError } from './aiConsentService';
+import { getCached, setCached, cacheKeyForPrompt } from './aiCacheService';
+import { enqueueAIRequest } from './aiRequestQueue';
 
+/** Önbellekli + kuyruklu metin çağrısı: aynı prompt için tekrar ağa çıkmaz, eşzamanlı istekleri sıraya alır. */
 async function call(prompt) {
-  return callTextWithProviderChain(prompt);
+  const cacheKey = cacheKeyForPrompt(prompt);
+  const cached = await getCached(cacheKey);
+  if (cached) return { ...cached, fromCache: true };
+
+  const result = await enqueueAIRequest(() => callTextWithProviderChain(prompt));
+  setCached(cacheKey, result);
+  return result;
 }
 
 /** AI veri paylaşımı onayı verilmemişse true — bu durumda hata loglanmaz, sessizce fallback'e düşülür. */
@@ -266,7 +275,7 @@ Yanıtını SADECE geçerli bir JSON nesnesi olarak ver, başka metin veya markd
 
 Kurallar: items en fazla 8 eleman; emin değilsen confidence düşük yap.`;
 
-    return callMealCalorieVisionChain({ cleanMime, cleanB64, dataUrl, prompt });
+    return enqueueAIRequest(() => callMealCalorieVisionChain({ cleanMime, cleanB64, dataUrl, prompt }));
   },
 
   // ─── Deprecated provider wrappers (geriye uyumluluk) ──────────────────────

@@ -30,7 +30,7 @@ Bu rehber, ESdiyet uygulamasını Xcode üzerinden App Store'da yayınlamak içi
 
 ✅ **Proje Bilgileri:**
 - **Bundle ID:** `com.esdiyet.app`
-- **Versiyon:** 1.0.0
+- **Versiyon:** 1.2
 - **Build Number:** 1
 - **App İsmi:** ESdiyet
 - **App Icon:** ✅ Hazır (1024x1024 px)
@@ -125,11 +125,11 @@ open ios/ESdiyet.xcworkspace
 
 - **Display Name:** ESdiyet
 - **Bundle Identifier:** com.esdiyet.app
-- **Version:** 1.0.0
+- **Version:** 1.2
 - **Build:** 1
 - **Deployment Info:**
-  - **iOS:** 13.4 (minimum)
-  - **iPhone** ve **iPad** seçili
+  - **iOS:** 16.4 (minimum)
+  - Yalnızca **iPhone** seçili (tablet desteği kapalı, `supportsTablet: false`)
   - **Orientation:** Portrait
 
 ### Adım 4: Build Settings Kontrolleri
@@ -226,7 +226,7 @@ Build başarılı olursa, **Organizer** penceresi otomatik olarak açılacak.
 
 En son archive'iniz seçili gelecektir:
 - **Tarih ve saat** görünecek
-- **Version:** 1.0.0 (1)
+- **Version:** 1.2 (1)
 
 ### Adım 4: Distribute App
 
@@ -280,7 +280,7 @@ Build yüklendikten sonra App Store Connect'e geri dönün.
 App Store Connect'te uygulamanızın sayfasında:
 
 1. **1.0 Prepare for Submission** bölümüne gidin
-2. Sol menüden **iOS App** > **1.0.0** versiyonunu seçin
+2. Sol menüden **iOS App** > **1.2** versiyonunu seçin
 
 ### Adım 2: App Store Bilgileri Girin
 
@@ -386,7 +386,7 @@ https://yourwebsite.com
 
 1. **Build** bölümüne kaydırın
 2. **Select a build before you submit your app** bağlantısına tıklayın
-3. Az önce yüklediğiniz build'i seçin (1.0.0 - Build 1)
+3. Az önce yüklediğiniz build'i seçin (1.2 - Build 1)
 4. **Done** butonuna tıklayın
 
 > **Build görünmüyorsa:** Apple'ın build'i işlemesi 5-30 dakika sürebilir. Sayfayı yenileyip bekleyin.
@@ -561,7 +561,7 @@ Yayınlamadan önce bu listeyi kontrol edin:
 ### Teknik
 
 - [ ] Bundle ID doğru: `com.esdiyet.app`
-- [ ] Version: 1.0.0
+- [ ] Version: 1.2
 - [ ] Build Number: 1
 - [ ] App Icon 1024x1024 px ✅
 - [ ] Launch Screen ayarlanmış ✅

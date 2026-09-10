@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 
 const MIN_TOUCH = 44;
@@ -78,6 +79,45 @@ export default function AIAdviceCard({
   const { width: windowWidth, height: windowHeight, fontScale } = useWindowDimensions();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const expandAnim = useRef(new Animated.Value(defaultExpanded ? 1 : 0)).current;
+
+  // ─── Simüle edilmiş "yazılıyor" efekti ────────────────────────────────────
+  // API yanıtı tek seferde geliyor; gecikmeyi daha "canlı" hissettirmek için
+  // metni karakter karakter değil, kısa adımlarla kademeli olarak açıyoruz.
+  const [displayedText, setDisplayedText] = useState('');
+  const revealedForRef = useRef('');
+
+  useEffect(() => {
+    if (loading || children != null) return;
+    const full = advice || '';
+    if (revealedForRef.current === full) return;
+    revealedForRef.current = full;
+
+    if (!full) {
+      setDisplayedText('');
+      return undefined;
+    }
+
+    setDisplayedText('');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+
+    let shown = 0;
+    const totalDuration = Math.min(900, Math.max(260, full.length * 6));
+    const steps = Math.min(full.length, 60);
+    const stepChars = Math.max(1, Math.ceil(full.length / steps));
+    const intervalMs = Math.max(12, totalDuration / steps);
+
+    const id = setInterval(() => {
+      shown += stepChars;
+      if (shown >= full.length) {
+        setDisplayedText(full);
+        clearInterval(id);
+      } else {
+        setDisplayedText(full.slice(0, shown));
+      }
+    }, intervalMs);
+
+    return () => clearInterval(id);
+  }, [advice, loading, children]);
 
   const layout = useMemo(() => {
     const narrow = windowWidth < 360;
@@ -231,7 +271,7 @@ export default function AIAdviceCard({
                     children
                   ) : (
                     <Text style={styles.adviceText} maxFontSizeMultiplier={1.35}>
-                      {advice}
+                      {displayedText}
                     </Text>
                   )}
                 </View>

@@ -25,6 +25,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useAIConsent } from '../contexts/AIConsentContext';
+import Skeleton from '../components/ui/Skeleton';
 import { bypassPaywall } from '../utils/environment';
 
 const DISCLAIMER_STORAGE_KEY = 'mealCalorieHealthDisclaimerV1';
@@ -453,6 +454,25 @@ export default function MealCalorieScreen({ navigation }) {
             </LinearGradient>
           </TouchableOpacity>
         </Animated.View>
+
+        {loading && !result ? (
+          <View style={styles.resultCard}>
+            <View style={styles.resultHeaderBand}>
+              <Skeleton width={80} height={11} borderRadius={4} />
+              <Skeleton width="70%" height={20} style={{ marginTop: 8 }} />
+            </View>
+            <View style={styles.resultBody}>
+              <Skeleton width={120} height={34} style={{ marginBottom: SIZES.xs }} />
+              <Skeleton width={100} height={22} borderRadius={999} style={{ marginBottom: SIZES.md }} />
+              <View style={styles.itemsBox}>
+                <Skeleton width={110} height={13} style={{ marginBottom: SIZES.md }} />
+                <Skeleton height={10} style={{ marginBottom: SIZES.md }} />
+                <Skeleton height={10} width="80%" style={{ marginBottom: SIZES.md }} />
+                <Skeleton height={10} width="60%" />
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         {result ? (
           <Animated.View style={[styles.resultCard, resultAnimatedStyle]}>

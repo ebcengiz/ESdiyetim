@@ -3,13 +3,11 @@ import { useNavigation } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
   TouchableOpacity, Modal, Platform,
-  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { dietPlanService } from '../services/supabase';
 import { aiService } from '../services/aiService';
@@ -19,50 +17,12 @@ import PremiumGate from '../components/PremiumGate';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ui/ConfirmModal';
-import {
-  searchOpenFoodFacts,
-  getFoodNutritionAI,
-  calcNutritionForGrams,
-} from '../services/nutritionService';
-
-// ─── Sabitler ────────────────────────────────────────────────────────────────
-
-const MEAL_FIELDS = [
-  { key: 'breakfast',       icon: 'sunny-outline',        label: 'Kahvaltı',     color: '#F59E0B', placeholder: 'Kahvaltıda ne yenilecek?',          group: 'main'  },
-  { key: 'lunch',           icon: 'partly-sunny-outline', label: 'Öğle Yemeği',  color: '#10B981', placeholder: 'Öğle yemeğinde ne yenilecek?',       group: 'main'  },
-  { key: 'dinner',          icon: 'moon-outline',         label: 'Akşam Yemeği', color: '#6366F1', placeholder: 'Akşam yemeğinde ne yenilecek?',      group: 'main'  },
-  { key: 'morning_snack',   icon: 'cafe-outline',         label: 'Kuşluk',       color: '#EC4899', placeholder: 'Sabah ara öğünü...',                 group: 'snack' },
-  { key: 'afternoon_snack', icon: 'nutrition-outline',    label: 'İkindi',       color: '#14B8A6', placeholder: 'Öğleden sonra ara öğünü...',         group: 'snack' },
-  { key: 'evening_snack',   icon: 'moon-outline',         label: 'Gece',         color: '#8B5CF6', placeholder: 'Akşam ara öğünü...',                 group: 'snack' },
-];
-
-const EMPTY_FORM = {
-  breakfast: '', morning_snack: '', lunch: '',
-  afternoon_snack: '', dinner: '', evening_snack: '',
-  notes: '', total_calories: '',
-};
-
-/** "• Yumurta, 50g — 77 kcal" biçimindeki satırlardan kalori toplar */
-function sumKcalFromMealText(text) {
-  if (!text?.trim()) return 0;
-  let sum = 0;
-  for (const line of text.split('\n')) {
-    const m = line.match(/[—–-]\s*(\d+)\s*kcal/i);
-    if (m) sum += parseInt(m[1], 10) || 0;
-  }
-  return sum;
-}
-
-function sumAllMealKcal(form) {
-  return MEAL_FIELDS.reduce((acc, f) => acc + sumKcalFromMealText(form[f.key]), 0);
-}
-
-function toDateStr(d) {
-  const y = d.getFullYear();
-  const m = `${d.getMonth() + 1}`.padStart(2, '0');
-  const day = `${d.getDate()}`.padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
+import MealCard, { SectionTitle } from '../components/dietPlan/MealCard';
+import MealFoodPickerSection from '../components/dietPlan/MealFoodPickerSection';
+import DietPlanHistorySheet from '../components/dietPlan/DietPlanHistorySheet';
+import DatePickerSheet from '../components/dietPlan/DatePickerSheet';
+import { MEAL_FIELDS, EMPTY_FORM } from '../constants/dietPlanFields';
+import { toDateStr, sumAllMealKcal } from '../utils/dietPlanUtils';
 
 // ─── Ana Ekran ────────────────────────────────────────────────────────────────
 
@@ -131,8 +91,6 @@ export default function DietPlanScreen() {
     const yrs = [...new Set(allPlans.map((p) => new Date(p.date).getFullYear()))];
     return yrs.sort((a, b) => b - a);
   }, [allPlans]);
-
-  const MONTHS_TR = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
 
   /** Toplam kalori: besin satırlarından otomatik; kullanıcı alanı elle değiştirdiyse kilitle */
   const [totalCaloriesManual, setTotalCaloriesManual] = useState(false);
@@ -709,213 +667,33 @@ export default function DietPlanScreen() {
       </Modal>
 
       {/* ── GEÇMİŞ PLANLAR SHEET ──────────────────────────── */}
-      <Modal
+      <DietPlanHistorySheet
         visible={historyVisible}
-        animationType="slide"
-        transparent
-        statusBarTranslucent
-        onRequestClose={() => setHistoryVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { height: '92%' }]}>
-            <View style={styles.modalHandle} />
-
-            {/* Başlık */}
-            <View style={styles.modalHeader}>
-              <Ionicons name="time-outline" size={20} color={COLORS.primary} />
-              <View style={{ flex: 1, marginLeft: SIZES.sm }}>
-                <Text style={styles.modalTitle}>Geçmiş Planlar</Text>
-                <Text style={styles.modalSubtitle}>{allPlans.length} plan kayıtlı</Text>
-              </View>
-              <TouchableOpacity onPress={() => setHistoryVisible(false)} style={styles.modalCloseBtn}>
-                <Ionicons name="close" size={20} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Arama */}
-            <View style={hist.searchBox}>
-              <Ionicons name="search-outline" size={16} color={COLORS.textSecondary} />
-              <TextInput
-                style={hist.searchInput}
-                placeholder="Öğün içeriğinde ara..."
-                placeholderTextColor={COLORS.textLight}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <Ionicons name="close-circle" size={16} color={COLORS.textLight} />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Yıl filtresi */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={hist.filterRow} contentContainerStyle={{ gap: 8, paddingHorizontal: SIZES.containerPadding }}>
-              <TouchableOpacity
-                style={[hist.filterChip, filterYear === null && hist.filterChipActive]}
-                onPress={() => { setFilterYear(null); setFilterMonth(null); }}
-              >
-                <Text style={[hist.filterChipText, filterYear === null && hist.filterChipTextActive]}>Tümü</Text>
-              </TouchableOpacity>
-              {availableYears.map((y) => (
-                <TouchableOpacity
-                  key={y}
-                  style={[hist.filterChip, filterYear === y && hist.filterChipActive]}
-                  onPress={() => { setFilterYear(y); setFilterMonth(null); }}
-                >
-                  <Text style={[hist.filterChipText, filterYear === y && hist.filterChipTextActive]}>{y}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Ay filtresi (yıl seçiliyse) */}
-            {filterYear !== null && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={hist.filterRow} contentContainerStyle={{ gap: 8, paddingHorizontal: SIZES.containerPadding }}>
-                <TouchableOpacity
-                  style={[hist.filterChip, filterMonth === null && hist.filterChipActive]}
-                  onPress={() => setFilterMonth(null)}
-                >
-                  <Text style={[hist.filterChipText, filterMonth === null && hist.filterChipTextActive]}>Tüm Aylar</Text>
-                </TouchableOpacity>
-                {MONTHS_TR.map((name, idx) => {
-                  const hasPlans = allPlans.some((p) => {
-                    const d = new Date(p.date);
-                    return d.getFullYear() === filterYear && d.getMonth() === idx;
-                  });
-                  if (!hasPlans) return null;
-                  return (
-                    <TouchableOpacity
-                      key={idx}
-                      style={[hist.filterChip, filterMonth === idx && hist.filterChipActive]}
-                      onPress={() => setFilterMonth(idx)}
-                    >
-                      <Text style={[hist.filterChipText, filterMonth === idx && hist.filterChipTextActive]}>{name}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )}
-
-            {/* Sonuç sayısı */}
-            <Text style={hist.resultCount}>
-              {filteredPlans.length} plan gösteriliyor
-            </Text>
-
-            {/* Plan listesi */}
-            {historyLoading ? (
-              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator color={COLORS.primary} size="large" />
-              </View>
-            ) : filteredPlans.length === 0 ? (
-              <View style={hist.empty}>
-                <Ionicons name="calendar-outline" size={48} color={COLORS.textLight} />
-                <Text style={hist.emptyText}>Bu kriterlere uygun plan yok</Text>
-              </View>
-            ) : (
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: SIZES.containerPadding, paddingBottom: 32 }}>
-                {filteredPlans.map((plan) => {
-                  const d = new Date(plan.date);
-                  const meals = MEAL_FIELDS.filter((f) => plan[f.key]?.trim());
-                  const isSelected = toDateStr(d) === toDateStr(selectedDate);
-                  return (
-                    <TouchableOpacity
-                      key={plan.id}
-                      style={[hist.card, isSelected && hist.cardSelected]}
-                      onPress={() => {
-                        setSelectedDate(d);
-                        setHistoryVisible(false);
-                      }}
-                      activeOpacity={0.75}
-                    >
-                      {/* Tarih */}
-                      <View style={hist.cardTop}>
-                        <View style={hist.dateWrap}>
-                          <Text style={hist.dateDay}>{d.getDate()}</Text>
-                          <Text style={hist.dateMonthYear}>
-                            {d.toLocaleDateString('tr-TR', { month: 'short', year: 'numeric' })}
-                          </Text>
-                        </View>
-                        <View style={{ flex: 1, marginLeft: SIZES.md }}>
-                          <Text style={hist.weekday}>
-                            {d.toLocaleDateString('tr-TR', { weekday: 'long' })}
-                          </Text>
-                          <View style={hist.mealPills}>
-                            {meals.map((f) => (
-                              <View key={f.key} style={[hist.mealPill, { backgroundColor: f.color + '22' }]}>
-                                <Ionicons name={f.icon} size={10} color={f.color} />
-                                <Text style={[hist.mealPillText, { color: f.color }]}>{f.label}</Text>
-                              </View>
-                            ))}
-                          </View>
-                        </View>
-                        {plan.total_calories ? (
-                          <View style={hist.kcalBadge}>
-                            <Ionicons name="flame" size={11} color="#F59E0B" />
-                            <Text style={hist.kcalText}>{plan.total_calories}</Text>
-                            <Text style={hist.kcalUnit}>kcal</Text>
-                          </View>
-                        ) : null}
-                      </View>
-
-                      {/* Önizleme */}
-                      {(plan.breakfast || plan.lunch || plan.dinner) ? (
-                        <Text style={hist.preview} numberOfLines={1}>
-                          {[plan.breakfast, plan.lunch, plan.dinner].filter(Boolean).join('  •  ')}
-                        </Text>
-                      ) : null}
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setHistoryVisible(false)}
+        allPlans={allPlans}
+        filteredPlans={filteredPlans}
+        historyLoading={historyLoading}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        filterYear={filterYear}
+        onFilterYearChange={setFilterYear}
+        filterMonth={filterMonth}
+        onFilterMonthChange={setFilterMonth}
+        availableYears={availableYears}
+        selectedDate={selectedDate}
+        onSelectPlanDate={(d) => {
+          setSelectedDate(d);
+          setHistoryVisible(false);
+        }}
+      />
 
       {/* ── TARİH SEÇİCİ MODAL ─────────────────────────────── */}
-      <Modal
+      <DatePickerSheet
         visible={showDatePicker}
-        animationType="slide"
-        transparent
-        statusBarTranslucent
-        onRequestClose={() => setShowDatePicker(false)}
-      >
-        <TouchableOpacity
-          style={styles.dpOverlay}
-          activeOpacity={1}
-          onPress={() => setShowDatePicker(false)}
-        >
-          <View style={styles.dpSheet}>
-            <View style={styles.dpHandle} />
-            <View style={styles.dpHeader}>
-              <Text style={styles.dpTitle}>Tarih Seç</Text>
-              <TouchableOpacity onPress={() => setShowDatePicker(false)} style={styles.dpCloseBtn}>
-                <Ionicons name="close" size={20} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            <DateTimePicker
-              value={selectedDate}
-              mode="date"
-              display="spinner"
-              onChange={onDatePickerChange}
-              locale="tr-TR"
-              style={{ width: '100%' }}
-            />
-            <TouchableOpacity
-              style={styles.dpDoneBtn}
-              onPress={() => setShowDatePicker(false)}
-            >
-              <LinearGradient
-                colors={[COLORS.primary, COLORS.primaryDark]}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                style={styles.dpDoneGradient}
-              >
-                <Text style={styles.dpDoneText}>Tamam</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        onClose={() => setShowDatePicker(false)}
+        value={selectedDate}
+        onChange={onDatePickerChange}
+      />
 
       {/* ── SİL ONAY ───────────────────────────────────────── */}
       <ConfirmModal
@@ -930,214 +708,6 @@ export default function DietPlanScreen() {
       />
     </View>
     </PremiumGate>
-  );
-}
-
-// ─── Alt Bileşenler ───────────────────────────────────────────────────────────
-
-function SectionTitle({ label }) {
-  return (
-    <View style={sec.titleRow}>
-      <View style={sec.titleLine} />
-      <Text style={sec.titleText}>{label}</Text>
-      <View style={sec.titleLine} />
-    </View>
-  );
-}
-
-function MealCard({ meal, value, loading, onPress }) {
-  const filled = !!value?.trim();
-  return (
-    <TouchableOpacity style={card.wrap} onPress={onPress} activeOpacity={0.75}>
-      <View style={[card.iconBubble, { backgroundColor: meal.color + '1A' }]}>
-        <Ionicons name={meal.icon} size={20} color={meal.color} />
-      </View>
-      <View style={card.body}>
-        <Text style={card.label}>{meal.label}</Text>
-        {loading ? (
-          <View style={card.skeleton} />
-        ) : filled ? (
-          <Text style={card.content} numberOfLines={2}>{value}</Text>
-        ) : (
-          <Text style={card.empty}>Eklemek için dokunun</Text>
-        )}
-      </View>
-      <View style={[card.statusDot, { backgroundColor: filled ? '#22C55E' : COLORS.border }]} />
-    </TouchableOpacity>
-  );
-}
-
-/** Besin günlüğü ile aynı kaynak: OFF/USDA araması + AI + gram/ml → satıra yazılır (kendi state'i var) */
-function MealFoodPickerSection({ field, formValue, onAppend, onRemoveLine, showToast }) {
-  const [pickQuery, setPickQuery] = React.useState('');
-  const [pickResults, setPickResults] = React.useState([]);
-  const [pickSearching, setPickSearching] = React.useState(false);
-  const [pickFood, setPickFood] = React.useState(null);
-  const [pickGrams, setPickGrams] = React.useState('100');
-  const [pickAiLoading, setPickAiLoading] = React.useState(false);
-
-  const foodLines = React.useMemo(() => {
-    if (!formValue?.trim()) return [];
-    return formValue.split('\n').filter((l) => l.trim());
-  }, [formValue]);
-
-  const handleSearch = React.useCallback(async (text) => {
-    setPickQuery(text);
-    setPickFood(null);
-    if (text.trim().length < 2) { setPickResults([]); return; }
-    setPickSearching(true);
-    try {
-      const results = await searchOpenFoodFacts(text.trim());
-      setPickResults(results.slice(0, 12));
-    } catch {
-      setPickResults([]);
-    } finally {
-      setPickSearching(false);
-    }
-  }, []);
-
-  const handleAISearch = async () => {
-    if (!pickQuery.trim()) { showToast('Önce bir besin adı girin.', 'warning'); return; }
-    setPickAiLoading(true);
-    setPickFood(null);
-    try {
-      const food = await getFoodNutritionAI(pickQuery.trim(), false);
-      setPickFood(food);
-      setPickResults([]);
-    } catch (e) {
-      showToast(e.message || 'AI analizi başarısız.', 'error');
-    } finally {
-      setPickAiLoading(false);
-    }
-  };
-
-  const handleAppend = () => {
-    if (!pickFood) { showToast('Önce bir besin seçin.', 'warning'); return; }
-    const g = parseFloat(pickGrams);
-    if (!g || g <= 0) {
-      showToast(pickFood.isDrink ? 'Geçerli bir ml değeri girin.' : 'Geçerli bir gram değeri girin.', 'warning');
-      return;
-    }
-    const calc = calcNutritionForGrams(pickFood, g);
-    const unit = pickFood.isDrink ? 'ml' : 'g';
-    const kcal = Math.round(calc.calories || 0);
-    onAppend(`• ${pickFood.name}, ${g}${unit} — ${kcal} kcal`);
-    setPickQuery('');
-    setPickResults([]);
-    setPickFood(null);
-    setPickGrams('100');
-  };
-
-  const g = parseFloat(pickGrams) || 0;
-  const preview = pickFood && g > 0
-    ? Math.round(calcNutritionForGrams(pickFood, g).calories || 0)
-    : null;
-
-  return (
-    <View style={mp.wrap}>
-      {/* Öğün başlığı */}
-      <View style={mp.mealHeader}>
-        <View style={[mp.mealIconBubble, { backgroundColor: field.color + '1A' }]}>
-          <Ionicons name={field.icon} size={14} color={field.color} />
-        </View>
-        <Text style={mp.mealLabel}>{field.label}</Text>
-        {foodLines.length > 0 && (
-          <View style={[mp.countBadge, { backgroundColor: field.color }]}>
-            <Text style={mp.countBadgeText}>{foodLines.length}</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Eklenen besinler (silinebilir satırlar) */}
-      {foodLines.map((line, idx) => (
-        <View key={idx} style={mp.foodLineRow}>
-          <Ionicons name="checkmark-circle" size={15} color="#22C55E" />
-          <Text style={mp.foodLineText} numberOfLines={1}>{line.replace(/^•\s*/, '')}</Text>
-          <TouchableOpacity onPress={() => onRemoveLine(idx)} hitSlop={8}>
-            <Ionicons name="close-circle" size={18} color={COLORS.textLight} />
-          </TouchableOpacity>
-        </View>
-      ))}
-
-      {/* Arama paneli */}
-      <View style={mp.panel}>
-        <View style={mp.searchRow}>
-          <Ionicons name="search-outline" size={16} color={COLORS.textSecondary} />
-          <TextInput
-            style={mp.searchInput}
-            placeholder="Ara: elma, yoğurt, tavuk..."
-            placeholderTextColor={COLORS.textLight}
-            value={pickQuery}
-            onChangeText={handleSearch}
-            returnKeyType="search"
-            onSubmitEditing={handleAISearch}
-          />
-        </View>
-        <TouchableOpacity
-          style={[mp.aiBtn, (!pickQuery.trim() || pickAiLoading) && { opacity: 0.55 }]}
-          onPress={handleAISearch}
-          disabled={pickAiLoading || !pickQuery.trim()}
-        >
-          {pickAiLoading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <>
-              <Ionicons name="sparkles" size={14} color="#fff" />
-              <Text style={mp.aiBtnText}>AI ile tam analiz (Türkçe)</Text>
-            </>
-          )}
-        </TouchableOpacity>
-        {pickSearching ? (
-          <View style={mp.searchingRow}>
-            <ActivityIndicator size="small" color={COLORS.primary} />
-            <Text style={mp.searchingText}>Aranıyor...</Text>
-          </View>
-        ) : null}
-        {!pickFood && pickResults.length > 0 ? (
-          <ScrollView style={mp.resultsScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
-            {pickResults.map((item, idx) => (
-              <TouchableOpacity
-                key={`${item.id}_${idx}`}
-                style={mp.resultItem}
-                onPress={() => { setPickFood(item); setPickResults([]); }}
-                activeOpacity={0.72}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={mp.resultName} numberOfLines={2}>{item.name}</Text>
-                  {item.brand ? <Text style={mp.resultBrand} numberOfLines={1}>{item.brand}</Text> : null}
-                </View>
-                <Text style={mp.resultKcal}>{item.calories} /100{item.isDrink ? 'ml' : 'g'}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        ) : null}
-        {pickFood ? (
-          <View style={mp.selectedCard}>
-            <View style={mp.selectedHeader}>
-              <Text style={mp.selectedName} numberOfLines={2}>{pickFood.name}</Text>
-              <TouchableOpacity onPress={() => setPickFood(null)} hitSlop={12}>
-                <Ionicons name="close-circle" size={22} color={COLORS.textLight} />
-              </TouchableOpacity>
-            </View>
-            <View style={mp.gramRow}>
-              <Text style={mp.gramLabel}>{pickFood.isDrink ? 'Miktar (ml)' : 'Miktar (g)'}</Text>
-              <TextInput
-                style={mp.gramInput}
-                value={pickGrams}
-                onChangeText={setPickGrams}
-                keyboardType="decimal-pad"
-                placeholder={pickFood.isDrink ? '200' : '100'}
-              />
-            </View>
-            {preview != null ? <Text style={mp.estKcal}>Tahmini: {preview} kcal</Text> : null}
-            <TouchableOpacity style={mp.addBtn} onPress={handleAppend} activeOpacity={0.85}>
-              <Ionicons name="add-circle-outline" size={18} color="#fff" />
-              <Text style={mp.addBtnText}>Ekle</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-      </View>
-    </View>
   );
 }
 
@@ -1187,35 +757,6 @@ const styles = StyleSheet.create({
   },
   dateLabel: { textAlign: 'center', fontSize: SIZES.body, fontWeight: '700', color: '#fff' },
   dateLabelHint: { textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
-  // Tarih seçici modal
-  dpOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
-  dpSheet: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingBottom: Platform.OS === 'ios' ? 32 : 20,
-  },
-  dpHandle: {
-    width: 40, height: 4, borderRadius: 2,
-    backgroundColor: COLORS.border, alignSelf: 'center', marginTop: 12, marginBottom: 4,
-  },
-  dpHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SIZES.containerPadding, paddingVertical: SIZES.sm,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-  },
-  dpTitle: { fontSize: SIZES.h4, fontWeight: '800', color: COLORS.text, letterSpacing: -0.3 },
-  dpCloseBtn: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: COLORS.surfaceAlt, justifyContent: 'center', alignItems: 'center',
-  },
-  dpDoneBtn: {
-    marginHorizontal: SIZES.containerPadding, marginTop: SIZES.sm,
-    borderRadius: SIZES.radiusMedium, overflow: 'hidden',
-  },
-  dpDoneGradient: {
-    alignItems: 'center', justifyContent: 'center', paddingVertical: 14,
-  },
-  dpDoneText: { fontSize: SIZES.body, fontWeight: '700', color: '#fff' },
 
   // İlerleme
   progressCard: {
@@ -1412,209 +953,3 @@ const styles = StyleSheet.create({
   autoKcalBtnText: { fontSize: SIZES.small, fontWeight: '700', color: COLORS.primary },
 });
 
-const mp = StyleSheet.create({
-  wrap: { marginBottom: SIZES.md },
-  mealHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8,
-  },
-  mealIconBubble: {
-    width: 28, height: 28, borderRadius: 14,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  mealLabel: { flex: 1, fontSize: SIZES.small, fontWeight: '700', color: COLORS.text },
-  countBadge: {
-    minWidth: 20, height: 20, borderRadius: 10,
-    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 5,
-  },
-  countBadgeText: { fontSize: 11, fontWeight: '800', color: '#fff' },
-  foodLineRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#F0FDF4', borderRadius: SIZES.radius,
-    borderWidth: 1, borderColor: '#BBF7D0',
-    paddingHorizontal: SIZES.sm, paddingVertical: 7, marginBottom: 4,
-  },
-  foodLineText: { flex: 1, fontSize: 12, color: COLORS.text, fontWeight: '500' },
-  panel: {
-    backgroundColor: COLORS.surfaceAlt,
-    borderRadius: SIZES.radius,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: SIZES.sm,
-    marginBottom: SIZES.sm,
-  },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radius,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: SIZES.sm,
-    marginBottom: SIZES.sm,
-  },
-  searchInput: { flex: 1, paddingVertical: 10, fontSize: SIZES.small, color: COLORS.text },
-  aiBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: COLORS.primary,
-    borderRadius: SIZES.radius,
-    paddingVertical: 10,
-    marginBottom: SIZES.sm,
-  },
-  aiBtnText: { fontSize: 12, fontWeight: '700', color: '#fff' },
-  searchingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SIZES.sm },
-  searchingText: { fontSize: 12, color: COLORS.textSecondary },
-  resultsScroll: { maxHeight: 160, marginBottom: SIZES.sm },
-  resultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    gap: SIZES.sm,
-  },
-  resultName: { fontSize: 13, fontWeight: '600', color: COLORS.text },
-  resultBrand: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
-  resultKcal: { fontSize: 11, fontWeight: '700', color: COLORS.primary },
-  selectedCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radius,
-    padding: SIZES.sm,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  selectedHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: SIZES.sm, marginBottom: SIZES.sm },
-  selectedName: { flex: 1, fontSize: SIZES.body, fontWeight: '700', color: COLORS.text },
-  gramRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: SIZES.sm,
-    gap: SIZES.sm,
-  },
-  gramLabel: { fontSize: SIZES.small, fontWeight: '600', color: COLORS.textSecondary },
-  gramInput: {
-    minWidth: 88,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: SIZES.radius,
-    paddingHorizontal: SIZES.sm,
-    paddingVertical: 8,
-    fontSize: SIZES.body,
-    fontWeight: '700',
-    color: COLORS.text,
-    textAlign: 'right',
-    backgroundColor: COLORS.surfaceAlt,
-  },
-  estKcal: { fontSize: SIZES.small, fontWeight: '700', color: '#F59E0B', marginBottom: SIZES.sm },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: COLORS.primaryDark,
-    borderRadius: SIZES.radius,
-    paddingVertical: 11,
-  },
-  addBtnText: { fontSize: SIZES.body, fontWeight: '700', color: '#fff' },
-});
-
-// Bölüm başlığı
-const sec = StyleSheet.create({
-  titleRow: {
-    flexDirection: 'row', alignItems: 'center',
-    marginHorizontal: SIZES.containerPadding,
-    marginTop: SIZES.md, marginBottom: SIZES.sm, gap: SIZES.sm,
-  },
-  titleLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
-  titleText: { fontSize: 11, fontWeight: '800', color: COLORS.textSecondary, letterSpacing: 0.5, textTransform: 'uppercase' },
-});
-
-// Öğün kartı
-const card = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radiusLarge, padding: SIZES.md,
-    marginHorizontal: SIZES.containerPadding, marginBottom: SIZES.sm,
-    gap: SIZES.sm, borderWidth: 1, borderColor: COLORS.border,
-    ...SHADOWS.small,
-  },
-  iconBubble: {
-    width: 44, height: 44, borderRadius: 22,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  body: { flex: 1 },
-  label: { fontSize: SIZES.small, fontWeight: '700', color: COLORS.text, marginBottom: 2 },
-  content: { fontSize: SIZES.small, color: COLORS.textSecondary, lineHeight: 18 },
-  empty: { fontSize: SIZES.small, color: COLORS.textLight, fontStyle: 'italic' },
-  skeleton: { height: 12, width: '60%', borderRadius: 6, backgroundColor: COLORS.shimmer },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-});
-
-
-// ─── Geçmiş planlar sheet stilleri ───────────────────────────────────────────
-const hist = StyleSheet.create({
-  searchBox: {
-    flexDirection: 'row', alignItems: 'center',
-    marginHorizontal: SIZES.containerPadding, marginBottom: SIZES.sm,
-    backgroundColor: COLORS.surfaceAlt, borderRadius: SIZES.radius,
-    borderWidth: 1, borderColor: COLORS.border,
-    paddingHorizontal: SIZES.sm, paddingVertical: 10, gap: SIZES.sm,
-  },
-  searchInput: { flex: 1, fontSize: SIZES.body, color: COLORS.text },
-  filterRow: { marginBottom: 6, flexGrow: 0 },
-  filterChip: {
-    paddingHorizontal: 14, paddingVertical: 7,
-    borderRadius: 999, backgroundColor: COLORS.surfaceAlt,
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  filterChipActive: {
-    backgroundColor: COLORS.primary, borderColor: COLORS.primary,
-  },
-  filterChipText: { fontSize: SIZES.small, fontWeight: '700', color: COLORS.textSecondary },
-  filterChipTextActive: { color: '#fff' },
-  resultCount: {
-    fontSize: SIZES.small, color: COLORS.textSecondary, fontWeight: '600',
-    paddingHorizontal: SIZES.containerPadding, marginBottom: SIZES.sm, marginTop: 4,
-  },
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: SIZES.sm },
-  emptyText: { fontSize: SIZES.body, color: COLORS.textLight, fontWeight: '600' },
-  card: {
-    backgroundColor: COLORS.surface, borderRadius: SIZES.radiusLarge,
-    padding: SIZES.md, marginBottom: SIZES.sm,
-    borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.small,
-  },
-  cardSelected: { borderColor: COLORS.primary, borderWidth: 1.5 },
-  cardTop: { flexDirection: 'row', alignItems: 'center' },
-  dateWrap: {
-    width: 44, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: COLORS.highlight, borderRadius: SIZES.radius,
-    paddingVertical: 6,
-  },
-  dateDay: { fontSize: SIZES.h3, fontWeight: '800', color: COLORS.primary, lineHeight: 28 },
-  dateMonthYear: { fontSize: 9, fontWeight: '700', color: COLORS.primary, opacity: 0.8, textTransform: 'uppercase' },
-  weekday: { fontSize: SIZES.small, fontWeight: '700', color: COLORS.text, marginBottom: 4, textTransform: 'capitalize' },
-  mealPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  mealPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    paddingHorizontal: 6, paddingVertical: 3, borderRadius: 999,
-  },
-  mealPillText: { fontSize: 9, fontWeight: '700' },
-  kcalBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 2,
-    backgroundColor: '#FEF3C7', borderRadius: 999,
-    paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start',
-  },
-  kcalText: { fontSize: SIZES.small, fontWeight: '800', color: '#92400E' },
-  kcalUnit: { fontSize: 10, color: '#92400E', fontWeight: '600' },
-  preview: {
-    fontSize: SIZES.small, color: COLORS.textSecondary,
-    marginTop: SIZES.sm, paddingTop: SIZES.sm,
-    borderTopWidth: 1, borderTopColor: COLORS.border, lineHeight: 18,
-  },
-});
