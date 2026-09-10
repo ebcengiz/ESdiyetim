@@ -21,6 +21,17 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-10 — `eas.json` build image düzeltmesi + yerel dev build doğrulaması
+"Yapılacaklar" listesindeki iki maddeye de girişildi:
+
+1. **`eas.json` build image (ÖNEMLİ, çözüldü):** Web araştırmasıyla doğrulandı — Expo SDK 57 / RN 0.86 için önerilen EAS build image'ı **`macos-tahoe-26.5-xcode-26.6`** (Xcode 26.6), eski pin ise **`macos-sequoia-15.3-xcode-16.2`** (Xcode 16.2) idi — SDK 57 minimum Xcode 26.4 gerektiriyor, yani eski pin bir sonraki EAS build'i **kesin kırardı**. `eas.json`'daki `preview` ve `production` profillerinin `ios.image` alanı `macos-tahoe-26.5-xcode-26.6` olarak güncellendi. Yerel Xcode sürümü de zaten 26.6 (`xcodebuild -version`) — tutarlı. Kaynak: Expo build-reference/infrastructure dokümantasyonu.
+2. **`expo-iap` yerel doğrulaması (kısmen tamamlandı, beklenenden iyi sonuç):** "Gerçek cihazda satın alma tamamlama" (Apple sandbox hesabına giriş + "Satın Al" dokunuşu) fiziksel cihaz + insan etkileşimi gerektirdiği için ajan tarafından yapılamaz (Apple hesabına kimlik bilgisi girmek zaten yasak bir eylem). Onun yerine: `ios/` klasörü `npx expo prebuild --clean -p ios` ile SDK 57/RN 0.86'ya göre yeniden üretildi, CocoaPods kuruldu, `npx expo run:ios --device "iPhone 17 Pro"` ile **development build simulator'de derlendi (0 hata, 2 zararsız uyarı — duplicate `-lc++` ve `UIDeviceFamily` Info.plist uyarısı)**. Uygulama çökmeden açıldı (login ekranı normal render oldu). `xcrun simctl spawn booted log stream` ile yakalanan gerçek sistem logları şunu **doğruladı**:
+   - `🟢 Registering module 'ExpoIap'` + `🟢 Creating JS object for module 'ExpoIap'` — native modül Expo Go'nun aksine gerçekten yükleniyor.
+   - `[ExpoIap] fetchProducts payload: {"skus":["com.esdiyet.app.premium.monthly","com.esdiyet.app.premium.quarterly","com.esdiyet.app.premium.yearly"],"type":"subs"}` ve ardından **`storekitd` üzerinden gerçek Apple sandbox StoreKit isteği** atıldı, **gerçek ürün verisiyle** (`"ESdiyet 3-Month Premium"`, `"displayPrice":"$9.99"` vb.) sonuç döndü.
+   - Uygulama loglarında `error`/`uncaught`/`fatal`/`exception` araması **temiz** çıktı (sadece normal ATS/localhost networking gürültüsü var, ATS local networking simulator dev-mode'da beklenen bir şey).
+   
+   **Sonuç:** SDK 57 yükseltmesi sonrası `expo-iap` entegrasyonu (native modül yükleme + ürün listeleme) **çalışıyor**, App Store Connect'teki ürünler doğru yapılandırılmış. Kalan tek adım — gerçek satın alma tamamlama + restore akışının uçtan uca tıklanarak test edilmesi — hâlâ kullanıcının TestFlight/gerçek cihazda kendisinin yapması gereken manuel bir adım.
+
 ### 2026-09-10 — Oturum değişiklikleri commit + push edildi
 SDK 57 yükseltmesi + IAP/Supabase düzeltmeleri + AGENTS.md/CLAUDE.md/hafiza.md güncellemeleri tek commit'te birleştirildi: `2551437` — "Expo SDK 54'ten 57'ye yükselt, IAP crash ve Supabase config sorunlarını düzelt". 8 dosya değişti: `AGENTS.md` (yeni), `hafiza.md` (yeni), `CLAUDE.md`, `app.json`, `package.json`, `package-lock.json`, `src/services/subscriptionService.js`, `src/services/supabase.js`. `origin/master`'a push edildi (`17fc30c..2551437`). Bu hafiza.md güncellemesi (bu girdi + commit-durumu/TODO düzeltmeleri) ayrı bir takip commit'i olarak eklenecek.
 
@@ -73,11 +84,8 @@ Kullanıcının telefonunda Expo Go SDK 57 kullanıyordu, proje SDK 54'teydi →
 
 - [x] ~~AGENTS.md ve CLAUDE.md dosyalarını bugünkü SDK 57 / deploymentTarget 16.4 / env-based Supabase config değişiklikleriyle güncelle.~~ (2026-09-10 tamamlandı)
 - [x] ~~Bu oturumdaki değişiklikleri commit'le ve push et.~~ (2026-09-10 tamamlandı, commit `2551437`, `origin/master`'a push edildi)
-- [ ] `eas.json` build image'ının SDK 57/RN 0.86 ile uyumluluğunu bir sonraki EAS build denemesinde doğrula.
-- [ ] Gerçek cihazda development build alıp `expo-iap` akışını (satın alma, restore) uçtan uca test et — Expo Go'da test edilemiyor.
-- [ ] `tsconfig.json`'a `supabase/functions/**` için `exclude` ekleyerek Deno kaynaklı sahte `tsc` hatalarını temizle (opsiyonel, kozmetik).
-- [ ] Supabase projesinin uzun süre kullanılmayacağı dönemlerde otomatik pause'u önlemek için basit bir "keep-alive" (örn. periyodik health-check cron) değerlendirilebilir — ama kullanıcı Pro plana geçmeyeceğini belirtti, bu yüzden bu madde düşük öncelikli/opsiyonel.
-- [ ] App Store yayın durumu net doğrulanmadı (`app.json` version 1.2 / buildNumber 1) — bir sonraki oturumda kullanıcıya sorulup bu dosyaya not düşülebilir.
+- [x] ~~`eas.json` build image'ının SDK 57/RN 0.86 ile uyumluluğunu doğrula.~~ (2026-09-10 tamamlandı — `macos-sequoia-15.3-xcode-16.2` → `macos-tahoe-26.5-xcode-26.6` olarak güncellendi, bkz. yukarı)
+- [ ] **(Kullanıcı yapmalı)** TestFlight/gerçek cihazda Apple sandbox hesabıyla `expo-iap` **satın alma tamamlama + restore** akışını uçtan uca tıklayarak test et. Native modül yükleme ve ürün listeleme (fetchProducts) zaten simulator'de gerçek StoreKit sandbox verisiyle doğrulandı (bkz. yukarıdaki günlük girdisi) — kalan sadece ödeme ekranı etkileşimi, bu adım insan etkileşimi gerektirdiği için ajan tarafından tamamlanamaz.
 
 ---
 

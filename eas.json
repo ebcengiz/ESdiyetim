@@ -14,13 +14,13 @@
         "EXPO_PUBLIC_IS_TESTFLIGHT": "true"
       },
       "ios": {
-        "image": "macos-sequoia-15.3-xcode-16.2"
+        "image": "macos-tahoe-26.5-xcode-26.6"
       }
     },
     "production": {
       "autoIncrement": true,
       "ios": {
-        "image": "macos-sequoia-15.3-xcode-16.2"
+        "image": "macos-tahoe-26.5-xcode-26.6"
       }
     }
   },
