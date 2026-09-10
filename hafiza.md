@@ -185,9 +185,12 @@ Kullanıcının telefonunda Expo Go SDK 57 kullanıyordu, proje SDK 54'teydi →
 - [x] ~~AI veri paylaşımı onay akışını Guideline 5.1.2(i)'ye uygun hale getir.~~ (2026-09-10 tamamlandı — bkz. yukarıdaki günlük girdisi. Uçtan uca elle test: kullanıcının TestFlight/gerçek hesapla yapması gerekiyor.)
 - [x] ~~`PrivacyInfo.xcprivacy` ve App Store Connect "App Privacy" beyanını eşleştir.~~ (2026-09-10 tamamlandı — `app.json` → `ios.privacyManifests`)
 - [x] ~~`npx expo install expo-font` ile eksik peer dependency'yi gider.~~ (2026-09-10 tamamlandı)
-- [ ] `IOS_APP_STORE_YAYINLAMA_REHBERI.md` içindeki eski versiyon (1.0.0) / minimum iOS (13.4) bilgilerini güncelle (kozmetik, gerçek değerler: 1.2 / 16.4).
-- [ ] Orta vadeli: AI yanıtları için caching + öncelikli istek kuyruğu, kalan ekranlarda (ProfileScreen, PaywallScreen, MealCalorieScreen) skeleton screen, AI yanıtlarında simüle streaming efekti + haptic feedback, büyük ekran dosyalarının (DietPlanScreen, FoodLogScreen, HomeScreen) katmanlara ayrıştırılması. Detaylar için ~/.claude/plans/ altındaki analiz raporuna bakılabilir — proje dışı, kalıcı değil, gerekirse tekrar üretilmeli.
-- [ ] Bir sonraki EAS/TestFlight build'inde uçtan uca elle doğrulanması gerekenler: (a) AI onay modalının gerçek bir hesapla görünmesi/kabul-red/Profil'den geri çekme akışı, (b) App Store Connect'teki App Privacy beyanının hâlâ koddaki `ios.privacyManifests` ile birebir uyumlu olduğunun App Review öncesi son kez gözle kontrolü.
+- [x] ~~`IOS_APP_STORE_YAYINLAMA_REHBERI.md` içindeki eski versiyon (1.0.0) / minimum iOS (13.4) bilgilerini güncelle.~~ (2026-09-10 tamamlandı)
+- [x] ~~Orta vadeli: AI caching/kuyruk, skeleton screen, streaming+haptic, büyük ekran dosyalarının (DietPlanScreen, FoodLogScreen, HomeScreen) katmanlara ayrıştırılması.~~ (2026-09-10 tamamlandı — bkz. yukarıdaki günlük girdileri; üç ekran de bitti)
+- [x] ~~ProfileScreen'deki "Yapay Zeka Veri Paylaşımı" Switch'inin ekran dışına taşması (kırpılma) hatası.~~ (2026-09-10 tamamlandı + gerçek cihaz/simulator tap'iyle görsel olarak doğrulandı — Switch artık tam görünüyor, alt metin 2 satıra düzgün sarıyor)
+- [ ] Bir sonraki EAS/TestFlight build'inde uçtan uca elle doğrulanması gerekenler: (a) AI onay modalının kabul/red ve Profil'den geri çekme **etkileşiminin** (Switch'e dokunma) tam akışı — görsel render doğrulandı ama toggle etkileşimi simulator'de otomatik tap kalibrasyonu zor olduğu için tam test edilemedi; (b) App Store Connect'teki App Privacy beyanının hâlâ koddaki `ios.privacyManifests` ile birebir uyumlu olduğunun App Review öncesi son kez gözle kontrolü.
+
+**Not (teknik):** Bu oturumda simulator'de gerçek tap/swipe simülasyonu için `idb` yerine `cliclick` (zaten kurulu) + AppleScript (Simulator penceresi konumu) + piksel bazlı bezel-kenarı tespiti kombinasyonu kullanıldı. Küçük hedefler (ör. Switch) için koordinat kalibrasyonu simulator'ün gerçekçi telefon çerçevesi grafiği yüzünden hassas hesap gerektiriyor — büyük hedefler (tab bar, kartlar) için yeterince güvenilir.
 
 **Not:** Hiçbir ücretli AI/servis katmanına geçilmeyecek — kullanıcı talebi, kalıcı kısıt.
 
