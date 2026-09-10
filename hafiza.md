@@ -21,6 +21,20 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-10 — HomeScreen refactor (aynı yaklaşım devam, 3 büyük ekranın tamamı bitti)
+
+Kullanıcı "devam et" dedi, backlog'daki son büyük dosyaya geçildi. HomeScreen, DietPlanScreen/FoodLogScreen'den farklı olarak büyük "kendi state'ine sahip" bir alt bileşen içermiyordu (arama modalı gibi) — bunun yerine çok sayıda bağımsız/tekrar eden sunum bloğu vardı. Aynı çıkarma prensibi (props-driven, parent state'e dokunmadan) uygulandı:
+
+- `src/components/home/HomeWidgets.js`: MealItem, KpiPill, SectionHeader, QuickActionButton + yeni **HomeActionCta** (önceden "Fotoğraftan kalori" ve "Besin Takibi" kartları neredeyse birebir kopya JSX'ti, tek parametreli bileşene indirildi — DRY kazancı).
+- `src/components/home/HomeHeroHeader.js`: Üst gradyan karşılama bölümü. Giriş animasyonu (`heroEnterAnim`) parent'tan buraya taşındı — artık tamamen kendi kendine yeten bir bileşen.
+- `src/components/home/HomeStatsRow.js`: Kilo/Diyet istatistik kartları + "Bugün Yediklerim" kartı (`HomeStatsRow`, `FoodSummaryCard`).
+- `src/components/home/HomeSections.js`: "Bugünün Diyetim", "Günün Tavsiyesi", "Hızlı İşlemler" bölümleri (`TodayDietSection`, `DailyTipSection`, `QuickActionsSection`).
+- Ana dosyada kalan: state yönetimi (latestWeight/todayDiet/randomTip/dailySummary/todayFoodSummary), `loadData` (paralel Promise.allSettled ile 5 kaynaktan veri çekme), tarih/etiket hesaplamaları, navigasyon callback'leri.
+- **Sonuç: 1167 → 310 satır (~%73 azalma).**
+- **Doğrulama:** Babel syntax + `expo export` bundle testi (1210 modül) + gerçek simulator build'i (`expo run:ios`, log dosyasına yönlendirip `until grep` ile beklenildi — artık standart yöntem). Ekran görüntüsü: 0 error/1 warning (bilinen `UIDeviceFamily` uyarısı, kod dışı), oturum korunarak açıldı. **Aynı kısıt:** `idb` yok, PremiumGate arkasındaki (test hesabı abone değil) gerçek Ana Sayfa içeriğine tap ile ulaşılamadı — kullanıcının elle kontrol etmesi gerekiyor.
+
+**Backlog'daki üç büyük ekranın (DietPlanScreen, FoodLogScreen, HomeScreen) tamamı bu prensiple ayrıştırıldı.** Kalan orta vadeli maddeler: dokümantasyon zaten güncellendi, AI caching/skeleton/streaming zaten yapıldı — orta vadeli listesinde büyük madde kalmadı.
+
 ### 2026-09-10 — ProfileScreen Switch clipping düzeltmesi + FoodLogScreen refactor (aynı yaklaşım devam)
 
 Kullanıcı ekran görüntüsüyle bir bug bildirdi + "aynı yaklaşımla devam et" dedi.
