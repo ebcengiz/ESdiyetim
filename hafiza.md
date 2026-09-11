@@ -21,6 +21,18 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-11 — Monetizasyon değişiklikleriyle yeni archive (v1.3 build 4) alındı ve App Store Connect'e submit edildi
+
+Önceki gündeki monetizasyon paketi (paywall gevşetme, fiyat düşürme, günlük AI limitleri, TestFlight'ın tamamen ücretsiz olması) ve Apple review'e gönderilen açıklama güncellemesi App Store Connect'e ulaştırıldı:
+
+- `app.json` → `version: "1.2"` → **`"1.3"`** olarak bump edildi (commit `aca6059`). `eas.json`'da `cli.appVersionSource: "remote"` ve `build.production.autoIncrement: true` olduğu için iOS build numarası manuel değil, EAS sunucusunda otomatik yönetiliyor — `ios.buildNumber` alanına dokunulmadı.
+- `eas build --platform ios --profile production` **non-interactive modda credential hatasıyla başarısız oldu** ("Distribution Certificate is not validated for non-interactive builds") — Apple hesabına bağlı sertifika doğrulaması interaktif terminal + Apple ID/2FA istiyor, bu benim arka plan komut çalıştırma aracımla (stdin yok) yapılamıyor. Kullanıcıdan kendi terminalinde interaktif çalıştırmasını istedim, kullanıcı tamamladı.
+- Sonuç: **Version 1.3, Build 4**, profile `production`, distribution `store`, status `finished`. Build ID: `acb4c876-5cc0-4b5d-b6e4-a7df63b3295c`.
+- `eas submit --platform ios --id ...` de aynı sebeple (bu sefer "App Store Connect API Keys cannot be set up in --non-interactive mode") interaktif terminal gerektirdi — kullanıcı kendi terminalinden API Key oluşturup Apple ID/2FA ile submit'i tamamladı.
+- App Store Connect → TestFlight → iOS Builds sayfasında doğrulandı: **Version 1.3, Build (4) — Status: Complete / Ready to Submit**, "ESdiyet Test" internal testing grubuna bağlı, 90 gün geçerli.
+- **Kullanıcı ayrıca "Xcode üzerinden sen yap" diye sordu** — araştırıldı: yerel Keychain'de sadece bir Development sertifikası var, Distribution sertifikası/provisioning profile yerelde yok (hepsi EAS'in uzak sunucusunda), yerelde archive almak için önce Apple Developer portalından bunları indirip kurmak gerekirdi (yine interaktif Apple ID/2FA) + Xcode'un GUI'sini (Organizer/Distribute App sihirbazı) kontrol edebilecek bir aracım yok (sadece tarayıcı otomasyonu var, macOS masaüstü uygulama kontrolü yok). Bu bilgiyle kullanıcıya seçenek sunuldu, kullanıcı EAS submit yolunu tamamlamayı tercih etti.
+- **Önemli kısıt/ders:** EAS build ve submit'in credential adımları (Distribution Certificate doğrulama, App Store Connect API Key oluşturma), Apple ID + muhtemelen 2FA gerektirdiğinde **ajan tarafından otomatikleştirilemiyor** — bu adımlar her zaman kullanıcının kendi interaktif terminalinden yapılması gerekiyor. Bir sonraki build/submit döngüsünde API Key zaten EAS sunucusunda saklı olacağından `eas submit` muhtemelen non-interactive çalışabilir; `eas build` credential doğrulaması ise sertifika süresi dolmadıkça genelde tekrar interaktif istemez.
+
 ### 2026-09-10 — Monetizasyon stratejisi kökten değişti: paywall gevşetildi, fiyatlar düşürüldü, ücretsiz deneme eklendi
 
 **Bağlam:** Kullanıcı "kimse uygulamayı satın almıyor, nasıl çözelim?" diye sordu. Web araştırması + kod incelemesi yapıldı; kök nedenler bulundu:
