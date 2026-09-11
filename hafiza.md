@@ -21,6 +21,18 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-11 — v1.3 build 4, App Store Connect'te yeni versiyon olarak oluşturulup Apple incelemesine gönderildi
+
+Kullanıcı "kontrol et, submit for review'a gönder" dedi (önceki archive/submit adımından sonra). App Store Connect'te (Distribution sekmesi) yapılanlar:
+
+- Mevcut yayında olan versiyon **1.2 "Ready for Distribution"** idi — yeni bir **1.3** versiyonu oluşturuldu ("+ iOS App" → New Version dialogu).
+- Yeni versiyon, 1.2'den metadata'yı (açıklama, ekran görüntüleri, anahtar kelimeler, App Review bilgileri, sign-in bilgisi, notlar) otomatik miras aldı — elle yeniden girilmedi.
+- **"What's New in This Version"** alanı boştu, bu sürümdeki gerçek değişikliklerle dolduruldu (temel özelliklerin ücretsizleşmesi, 3 günlük ücretsiz deneme, düşürülen fiyatlar, AI günlük kullanım hakları netleştirmesi, küçük arayüz düzeltmeleri).
+- **Build** bölümünden EAS ile daha önce yüklenen **Build 4 (v1.3)** seçilip versiyona bağlandı.
+- Save → "Add for Review" → açılan "Draft Submission" panelinde "iOS App 1.3 (4)" öğesi görüldü → **"Submit for Review"** ile onaylandı.
+- Sonuç: **"1 Item Submitted — It can take up to 48 hours to be reviewed. You'll get an email when the review is complete."** Sol menüde durum **"1.3 Waiting for Review"**.
+- Artık kullanıcının yapacağı bir şey yok, sonucu Apple'dan gelecek e-postadan takip edecek. Onaylanırsa (Guideline 5.1.2(i) AI onay akışı ve Privacy Manifest daha önce bu sürüme dahil edildiği için) versiyon manuel/otomatik release ayarına göre App Store'da yayına girecek (mevcut ayar: manuel release, kullanıcı henüz "Automatically release" seçmedi — onay sonrası kullanıcının elle "Release This Version" demesi gerekebilir, bu adım henüz konuşulmadı).
+
 ### 2026-09-11 — Monetizasyon değişiklikleriyle yeni archive (v1.3 build 4) alındı ve App Store Connect'e submit edildi
 
 Önceki gündeki monetizasyon paketi (paywall gevşetme, fiyat düşürme, günlük AI limitleri, TestFlight'ın tamamen ücretsiz olması) ve Apple review'e gönderilen açıklama güncellemesi App Store Connect'e ulaştırıldı:
