@@ -48,7 +48,7 @@ Kullanıcı "hepsini birden yap" dedi + "TestFlight/Expo denemeleri için tamame
 
 **Doğrulama:** Babel syntax + `expo export` bundle testi (temiz) + gerçek simulator build'i, Ana Sayfa ve Diyet Planı ekranlarının artık paywall'sız açıldığı ekran görüntüsüyle doğrulandı.
 
-**Açık madde:** Kullanıcı onayı bekleyen — ESdiyet Aylık'ın güncellenen App Store açıklamasını Apple incelemesine gönder ("Add for Review" App Store Connect'te).
+**2026-09-11 güncellemesi:** Kullanıcı "Apple incelemeye gönder" dedi. ESdiyet Aylık'ın güncellenen açıklaması (EN: "5 daily AI photo analyses", TR: "Günde 5 AI fotoğraf analizi") App Store Connect'te "Add for Review" → "Submit for Review" ile Apple'a gönderildi. Sonuç: **"1 Item Submitted — 48 saate kadar sürebilir, inceleme bitince e-posta gelecek."** Artık kullanıcının beklemesi dışında yapılacak bir şey yok; sonucu e-postadan takip edecek.
 
 ### 2026-09-10 — HomeScreen refactor (aynı yaklaşım devam, 3 büyük ekranın tamamı bitti)
 
