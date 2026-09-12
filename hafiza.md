@@ -21,6 +21,26 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-12 — KRİTİK: v1.3 (build 4) canlıda açılışta çöküyordu — kök neden bulundu, v1.3.1 (build 5) ile düzeltilip Apple'a expedited review ile gönderildi
+
+**Bağlam:** Kullanıcı "yeni güncellemeyi dün yükledik, canlıda kullanıcılar uygulamaya giremiyor, TestFlight'tan da yüklenemiyor" diye bildirdi.
+
+**Kök neden (kesin, doğrulandı):** `src/services/supabase.js`, `EXPO_PUBLIC_SUPABASE_URL`/`EXPO_PUBLIC_SUPABASE_ANON_KEY` eksikse modül yüklenirken **senkron `throw`** atıyor. 10 Eylül'deki `2551437` commit'i bu değerlerin okunma şeklini hardcoded'dan `.env`'e taşımıştı. Yerel simülatör testleri hep başarılıydı çünkü Metro yerel `.env`'i okuyor — ama **EAS Build sunucularında bu değişkenler hiçbir ortamda (`production`/`preview`/`development`) hiç tanımlı değildi** (`npx eas env:list` ile doğrulandı, hepsi boştu; legacy `eas secret:list` de boştu). Sonuç: `eas build --profile production` ile alınan **Build 4** (hem TestFlight'a hem App Store'a giden tek build, App Store'da "Automatically release" ayarıyla otomatik yayınlandı) boş Supabase bilgisiyle derlendi → React hiç mount olmadan çöküyor, kullanıcı splash ekranında sonsuza kadar donuyor. TestFlight'ta da aynı build 0 install/0 session gösteriyordu (önceki 1.2 build'i 7 install almıştı).
+
+**Düzeltme:**
+1. `eas env:create` ile eksik 4 değişken (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_GEMINI_API_KEY`, `EXPO_PUBLIC_GROQ_API_KEY`) `production`/`preview`/`development` ortamlarına eklendi (kullanıcı onayıyla — Claude Code'un "Secret-Store Writes" otomatik sınıflandırıcısı ilk denemede engelledi, açık onay sonrası geçti).
+2. `app.json` → `version: "1.3.1"` (commit `e0b7eea`) — çünkü 1.3 zaten App Store'da "Ready for Distribution" (yayında) durumundaydı, aynı versiyona yeni build eklenemiyor.
+3. `eas build --platform ios --profile production` ile **Build 5** alındı, build loglarında env değişkenlerinin doğru yüklendiği doğrulandı.
+4. `eas submit` ile Build 5 App Store Connect'e yüklendi (kullanıcı onayıyla — "Production Deploy" sınıflandırıcısı ilk denemede engelledi).
+5. App Store Connect'te yeni **1.3.1** versiyonu oluşturuldu, Build 5 bağlandı, "What's New" dolduruldu, **Submit for Review** yapıldı (kullanıcı onayıyla) → durum **"1.3.1 Waiting for Review"**. "Automatically release" + "Release to all users immediately" zaten seçiliydi (dokunulmadı) — onaylanır onaylanmaz otomatik yayına girecek.
+6. `developer.apple.com/contact/app-store/?topic=expedite` üzerinden **expedited review** talep edildi (canlı çökme gerekçesiyle) — Apple onayladı: "We'll expedite review for ESdiyet." Normalde 1-2 gün yerine 6-24 saat içinde sonuçlanması bekleniyor.
+
+**Not (paralel oturum çakışması):** Bu görev sırasında kullanıcının başka bir cihazdan/oturumdan başlattığı bir arka plan ajanı da **aynı App Store Connect hesabında, aynı paylaşılan tarayıcı sekmesinde** bağımsız olarak aynı submit işlemini yapmaya çalıştı (muhtemelen benim submit'imle aynı ana denk geldi). Sonuç çakışmadı (ASC tek submission state'i koruyor, "1.3.1 Waiting for Review" tek ve tutarlı), ama ileride aynı anda birden fazla oturumun aynı ASC hesabına dokunması race condition riski taşıyor — dikkat edilmeli.
+
+**Doğrulanmayı bekleyen:** Kullanıcının TestFlight'tan Build 5'i gerçekten açıp çalıştığını doğrulaması, ve Apple onayından sonra App Store'daki 1.3.1'in gerçekten düzelmiş olduğunun teyidi.
+
+**Sistemik risk (henüz ele alınmadı, öneri):** `supabase.js`'teki module-level `throw`, yanlış yapılandırılmış HERHANGİ bir gelecek build'i aynı şekilde tamamen açılamaz hale getirebilir (React hiç mount olmadığı için hiçbir error boundary bunu yakalayamıyor). İleride bu tip bir yapılandırma hatasını daha nazik şekilde (en azından bir hata ekranı göstererek) ele almak değerlendirilebilir — bu görevde kapsam dışı bırakıldı, sadece kök neden (eksik env var) düzeltildi.
+
 ### 2026-09-11 — v1.3 build 4, App Store Connect'te yeni versiyon olarak oluşturulup Apple incelemesine gönderildi
 
 Kullanıcı "kontrol et, submit for review'a gönder" dedi (önceki archive/submit adımından sonra). App Store Connect'te (Distribution sekmesi) yapılanlar:
