@@ -21,6 +21,17 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-15 — Apple'a resmi bildirimler yapıldı (Support Case + Feedback Assistant) + TestFlight'sız ad-hoc build başlatıldı
+
+Kullanıcı "commit/push et ve Apple'a talebi sen gönder, ad-hoc dağıtımı sen yap" dedi. Yapılanlar:
+
+1. **Commit + push:** `0a789b4` — hafiza.md kök neden girdisi + `APPLE_SUPPORT_TALEBI_TESTFLIGHT.md` (`origin/master`).
+2. **Apple Developer Support talebi gönderildi** (`claude-in-chrome`, developer.apple.com/contact → Distribution → TestFlight → Email): **Case ID 102963350199**. Form alanları: App ID 6753659091, build'ler 1.3.2 (6)/(1), 1.3.1 (1), 1.3 (4), platform iOS, tarih 2026-09-15, repro adımları + tam İngilizce metin (Team ID, sözleşme durumları, 422 hata JSON'u, forum thread referansları). Yanıt `enesbugracengiz@icloud.com` adresine e-posta ile gelecek.
+3. **Feedback Assistant kaydı gönderildi:** **FB24778484** (Developer Tools & Resources → TestFlight → Incorrect/Unexpected Behavior; iOS + App Store Connect işaretli). Ek: `ESdiyet_BETA_CONTRACT_MISSING_evidence.txt` (istek/yanıt dökümü, build ID'leri, ASC GET sonuçları; bir kopyası `~/Desktop`'ta). "Eksik dosyalar" (sysdiagnose) uyarısı bilinçli olarak atlandı — backend sorunu için tanı dosyası anlamsız. Takip: https://feedbackassistant.apple.com/feedback/24778484
+4. **EAS ad-hoc (`preview`) build başlatıldı** — `eas build --platform ios --profile preview --non-interactive --no-wait`, build id `0af0622c-66b3-427e-8df4-447a4cf6af7c`, versiyon 1.3.2 build 6 (remote autoIncrement). Mevcut ad-hoc provisioning profile (`R35H4B8DCG`, 16 Mart 2027'ye kadar geçerli) yalnızca kullanıcının iPhone'unu (`00008120-000A34D414600032`, EAS'ta zaten kayıtlı) içeriyor. **Kısıt:** Diğer tester'ların cihazlarını eklemek için `npx eas device:create` Apple ID + 2FA girişi istiyor → ajan yapamıyor; kullanıcı kendi terminalinden çalıştırıp "Website" seçeneğiyle kayıt linkini tester'lara göndermeli, sonra `eas build --profile preview` tekrar alınmalı (yeni profil cihazları kapsar).
+5. **Ad-hoc build tamamlandı ve telefona kuruldu:** EAS build `finished` (00:32). IPA: https://expo.dev/artifacts/eas/C9xzy5jfCqDTtYXRYbYZAozdIn73r96-tAnW_76Dqgg.ipa (build sayfası: https://expo.dev/accounts/enesbugracengiz/projects/esdiyet/builds/0af0622c-66b3-427e-8df4-447a4cf6af7c). `embedded.mobileprovision` içindeki ProvisionedDevices doğrulandı (yalnızca kullanıcının iPhone'u). `xcrun devicectl device install app` ile Wi-Fi üzerinden eşli iPhone 15'e (iOS 27.0) kuruldu — önceki Xcode geliştirici kopyasının üzerine yazıldı, `com.esdiyet.app` 1.3.2 (6). TestFlight'a hiç dokunmadan gerçek cihazda test artık mümkün.
+6. **Yapılamayan:** "Apple resolved deyince yeni build yükle" adımı doğası gereği Apple yanıtını bekliyor.
+
 ### 2026-09-15 — TestFlight kurulum hatasının KÖK NEDENİ KESİNLEŞTİ: Apple backend'inde "Beta Contract" kaydı kopuk (`ENTITY_UNPROCESSABLE.BETA_CONTRACT_MISSING`) — kod/konfig sorunu DEĞİL
 
 **Bağlam:** Bir önceki girdide (2026-09-14) ASC/Developer Portal üzerindeki tüm görünür kontroller temiz çıkmış, kök neden bulunamamıştı. Bu oturumda proje + yerel makine + cihaz + ASC API + web araştırması birlikte ele alındı.

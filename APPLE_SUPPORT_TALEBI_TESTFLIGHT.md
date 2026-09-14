@@ -3,6 +3,11 @@
 **Tarih:** 2026-09-15
 **Durum:** Kök neden kesinleşti, çözüm yalnızca Apple tarafında (backend). Kod/konfig değişikliği sorunu çözmez.
 
+**GÖNDERİLDİ (2026-09-15):**
+- Apple Developer Support (Distribution → TestFlight → Email): **Case ID 102963350199** — yanıt `enesbugracengiz@icloud.com` adresine e-posta ile gelecek.
+- Feedback Assistant (Developer Tools & Resources → TestFlight → Incorrect/Unexpected Behavior, iOS + App Store Connect): **FB24778484** — `ESdiyet_BETA_CONTRACT_MISSING_evidence.txt` eki ile.
+- Takip: https://feedbackassistant.apple.com/feedback/24778484 ve gelen e-postalar. Apple "resolved" derse yeni build yükle (`eas build --platform ios --profile production` → `eas submit`).
+
 ## Kanıt (ASC oturumundan alınan gerçek API yanıtı)
 
 `POST https://appstoreconnect.apple.com/iris/v1/betaAppReviewSubmissions` (build `941dbf0d-c02e-492b-8f77-90443db0d5e2` = 1.3.2 (6)):
