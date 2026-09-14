@@ -32,6 +32,8 @@
 - **Doğrulama:** Değişen 4 dosya Babel ile syntax kontrolünden geçti; `npx expo export --platform ios` 1078 modülle hatasız bundle etti.
 - **Not:** `CLAUDE.md` hâlâ var olmayan `PremiumGate` bileşeninden bahsediyor (2026-09-10'da silindi) — güncellenmedi, ileride düzeltilmeli.
 
+**Yayınlandı:** Değişiklikler `master`'a commit + push edildi (`ad06bb4`, `3978aa7`). `app.json` version `1.3.2`'ye bump edildi (1.3.1 zaten "Ready for Distribution" olduğu için aynı versiyona yeni build eklenemiyordu). `npx expo prebuild --clean` + `xcodebuild archive`/`-exportArchive` (destination: upload) ile Build 1 (1.3.2) doğrudan App Store Connect'e yüklendi, yeni **1.3.2** versiyonu oluşturuldu, "What's New" dolduruldu, Build 1 bağlandı, **Submit for Review** yapıldı → durum **"1.3.2 Waiting for Review"**.
+
 **TestFlight açılmama sorunu — yeni bulgu:** App Store Connect → TestFlight → Crashes sekmesi **"No Crash Feedback"** gösteriyor (Build 1 için) — yani uygulama gerçek bir runtime crash yaşamıyor, muhtemelen hiç kurulamıyor/açılamıyor. Build 1'in metadata'sı (`Binary State: Validated`, `Device Family: iPhone`, entitlements normal, `Minimum iOS Version: 16.4`) sorunsuz görünüyor, gruplara (`beta`, `ESdiyet Test`) doğru atanmış. Kullanıcının paylaştığı hata ekran görüntüsü (masaüstü pencere görünümlü, sol tarafta "Şu Anda Test Edilenler" listesi) **macOS TestFlight uygulaması**na benziyor — ESdiyet `supportsTablet: false` / `UIDeviceFamily: [1]` (yalnızca iPhone, Mac Catalyst/iPad desteği yok) olduğu için TestFlight for Mac'in bu build'i kuramaması **güçlü bir olasılık**. **Doğrulanamadı** (fiziksel cihaz/insan etkileşimi gerekiyor) — kullanıcıdan gerçek bir iPhone'da (Mac değil) TestFlight iOS uygulamasıyla denemesi istendi, sonuç bekleniyor.
 
 
