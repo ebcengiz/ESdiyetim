@@ -42,7 +42,8 @@ ESdiyetim/
 ├── app.json / app.config.js   # Expo yapılandırması (+ dotenv yüklemesi)
 ├── eas.json                   # EAS build profilleri
 ├── plugins/
-│   └── with-ios-fmt-consteval-fix.js   # iOS Xcode build fix (consteval hata düzeltmesi)
+│   ├── with-ios-fmt-consteval-fix.js   # iOS Xcode build fix (consteval hata düzeltmesi)
+│   └── with-ios-uiscene-lifecycle.js   # iOS 27 SDK UIScene zorunluluğu (SceneDelegate + SceneManifest)
 ├── scripts/
 │   ├── check-ai-env.js        # AI env değişkenleri kontrolü (npm run env:check)
 │   └── fix-ios-xcode-build.sh # npm run fix:ios
@@ -150,7 +151,8 @@ npx eas build --platform android
 5. **Tablet kapalı:** iOS'ta `UIDeviceFamily: [1]`. Responsive kodu iPhone'a göre yaz.
 6. **`iOS build fix` plugin:** `plugins/with-ios-fmt-consteval-fix.js` C++ `fmt` kütüphanesindeki consteval hatası için. Silme, Expo güncellemesinden sonra test et.
 7. **.env güvenliği:** `EXPO_PUBLIC_*` değişkenleri client bundle'a gömülür. Gerçek sır (service_role key vb.) ASLA bu prefix'le eklenmez.
-8. **`expo-iap` / Expo Go kısıtı:** Native modül Expo Go binary'sine gömülü değil — `initConnection`/listener çağrıları Expo Go'da her zaman "Cannot find native module" ile başarısız olur (`src/services/subscriptionService.js` bunu try/catch ile sessizce yönetir, çökme yok). Gerçek satın alma akışı yalnızca development build / TestFlight / production'da test edilebilir.
+8. **UIScene plugin:** `plugins/with-ios-uiscene-lifecycle.js` Xcode 27 / iOS 27 SDK'nın zorunlu kıldığı scene yaşam döngüsünü SDK 57 şablonuna ekler (Info.plist `UIApplicationSceneManifest` + `AppDelegate.swift` sonuna `SceneDelegate`). Silme; `ios/` altındaki üretilen dosyaları elle düzenleme (prebuild'de kaybolur). Expo SDK 58+'a geçince (şablon kendi SceneDelegate'ini üretiyor) bu plugin kaldırılmalı.
+9. **`expo-iap` / Expo Go kısıtı:** Native modül Expo Go binary'sine gömülü değil — `initConnection`/listener çağrıları Expo Go'da her zaman "Cannot find native module" ile başarısız olur (`src/services/subscriptionService.js` bunu try/catch ile sessizce yönetir, çökme yok). Gerçek satın alma akışı yalnızca development build / TestFlight / production'da test edilebilir.
 
 ---
 

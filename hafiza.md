@@ -21,6 +21,21 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-15 — Xcode 27 ile yerel build açılışta çöküyordu: "UIScene life cycle is required" → UIScene yaşam döngüsü config plugin'i ile eklendi
+
+**Belirti:** Xcode 27.0 (27A266a) ile cihaza kurulan geliştirme build'i açılır açılmaz `EXC_BREAKPOINT` ile duruyordu: `_UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption ... Application failed to launch: UIScene life cycle is required for apps built with this SDK.`
+
+**Kök neden:** iOS 27 SDK ile derlenen uygulamalarda Apple, scene tabanlı yaşam döngüsünü (UIScene / `UIApplicationSceneManifest`) **zorunlu** kıldı. Expo SDK 57'nin prebuild şablonu (57.0.22 dahil) hâlâ eski AppDelegate + `UIWindow(frame:)` modelini üretiyor; UIScene desteği ancak Expo SDK 58'de (şu an preview, RN 0.88-rc) geldi. Canlı uygulamayı preview SDK'ya taşımak riskli olduğu için SDK 58 şablonu (`ExpoAppSceneDelegate` + `SceneEventForwarder`) referans alınarak SDK 57'ye uyarlanmış bir config plugin yazıldı.
+
+**Yapılanlar:**
+1. `plugins/with-ios-uiscene-lifecycle.js` (yeni) — `withInfoPlist` ile `UIApplicationSceneManifest` (tek scene, `$(PRODUCT_MODULE_NAME).SceneDelegate`) ekler; `withAppDelegate` ile `didFinishLaunching` içindeki `window = UIWindow(...)` + `factory.startReactNative(...)` bloğunu kaldırır ve dosya sonuna `SceneDelegate: UIResponder, UIWindowSceneDelegate` sınıfını ekler. SceneDelegate: `scene(_:willConnectTo:)` içinde `UIWindow(windowScene:)` oluşturup RN'i başlatır, soğuk başlatma URL'lerini `launchOptions`'a çevirir (RN `Linking.getInitialURL()` için), `sceneDidBecomeActive/WillResignActive/WillEnterForeground/DidEnterBackground` ile URL/userActivity olaylarını `ExpoAppDelegate`'e iletir (expo-splash-screen ve expo-iap'ın `OnsideAppDelegateSubscriber`'ı `applicationDidBecomeActive` kullanıyor — bu iletim olmasa sessizce çalışmazlardı). Şablon değişirse plugin anlamlı hata fırlatır (`MARKER` ile idempotent).
+2. `app.json` → `plugins` listesine `./plugins/with-ios-uiscene-lifecycle.js` eklendi (fmt fix plugin'inden hemen sonra).
+3. `npx expo prebuild --platform ios` + `pod install` yeniden çalıştırıldı; üretilen `Info.plist` ve `AppDelegate.swift` doğrulandı.
+
+**Notlar:**
+- EAS build image'ı hâlâ `macos-tahoe-26.5-xcode-26.6` (iOS 26 SDK) → EAS/TestFlight build'lerinde bu zorunluluk yoktu, sorun yalnızca yerel Xcode 27 build'inde çıkıyordu. Plugin her iki SDK'da da çalışır (scene API'leri iOS 13+). EAS image'ı ileride Xcode 27'ye çekilirse bu plugin sayesinde sorun yaşanmaz.
+- **Expo SDK 58'e geçildiğinde bu plugin kaldırılmalı** — SDK 58 şablonu kendi `SceneDelegate.swift`'ini üretiyor, ikisi çakışır.
+
 ### 2026-09-15 — Apple'a resmi bildirimler yapıldı (Support Case + Feedback Assistant) + TestFlight'sız ad-hoc build başlatıldı
 
 Kullanıcı "commit/push et ve Apple'a talebi sen gönder, ad-hoc dağıtımı sen yap" dedi. Yapılanlar:
@@ -309,6 +324,7 @@ Kullanıcının telefonunda Expo Go SDK 57 kullanıyordu, proje SDK 54'teydi →
 - **[ÇÖZÜLDÜ]** ~~`@expo/vector-icons` için `expo-font` peer dependency eksik~~ (2026-09-10 tamamlandı, `npx expo install expo-font`).
 - **[ÇÖZÜLDÜ]** ~~Guideline 5.1.2(i) — AI sağlayıcılarına veri gönderirken açık onay + geri çekme seçeneği yok~~ (2026-09-10 tamamlandı — bkz. yukarıdaki günlük girdisi: `aiConsentService.js`, `AIConsentContext.js`, `AIConsentModal.js`, ProfileScreen'de geri çekme anahtarı). Uçtan uca tıklama testi kullanıcıya bırakıldı.
 - **[ÇÖZÜLDÜ]** ~~`PrivacyInfo.xcprivacy` boş veri beyanı yapıyordu, ASC beyanıyla tutarsızdı~~ (2026-09-10 tamamlandı — `app.json` → `ios.privacyManifests`, bkz. yukarıdaki günlük girdisi).
+- **Xcode 27 / iOS 27 SDK — UIScene zorunluluğu:** `plugins/with-ios-uiscene-lifecycle.js` ile çözüldü (2026-09-15). Expo SDK 58'e yükseltmede plugin kaldırılmalı; Expo şablonu değişirse plugin prebuild'de açık hata verir.
 - **Supabase Free Plan otomatik pause:** Proje 7 gün API trafiği almazsa tekrar duraklar (kullanıcı Pro'ya geçmek istemedi). Uzun süre geliştirme arası verilirse aynı DNS/502 hatası tekrar yaşanabilir — çözüm her seferinde dashboard'dan "Resume project" (veri kaybı yok, birkaç dakika sürüyor).
 - **`expo-iap` Expo Go kısıtı:** Expo Go'da IAP her zaman "Cannot find native module" uyarısı verecek (artık crash etmiyor, sadece log). Gerçek satın alma testi sadece development build/TestFlight/production'da mümkün.
 - **`supabase/functions/delete-account/index.ts`** proje kök `tsc --noEmit` taramasına dahil oluyor ve Deno globalleri (`Deno`, esm.sh import'ları) yüzünden tip hatası veriyor. Fonksiyonel bir sorun değil (Deno edge function, ayrı runtime), ama `tsconfig.json`'da `exclude` ile ayrılması temiz olur.
