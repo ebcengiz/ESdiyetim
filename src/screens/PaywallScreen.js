@@ -19,6 +19,7 @@ import {
   restorePurchases,
   isActivePurchase,
   PLAN_META,
+  FALLBACK_PRICE_LABELS,
 } from '../services/subscriptionService';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useToast } from '../contexts/ToastContext';
@@ -42,8 +43,7 @@ export default function PaywallScreen({ navigation }) {
   const getPriceLabel = (planKey) => {
     const storeProduct = products.find((p) => p.productId === planKey);
     if (storeProduct?.localizedPrice) return storeProduct.localizedPrice;
-    const meta = { monthly: '₺99,99', quarterly: '₺199,99', yearly: '₺349,99' };
-    return meta[PLAN_META.find((p) => p.id === planKey)?.key] ?? '—';
+    return FALLBACK_PRICE_LABELS[PLAN_META.find((p) => p.id === planKey)?.key] ?? '—';
   };
 
   const handlePurchase = async () => {

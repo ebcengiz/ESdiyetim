@@ -32,6 +32,20 @@ export const PRODUCT_IDS = {
 
 export const ALL_PRODUCT_IDS = Object.values(PRODUCT_IDS);
 
+// Ücretsiz kullanıcılar için günlük "AI ile tam analiz" hakkı — cihaz-yerel yumuşak limit
+// (FoodSearchModal.js ve ProfileScreen.js arasında paylaşılır).
+export const FREE_AI_SEARCH_DAILY_LIMIT = 3;
+export const AI_SEARCH_USAGE_KEY = 'food_ai_search';
+
+// Store'dan ürün fiyatı yüklenemediğinde gösterilecek yedek etiketler
+// (PaywallScreen.js ve ProfileScreen.js arasında paylaşılır — App Store Connect'teki
+// gerçek TR fiyatlarıyla eşleşir, bkz. hafiza.md 2026-09-10 monetizasyon güncellemesi).
+export const FALLBACK_PRICE_LABELS = {
+  monthly: '₺99,99',
+  quarterly: '₺199,99',
+  yearly: '₺349,99',
+};
+
 export const PLAN_META = [
   {
     id: PRODUCT_IDS.monthly,

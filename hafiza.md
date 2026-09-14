@@ -21,6 +21,21 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-14 — Monetizasyon bilgilendirmesi ProfileScreen'e eklendi + TestFlight açılmama sorunu yeniden araştırıldı
+
+**Bağlam:** Kullanıcı "App Store'da yayınlandı ama para kazanma açık değil, bir şey mi kaldırıldı?" ve "TestFlight'ta uygulama hâlâ açılmıyor, var olan sorun devam ediyor" diye sordu.
+
+**Monetizasyon araştırması:** Kod incelemesi + App Store Connect kontrolü ile doğrulandı — bu bir hata değil, 2026-09-10'daki bilinçli monetizasyon pivotunun (bkz. aşağıdaki 2026-09-10 girdisi) beklenen sonucu: `PremiumGate` 4 ana ekrandan (Home/DietPlan/Goals/WeightAndBMI) kalıcı olarak kaldırılmış, artık yalnızca fotoğraf analizi (ücretsiz 1/gün, premium 5/gün) ve "AI ile tam analiz" (ücretsiz 3/gün) sınırlanıyor. App Store Connect'te 3 abonelik ürünü de **Approved**, Paid Apps Agreement/Banka/Vergi **Active** — sunucu tarafında engelleyici bir durum yok.
+- **Kullanıcıyı bilgilendirme eksikliği giderildi:** `ProfileScreen.js`'de daha önce hiç abonelik/üyelik bilgisi yoktu. Yeni "Üyelik" bölümü eklendi: ücretsiz kullanıcıya günlük kullanım sayaçlarını (`{dailyPhotoUsed}/{dailyLimit}`, `{aiSearchUsed}/{FREE_AI_SEARCH_DAILY_LIMIT}`) ve güncel fiyatları gösterir + "Premium'a Geç" butonu (`openPaywall()`); premium kullanıcıya "Premium Aktif" rozeti + "Aboneliği App Store'dan yönet" linki (`itms-apps://apps.apple.com/account/subscriptions`).
+- **Küçük refactor (kod tekrarını önlemek için):** `FREE_AI_SEARCH_DAILY_LIMIT`/`AI_SEARCH_USAGE_KEY` (önceden sadece `FoodSearchModal.js` içinde lokaldi) ve `FALLBACK_PRICE_LABELS` (önceden `PaywallScreen.js` içinde lokaldi) artık `subscriptionService.js`'den export ediliyor, üç dosya (`FoodSearchModal.js`, `PaywallScreen.js`, `ProfileScreen.js`) aynı kaynaktan okuyor.
+- `user_credits` tablosunun RLS politikaları (`supabase/migrations/20260416120000_user_credits.sql`) kontrol edildi — `auth.uid() = user_id` ile doğru şekilde kısıtlanmış, production'da güvenli.
+- **Doğrulama:** Değişen 4 dosya Babel ile syntax kontrolünden geçti; `npx expo export --platform ios` 1078 modülle hatasız bundle etti.
+- **Not:** `CLAUDE.md` hâlâ var olmayan `PremiumGate` bileşeninden bahsediyor (2026-09-10'da silindi) — güncellenmedi, ileride düzeltilmeli.
+
+**TestFlight açılmama sorunu — yeni bulgu:** App Store Connect → TestFlight → Crashes sekmesi **"No Crash Feedback"** gösteriyor (Build 1 için) — yani uygulama gerçek bir runtime crash yaşamıyor, muhtemelen hiç kurulamıyor/açılamıyor. Build 1'in metadata'sı (`Binary State: Validated`, `Device Family: iPhone`, entitlements normal, `Minimum iOS Version: 16.4`) sorunsuz görünüyor, gruplara (`beta`, `ESdiyet Test`) doğru atanmış. Kullanıcının paylaştığı hata ekran görüntüsü (masaüstü pencere görünümlü, sol tarafta "Şu Anda Test Edilenler" listesi) **macOS TestFlight uygulaması**na benziyor — ESdiyet `supportsTablet: false` / `UIDeviceFamily: [1]` (yalnızca iPhone, Mac Catalyst/iPad desteği yok) olduğu için TestFlight for Mac'in bu build'i kuramaması **güçlü bir olasılık**. **Doğrulanamadı** (fiziksel cihaz/insan etkileşimi gerekiyor) — kullanıcıdan gerçek bir iPhone'da (Mac değil) TestFlight iOS uygulamasıyla denemesi istendi, sonuç bekleniyor.
+
+
+
 ### 2026-09-12 — KRİTİK: v1.3 (build 4) canlıda açılışta çöküyordu — kök neden bulundu, v1.3.1 (build 5) ile düzeltilip Apple'a expedited review ile gönderildi
 
 **Bağlam:** Kullanıcı "yeni güncellemeyi dün yükledik, canlıda kullanıcılar uygulamaya giremiyor, TestFlight'tan da yüklenemiyor" diye bildirdi.

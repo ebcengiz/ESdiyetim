@@ -8,6 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
   Switch,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { bodyInfoService } from '../services/supabase';
 import { useToast } from '../contexts/ToastContext';
 import { useAIConsent } from '../contexts/AIConsentContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
+import {
+  PLAN_META,
+  FREE_AI_SEARCH_DAILY_LIMIT,
+  AI_SEARCH_USAGE_KEY,
+  FALLBACK_PRICE_LABELS,
+} from '../services/subscriptionService';
+import { getDailyUsageCount } from '../services/dailyUsageService';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import Skeleton from '../components/ui/Skeleton';
 
@@ -25,7 +34,9 @@ export default function ProfileScreen({ navigation }) {
   const { user, signOut, deleteAccount, updateProfile, leaveGuestMode, isGuest } = useAuth();
   const { showToast } = useToast();
   const { consent: aiConsent, providers: aiProviders, grantConsent, revokeConsent } = useAIConsent();
+  const { isSubscribed, dailyPhotoUsed, dailyLimit, openPaywall } = useSubscription();
   const [bodyInfo, setBodyInfo] = useState(null);
+  const [aiSearchUsed, setAiSearchUsed] = useState(0);
   const [loading, setLoading] = useState(true);
   const [editingName, setEditingName] = useState(false);
   const [fullName, setFullName] = useState(user?.user_metadata?.full_name || '');
@@ -39,6 +50,7 @@ export default function ProfileScreen({ navigation }) {
       return;
     }
     loadBodyInfo();
+    getDailyUsageCount(AI_SEARCH_USAGE_KEY).then(setAiSearchUsed).catch(() => {});
   }, [user]);
 
   useEffect(() => {
@@ -276,6 +288,69 @@ export default function ProfileScreen({ navigation }) {
               <Ionicons name="add-circle-outline" size={24} color={COLORS.primary} />
               <Text style={styles.emptyText}>Vücut bilgilerini ekle</Text>
             </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Üyelik */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="star-outline" size={20} color={COLORS.text} />
+            <Text style={styles.sectionTitle}>Üyelik</Text>
+          </View>
+
+          {isSubscribed ? (
+            <View style={styles.membershipCard}>
+              <View style={styles.membershipBadgeRow}>
+                <View style={styles.premiumBadge}>
+                  <Ionicons name="star" size={14} color="white" />
+                  <Text style={styles.premiumBadgeText}>Premium Aktif</Text>
+                </View>
+              </View>
+              <Text style={styles.membershipLine}>
+                Fotoğraftan kalori analizi: bugün {dailyPhotoUsed}/{dailyLimit} kullanıldı
+              </Text>
+              <Text style={styles.membershipLine}>AI ile tam analiz: sınırsız</Text>
+              <TouchableOpacity
+                style={styles.manageSubBtn}
+                onPress={() =>
+                  Linking.openURL('itms-apps://apps.apple.com/account/subscriptions')
+                }
+                activeOpacity={0.7}
+              >
+                <Text style={styles.manageSubText}>Aboneliği App Store'dan yönet</Text>
+                <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.membershipCard}>
+              <Text style={styles.membershipFreeTitle}>Ücretsiz Plan</Text>
+              <Text style={styles.membershipLine}>
+                Diyet planı, kilo & VKİ takibi, hedefler ve tavsiyeler herkese tamamen ücretsiz.
+              </Text>
+              <View style={styles.usageRow}>
+                <Ionicons name="camera-outline" size={16} color={COLORS.textSecondary} />
+                <Text style={styles.usageText}>
+                  Fotoğraftan kalori analizi: bugün {dailyPhotoUsed}/{dailyLimit} kullanıldı
+                </Text>
+              </View>
+              <View style={styles.usageRow}>
+                <Ionicons name="sparkles-outline" size={16} color={COLORS.textSecondary} />
+                <Text style={styles.usageText}>
+                  AI ile tam analiz: bugün {aiSearchUsed}/{FREE_AI_SEARCH_DAILY_LIMIT} kullanıldı
+                </Text>
+              </View>
+              <Text style={styles.membershipPricing}>
+                Premium: Aylık {FALLBACK_PRICE_LABELS.monthly} · 3 Aylık {FALLBACK_PRICE_LABELS.quarterly} · Yıllık {FALLBACK_PRICE_LABELS.yearly}
+              </Text>
+              <TouchableOpacity
+                style={styles.upgradeBtn}
+                onPress={openPaywall}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.upgradeBtnText}>Premium'a Geç</Text>
+                <Ionicons name="chevron-forward" size={16} color={COLORS.textOnPrimary} />
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
@@ -728,6 +803,52 @@ const styles = StyleSheet.create({
     padding: SIZES.md,
     ...SHADOWS.small,
   },
+  membershipCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusMedium,
+    padding: SIZES.md,
+    gap: SIZES.sm,
+    ...SHADOWS.small,
+  },
+  membershipBadgeRow: { flexDirection: 'row' },
+  premiumBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: COLORS.primary,
+    borderRadius: SIZES.radiusSmall,
+    paddingHorizontal: SIZES.sm + 2,
+    paddingVertical: 6,
+  },
+  premiumBadgeText: { fontSize: SIZES.small, fontWeight: '700', color: 'white' },
+  membershipFreeTitle: { fontSize: SIZES.body, fontWeight: '700', color: COLORS.text },
+  membershipLine: { fontSize: SIZES.small, color: COLORS.textSecondary, lineHeight: 20 },
+  usageRow: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm },
+  usageText: { flex: 1, fontSize: SIZES.small, color: COLORS.textSecondary },
+  membershipPricing: {
+    fontSize: SIZES.small,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginTop: 2,
+  },
+  upgradeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: COLORS.primary,
+    borderRadius: SIZES.radiusSmall,
+    paddingVertical: SIZES.sm + 2,
+    marginTop: SIZES.xs,
+  },
+  upgradeBtnText: { fontSize: SIZES.body, fontWeight: '700', color: COLORS.textOnPrimary },
+  manageSubBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: SIZES.xs,
+  },
+  manageSubText: { fontSize: SIZES.small, fontWeight: '600', color: COLORS.primary },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',

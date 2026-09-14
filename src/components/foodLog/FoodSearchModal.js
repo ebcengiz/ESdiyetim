@@ -25,14 +25,11 @@ import {
   calcNutritionForGrams,
 } from '../../services/nutritionService';
 import { hasReachedDailyLimit, incrementDailyUsage } from '../../services/dailyUsageService';
+import { FREE_AI_SEARCH_DAILY_LIMIT, AI_SEARCH_USAGE_KEY } from '../../services/subscriptionService';
 import { MacroGridCell, CalcChip } from './MacroWidgets';
 
 const { width } = Dimensions.get('window');
 const MACRO_CELL_WIDTH = (width - SIZES.containerPadding * 2 - SIZES.md * 3) / 4;
-
-// Ücretsiz kullanıcılar için günlük "AI ile tam analiz" hakkı — cihaz-yerel yumuşak limit.
-const FREE_AI_SEARCH_DAILY_LIMIT = 3;
-const AI_SEARCH_USAGE_KEY = 'food_ai_search';
 
 /**
  * Yiyecek/içecek arama, AI tam analiz ve günlüğe ekleme sheet'i.
