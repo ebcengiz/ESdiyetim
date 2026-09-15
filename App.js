@@ -7,6 +7,7 @@ import { SubscriptionProvider } from './src/contexts/SubscriptionContext';
 import { AIConsentProvider } from './src/contexts/AIConsentContext';
 import MainNavigator from './src/navigation/MainNavigator';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import OfflineBanner from './src/components/ui/OfflineBanner';
 import { installGlobalErrorHandlers, startConnectivityWatch, stopConnectivityWatch } from './src/services/errors';
 
 // Global hata yakalayıcılar modül yüklenirken kurulur — ilk render'dan önce aktif olsun.
@@ -26,6 +27,7 @@ export default function App() {
             <SubscriptionProvider>
               <ToastProvider>
                 <MainNavigator />
+                <OfflineBanner />
                 <StatusBar style="auto" />
               </ToastProvider>
             </SubscriptionProvider>

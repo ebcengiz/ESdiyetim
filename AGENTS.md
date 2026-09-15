@@ -54,13 +54,15 @@ ESdiyetim/
 ├── supabase-auth-migration.sql
 ├── supabase_goals_table.sql
 └── src/
-    ├── constants/theme.js     # TEK tasarım kaynağı (COLORS, SIZES, NavigationTheme)
+    ├── constants/theme.js     # TEK tasarım kaynağı (COLORS, SIZES, TYPOGRAPHY, tabBarMetrics, withAlpha)
     ├── constants/errorMessages.js  # Kullanıcıya gösterilen hata metinlerinin TEK kaynağı
     ├── contexts/              # AuthContext, SubscriptionContext, ToastContext, AIConsentContext
-    ├── hooks/                 # useAppError, useDataFetch, useFormModal
+    ├── hooks/                 # useAppError, useResponsive, useDataFetch, useFormModal
     ├── components/
     │   ├── ErrorBoundary.js   # Kök hata sınırı (App.js'de SafeAreaProvider'ın hemen altında)
-    │   ├── ui/                # ConfirmModal, Toast, Skeleton, DatePickerSheet
+    │   ├── ui/                # ORTAK UI KİTİ (index.js barrel): AppButton, AppInput, AppCard, IconBadge,
+    │   │                      #   SectionHeader, EmptyState, ErrorState, LoadingState, ScreenContainer,
+    │   │                      #   BottomSheet, OfflineBanner, ConfirmModal, DatePickerSheet, Skeleton, Toast
     │   ├── AIAdviceCard, BMIPanel, GuestGateBanner,
     │   ├── HealthSourcesCard, MedicalInfoBanner, ModernIcon,
     │   └── PremiumGate, WeightPanel
@@ -81,7 +83,7 @@ ESdiyetim/
 
 ### Tab düzeni (MainNavigator)
 `Home • DietPlan • WeightAndBMI • Goals • Tips • Profile`
-Tab bar: yüzer (absolute), yuvarlatılmış, cam beyaz arka plan. Yeni tab eklerken `TAB_ITEMS` sabitine icon + label ekle ve `ModernTabIcon` kullan.
+Tab bar: yüzer (absolute), yuvarlatılmış, iOS'ta `expo-blur` cam zemin. Ölçüler `LAYOUT.tabBar` + `tabBarMetrics(insets.bottom)` ile safe area'ya göre runtime'da hesaplanır (sihirli sayı yok); ekranların alt boşluğu `useResponsive().tabBottomPad` / `scrollTabScreenBottomPad()` aynı kaynaktan türer. Yeni tab eklerken `TAB_ITEMS` sabitine icon + label ekle ve `ModernTabIcon` kullan.
 
 ---
 
@@ -91,6 +93,10 @@ Tab bar: yüzer (absolute), yuvarlatılmış, cam beyaz arka plan. Yeni tab ekle
 2. **Auth & Guest Mode:** `useAuth()` → `user`, `loading`, `isGuest`. `showMainApp = !!user || isGuest`. Guest kullanıcılar için `GuestGateBanner` + `PremiumGate` kullan.
 3. **Premium Gate:** Ücretli özellikler (AI kalori, sınırsız tavsiye vb.) `SubscriptionContext` ile kontrol edilir. Paywall modal `presentation: "modal"`.
 4. **Tasarım Sistemi:** Hiçbir renk/boyut **hardcode edilmez**. Her zaman `COLORS`, `SIZES`, `NavigationTheme` import et (`src/constants/theme.js`). Palet: emerald yeşil (#16A34A) + beyaz yüzeyler.
+   - `'#fff'` yerine `COLORS.white`; `'rgba(255,255,255,0.2)'` yerine `whiteAlpha(0.2)`; `COLORS.primary + '22'` yerine `withAlpha(COLORS.primary, 0.13)`. Kategori vurguları `COLORS.accents.*`, durum zeminleri `COLORS.successBg/warningBg/errorBg/infoBg`.
+   - **Ortak UI kiti zorunlu:** buton = `AppButton` (TouchableOpacity+LinearGradient kopyası yazma), form alanı = `AppInput`, kart = `AppCard`, ikon rozeti = `IconBadge`, boş/hata/yükleme = `EmptyState`/`ErrorState`/`LoadingState`, alt sayfa = `BottomSheet`, ekran iskeleti = `ScreenContainer` (safe area + tab alt boşluğu + klavye + pull-to-refresh). `import { AppButton, ... } from '../components/ui'`.
+   - **Responsive:** modül seviyesinde `Dimensions.get('window')` yazma; `useResponsive()` kullan (`width`, `isSmall`, `columnWidth(n)`, `tabBottomPad`). Metinlere `maxFontSizeMultiplier={MAX_FONT_SCALE}`; dokunulabilir öğelere `accessibilityRole/Label`, min 44pt (`SIZES.minTouch`, `HIT_SLOP`).
+   - Toast: `showToast(msg, type, { action: { label, onPress } })` — kuyruklu, aynı mesaj tekrarlanmaz. `handleError(e, { onRetry })` retryable hatada otomatik "Tekrar dene" butonu ekler.
 5. **RLS (Row Level Security):** Supabase tablolarında aktif. Her servis çağrısı önce `supabase.auth.getUser()` ile kullanıcıyı doğrulamalı ve insert/update'lerde `user_id` eklemeli. Bu kalıbı bozma.
 6. **Upsert onConflict:** `diet_plans` için `user_id,date`, `weight_records` için `user_id,date`. Migrations bu unique constraint'leri garantiler — kaldırma.
 7. **Hata yönetimi (ham hata kullanıcıya ASLA gösterilmez):**
@@ -161,7 +167,8 @@ npx eas build --platform android
 6. **`iOS build fix` plugin:** `plugins/with-ios-fmt-consteval-fix.js` C++ `fmt` kütüphanesindeki consteval hatası için. Silme, Expo güncellemesinden sonra test et.
 7. **.env güvenliği:** `EXPO_PUBLIC_*` değişkenleri client bundle'a gömülür. Gerçek sır (service_role key vb.) ASLA bu prefix'le eklenmez.
 8. **UIScene plugin:** `plugins/with-ios-uiscene-lifecycle.js` Xcode 27 / iOS 27 SDK'nın zorunlu kıldığı scene yaşam döngüsünü SDK 57 şablonuna ekler (Info.plist `UIApplicationSceneManifest` + `AppDelegate.swift` sonuna `SceneDelegate`). Silme; `ios/` altındaki üretilen dosyaları elle düzenleme (prebuild'de kaybolur). Expo SDK 58+'a geçince (şablon kendi SceneDelegate'ini üretiyor) bu plugin kaldırılmalı.
-9. **`expo-iap` / Expo Go kısıtı:** Native modül Expo Go binary'sine gömülü değil — `initConnection`/listener çağrıları Expo Go'da her zaman "Cannot find native module" ile başarısız olur (`src/services/subscriptionService.js` bunu try/catch ile sessizce yönetir, çökme yok). Gerçek satın alma akışı yalnızca development build / TestFlight / production'da test edilebilir.
+9. **`@react-native-community/netinfo` import kuralı:** Native modül yoksa paket **import anında throw eder**. Bu yüzden yalnızca `services/errors/connectivity.js` içinde, modül kapsamında `try { require(...) }` ile yüklenir — başka yerde `import NetInfo from ...` yazma. (Metro, runtime'da yapılan `require` hatalarını throw etmek yerine `ErrorUtils.reportFatalError` ile raporlar; try/catch yakalayamaz — require'ın ilk bundle yüklemesinde olması şart.)
+10. **`expo-iap` / Expo Go kısıtı:** Native modül Expo Go binary'sine gömülü değil — `initConnection`/listener çağrıları Expo Go'da her zaman "Cannot find native module" ile başarısız olur (`src/services/subscriptionService.js` bunu try/catch ile sessizce yönetir, çökme yok). Gerçek satın alma akışı yalnızca development build / TestFlight / production'da test edilebilir.
 
 ---
 

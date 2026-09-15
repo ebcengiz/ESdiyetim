@@ -4,7 +4,23 @@
 // diye ayırmak için senkron son bilinen durumu okur; OfflineBanner (Adım 2)
 // subscribeConnectivity ile dinler.
 
-import NetInfo from '@react-native-community/netinfo';
+// DİKKAT: netinfo, native modül yoksa (yeniden build alınmamış dev build / eski
+// TestFlight binary'si) MODÜL YÜKLENİRKEN throw eder. Bu yüzden `import` yerine
+// try/catch içinde require: en kötü durumda "her zaman bağlı" varsayılır, uygulama
+// açılışta çökmez.
+//
+// Bu require MODÜL KAPSAMINDA (ilk bundle yüklemesi sırasında) olmalı: Metro,
+// runtime'da (ör. useEffect içinde) yapılan bir require hata verirse throw etmek
+// yerine ErrorUtils.reportFatalError çağırır ve try/catch yakalayamaz
+// (metro-runtime/src/polyfills/require.js → guardedLoadModule/inGuard).
+let NetInfo = null;
+try {
+  // eslint-disable-next-line global-require
+  const mod = require('@react-native-community/netinfo');
+  NetInfo = mod?.default || mod;
+} catch (e) {
+  console.warn('Netinfo native modülü yok (build yenilenmeli):', String(e?.message || e).split('\n')[0]);
+}
 
 let state = { isConnected: true, isInternetReachable: null };
 let unsubscribe = null;
@@ -27,11 +43,11 @@ function apply(next) {
 /** Uygulama açılışında bir kez çağrılır (App.js) */
 export function startConnectivityWatch() {
   if (unsubscribe) return;
+  if (!NetInfo) return; // her zaman "bağlı" varsay
   try {
     unsubscribe = NetInfo.addEventListener(apply);
     NetInfo.fetch().then(apply).catch(() => {});
   } catch (e) {
-    // Native modül yoksa (çok eski Expo Go vb.) her zaman "bağlı" varsay.
     console.warn('Netinfo başlatılamadı:', e?.message);
   }
 }

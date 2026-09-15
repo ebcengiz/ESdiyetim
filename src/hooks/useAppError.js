@@ -19,12 +19,13 @@ import { normalizeError, logError, ERROR_CODES } from '../services/errors';
  * @param {string} [opts.message]   Bu ekrana özel kullanıcı mesajı (sözlüğü geçersiz kılar)
  * @param {boolean} [opts.silent]   Toast gösterme, sadece logla ve döndür
  * @param {string[]} [opts.silentCodes]  Bu kodlarda toast gösterme (ekran kendisi ele alır)
+ * @param {function} [opts.onRetry]  Verilirse ve hata "retryable" ise toast'ta "Tekrar dene" butonu çıkar
  */
 export function useAppError() {
   const { showToast } = useToast();
 
   const handleError = useCallback(
-    (err, { context = '', fallbackCode, message, silent = false, silentCodes = [] } = {}) => {
+    (err, { context = '', fallbackCode, message, silent = false, silentCodes = [], onRetry } = {}) => {
       const appErr = normalizeError(err, { context, fallbackCode });
       logError(context, appErr);
 
@@ -35,7 +36,8 @@ export function useAppError() {
 
       if (!skip) {
         const toastType = appErr.severity === 'info' ? 'info' : appErr.severity === 'warning' ? 'warning' : 'error';
-        showToast(message || appErr.userMessage, toastType);
+        const action = onRetry && appErr.retryable ? { label: 'Tekrar dene', onPress: onRetry } : undefined;
+        showToast(message || appErr.userMessage, toastType, { action });
       }
       return appErr;
     },

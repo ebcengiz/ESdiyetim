@@ -4,22 +4,20 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import {
   Platform,
-  Dimensions,
   View,
   Text,
-  ActivityIndicator,
   StyleSheet,
   Animated,
   Easing,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS, SIZES, NavigationTheme } from "../constants/theme";
+import { BlurView } from "expo-blur";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { COLORS, SIZES, NavigationTheme, tabBarMetrics, whiteAlpha, blackAlpha } from "../constants/theme";
 import { useAuth } from "../contexts/AuthContext";
 import { useSubscription } from "../contexts/SubscriptionContext";
-
-const { width } = Dimensions.get("window");
-const iconSize = width < 375 ? 22 : 24;
-const isSmallScreen = width < 375;
+import { useResponsive } from "../hooks/useResponsive";
+import { LoadingState } from "../components/ui";
 
 // Ekranlar
 import HomeScreen from "../screens/HomeScreen";
@@ -92,6 +90,8 @@ const TAB_ITEMS = {
 };
 
 function ModernTabIcon({ icon, activeIcon, color, focused }) {
+  const { isSmall } = useResponsive();
+  const iconSize = isSmall ? 22 : 24;
   // Tek progress değeriyle hem scale hem arka planı sürüyoruz.
   // Bu yaklaşım native/js driver karışımı kaynaklı runtime hatasını önler.
   const progress = React.useRef(new Animated.Value(focused ? 1 : 0)).current;
@@ -107,7 +107,7 @@ function ModernTabIcon({ icon, activeIcon, color, focused }) {
 
   const animatedBackgroundColor = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: ["rgba(0,0,0,0)", COLORS.highlight],
+    outputRange: [blackAlpha(0), COLORS.highlight],
   });
   const animatedScale = progress.interpolate({
     inputRange: [0, 1],
@@ -150,14 +150,32 @@ function AuthStack() {
   );
 }
 
+// Yüzen tab bar zemini — iOS'ta cam (blur), Android'de yarı saydam beyaz.
+// NOT: react-navigation bu öğeyi absoluteFill bir sarmalayıcıya koyar; Fabric'te iç içe
+// absoluteFill sıfır boyut alıyor (simülatörde doğrulandı) → burada flex:1 kullan.
+function TabBarBackground() {
+  if (Platform.OS === "ios") {
+    return (
+      <View style={styles.tabBarBgWrap}>
+        <BlurView tint="systemThickMaterialLight" intensity={100} style={styles.flex} />
+      </View>
+    );
+  }
+  return <View style={[styles.tabBarBgWrap, { backgroundColor: whiteAlpha(0.96) }]} />;
+}
+
 // Tab Navigator (inner)
 function MainTabs() {
+  const insets = useSafeAreaInsets();
+  const { isSmall } = useResponsive();
+  const metrics = tabBarMetrics(insets.bottom);
+
   const renderTabLabel = ({ color, children }) => (
     <Text
       allowFontScaling={false}
-      numberOfLines={2}
+      numberOfLines={1}
       ellipsizeMode="clip"
-      style={[styles.tabBarLabel, { color }]}
+      style={[styles.tabBarLabel, isSmall && styles.tabBarLabelSmall, { color }]}
     >
       {children}
     </Text>
@@ -170,7 +188,17 @@ function MainTabs() {
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textLight,
         tabBarShowLabel: true,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            height: metrics.height,
+            bottom: metrics.bottom,
+            left: metrics.sideMargin,
+            right: metrics.sideMargin,
+            borderRadius: metrics.radius,
+          },
+        ],
+        tabBarBackground: TabBarBackground,
         tabBarLabel: renderTabLabel,
         tabBarAllowFontScaling: false,
         tabBarItemStyle: styles.tabBarItem,
@@ -357,11 +385,7 @@ function AppStack() {
 
 // Loading Screen
 function LoadingScreen() {
-  return (
-    <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color={COLORS.primary} />
-    </View>
-  );
+  return <LoadingState style={styles.loadingContainer} />;
 }
 
 // Main Navigator
@@ -384,39 +408,47 @@ export default function MainNavigator() {
 }
 
 const styles = StyleSheet.create({
+  // Konum/ölçü değerleri tabBarMetrics() ile runtime'da veriliyor (safe area'ya göre)
   tabBar: {
     position: "absolute",
-    left: 12,
-    right: 12,
-    bottom: Platform.OS === "ios" ? 12 : 10,
-    height: Platform.OS === "ios" ? 84 : 76,
     borderTopWidth: 0,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.45)",
-    borderRadius: 28,
-    paddingTop: 8,
-    paddingBottom: Platform.OS === "ios" ? 12 : 8,
-    paddingHorizontal: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.92)",
+    borderColor: whiteAlpha(0.55),
+    overflow: "hidden",
+    paddingTop: 6,
+    paddingBottom: 6,
+    paddingHorizontal: 8,
+    // Blur'ün arkasında hafif beyaz zemin: cam etkisi korunur, okunabilirlik artar
+    backgroundColor: whiteAlpha(0.45),
     elevation: 12,
-    shadowColor: "#000000",
+    shadowColor: COLORS.black,
     shadowOpacity: 0.12,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
+  },
+  flex: { flex: 1 },
+  tabBarBgWrap: {
+    flex: 1,
+    overflow: "hidden",
   },
   tabBarItem: {
     borderRadius: 18,
     paddingHorizontal: 0,
     marginHorizontal: 1,
+    paddingVertical: 2,
   },
   tabBarLabel: {
-    fontSize: isSmallScreen ? 9 : 10,
+    fontSize: 10,
     fontWeight: "700",
     textAlign: "center",
-    lineHeight: isSmallScreen ? 11 : 12,
+    lineHeight: 12,
     marginTop: 1,
-    marginBottom: Platform.OS === "ios" ? 0 : 2,
-    maxWidth: 58,
+    maxWidth: 60,
+  },
+  tabBarLabelSmall: {
+    fontSize: 9,
+    lineHeight: 11,
+    maxWidth: 56,
   },
   tabIconWrap: {
     width: 32,

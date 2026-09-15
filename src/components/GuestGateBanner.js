@@ -1,26 +1,25 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, SHADOWS } from '../constants/theme';
+import { View, Text, StyleSheet } from 'react-native';
+import { COLORS, SIZES, SHADOWS, MAX_FONT_SCALE } from '../constants/theme';
+import IconBadge from './ui/IconBadge';
+import AppButton from './ui/AppButton';
 
 /**
  * Misafir kullanıcıya hesap gerektiren özelliklerde gösterilir (App Store 5.1.1).
  */
 export default function GuestGateBanner({ navigation, message }) {
   return (
-    <View style={styles.wrap}>
-      <View style={styles.iconCircle}>
-        <Ionicons name="person-outline" size={22} color={COLORS.primary} />
-      </View>
-      <Text style={styles.text}>{message}</Text>
-      <TouchableOpacity
-        style={styles.btn}
+    <View style={styles.wrap} accessibilityRole="summary">
+      <IconBadge name="person-outline" size={48} style={styles.icon} />
+      <Text style={styles.text} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+        {message}
+      </Text>
+      <AppButton
+        title="Giriş yap veya kayıt ol"
+        iconRight="arrow-forward"
+        size="sm"
         onPress={() => navigation.navigate('Profile')}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.btnText}>Giriş yap veya kayıt ol</Text>
-        <Ionicons name="arrow-forward" size={18} color={COLORS.textOnPrimary} />
-      </TouchableOpacity>
+      />
     </View>
   );
 }
@@ -36,34 +35,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...SHADOWS.small,
   },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.highlight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SIZES.sm,
-  },
+  icon: { marginBottom: SIZES.sm },
   text: {
     fontSize: SIZES.bodySmall,
     color: COLORS.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: SIZES.md,
-  },
-  btn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SIZES.sm,
-    backgroundColor: COLORS.primary,
-    paddingVertical: SIZES.sm + 2,
-    paddingHorizontal: SIZES.lg,
-    borderRadius: SIZES.radiusMedium,
-  },
-  btnText: {
-    fontSize: SIZES.small,
-    fontWeight: '700',
-    color: COLORS.textOnPrimary,
   },
 });

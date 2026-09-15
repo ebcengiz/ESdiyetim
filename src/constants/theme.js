@@ -1,4 +1,3 @@
-import { Platform } from 'react-native';
 import { DefaultTheme } from '@react-navigation/native';
 
 // ESdiyet — Modern yeşil + beyaz tasarım sistemi (tek kaynak)
@@ -51,6 +50,41 @@ export const COLORS = {
   // Form / buton
   disabled: '#A7C4B6',
 
+  // Mutlak renkler — sadece token olarak kullan ("#fff" yazma)
+  white: '#FFFFFF',
+  black: '#000000',
+  transparent: 'transparent',
+
+  // Durum arka planları (rozet, banner, inline uyarı)
+  successBg: '#DCFCE7',
+  successText: '#166534',
+  warningBg: '#FEF3C7',
+  warningText: '#92400E',
+  errorBg: '#FEE2E2',
+  errorText: '#B91C1C',
+  infoBg: '#E0F2FE',
+  infoText: '#075985',
+
+  // Nötr ölçek (koyu yüzeyler / toast / gölge)
+  neutral900: '#0F172A',
+  neutral800: '#1E293B',
+  neutral700: '#334155',
+  neutral500: '#64748B',
+  neutral300: '#CBD5E1',
+  neutral100: '#F1F5F9',
+
+  // Kategori/öğün vurguları (ikon rozeti, grafik, chip) — tek kaynak
+  accents: {
+    indigo: '#6366F1',
+    violet: '#8B5CF6',
+    pink: '#EC4899',
+    coral: '#F97316',
+    amber: '#F59E0B',
+    emerald: '#10B981',
+    teal: '#14B8A6',
+    sky: '#3B82F6',
+  },
+
   // Bilgilendirme kutuları (amber yerine yumuşak yeşil-mint)
   disclaimerBackground: '#F0FDF4',
   disclaimerBackgroundEnd: '#ECFDF5',
@@ -59,6 +93,26 @@ export const COLORS = {
   disclaimerText: '#166534',
   disclaimerIcon: '#15803D',
 };
+
+/**
+ * Hex rengi alpha ile rgba'ya çevirir — `'#16A34A' + '22'` kalıbı yerine bunu kullan.
+ *   withAlpha(COLORS.primary, 0.12)
+ */
+export function withAlpha(hex, alpha = 1) {
+  const h = String(hex).replace('#', '');
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const n = parseInt(full.slice(0, 6), 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/** Yeşil gradient üstündeki beyaz cam yüzeyler için (hero, chip, header ikonu) */
+export const whiteAlpha = (alpha) => withAlpha(COLORS.white, alpha);
+
+/** Koyu overlay (backdrop, sheet arkası) */
+export const blackAlpha = (alpha) => withAlpha(COLORS.black, alpha);
 
 export const SIZES = {
   xs: 4,
@@ -96,7 +150,22 @@ export const SIZES = {
   containerPadding: 20,
   cardPadding: 20,
   sectionSpacing: 24,
+
+  // Erişilebilirlik — HIG/Material minimum dokunma hedefi
+  minTouch: 44,
+  buttonHeight: 52,
+  buttonHeightSmall: 40,
+  inputHeight: 54,
+
+  // Küçük ekran (≤375pt, iPhone SE/mini) eşiği
+  smallScreenWidth: 375,
 };
+
+/** Küçük ikon butonlarda dokunma alanını 44pt'ye tamamlar */
+export const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
+
+/** Dynamic Type: yazı büyütmede taşmayı sınırlar (AAA yerine pratik üst sınır) */
+export const MAX_FONT_SCALE = 1.3;
 
 export const FONTS = {
   regular: 'System',
@@ -134,6 +203,22 @@ export const TYPOGRAPHY = {
     fontSize: SIZES.small,
     color: COLORS.textSecondary,
     lineHeight: 20,
+  },
+  label: {
+    fontSize: SIZES.small,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+    letterSpacing: 0.2,
+  },
+  button: {
+    fontSize: SIZES.body,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  small: {
+    fontSize: SIZES.tiny,
+    color: COLORS.textLight,
+    lineHeight: 16,
   },
 };
 
@@ -216,15 +301,30 @@ export const LAYOUT = {
     height: '100%',
   },
   headerHeight: 60,
-  tabBarHeight: 65,
   bottomSpace: 20,
+  // Yüzen tab bar — TEK kaynak (MainNavigator + ekran alt boşlukları buradan türetilir)
+  tabBar: {
+    height: 64,          // ikon + etiket alanı (safe area hariç)
+    floatGap: 12,        // ekranın altından yüzme mesafesi
+    sideMargin: 12,
+    radius: 28,
+  },
 };
+
+/**
+ * Tab bar'ın gerçek ölçüleri — güvenli alana göre.
+ * Home indicator olan cihazlarda bar biraz daha yukarı yüzer; olmayanlarda floatGap kadar.
+ */
+export function tabBarMetrics(insetsBottom = 0) {
+  const { height, floatGap, sideMargin, radius } = LAYOUT.tabBar;
+  const bottom = Math.max(insetsBottom, floatGap);
+  return { height, bottom, sideMargin, radius, totalSpace: height + bottom };
+}
 
 /**
  * Yüzen tab bar + güvenli alan: ScrollView contentContainerStyle paddingBottom
  * (içerik tab’ın altında / home indicator arkasında kalmaması için)
  */
 export function scrollTabScreenBottomPad(insetsBottom = 0) {
-  const tabFloat = Platform.OS === 'ios' ? 108 : 96;
-  return 20 + insetsBottom + tabFloat;
+  return tabBarMetrics(insetsBottom).totalSpace + LAYOUT.bottomSpace;
 }

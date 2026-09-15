@@ -1,31 +1,19 @@
 import React, { useEffect, useRef } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Animated,
-  Dimensions,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, SHADOWS } from '../../constants/theme';
-
-const { width } = Dimensions.get('window');
+import { Modal, View, Text, Animated, StyleSheet } from 'react-native';
+import { COLORS, SIZES, SHADOWS, MAX_FONT_SCALE, blackAlpha } from '../../constants/theme';
+import IconBadge from './IconBadge';
+import AppButton from './AppButton';
 
 /**
- * Modern confirmation modal — replaces Alert.alert for destructive actions.
+ * Onay modalı — Alert.alert yerine (yıkıcı işlemler: sil, çıkış, hesap kapat).
  *
  * Props:
- *   visible        boolean
- *   title          string
- *   message        string
- *   confirmText    string  (default "Evet")
- *   cancelText     string  (default "İptal")
- *   type           "danger" | "warning" | "default"
- *   icon           Ionicon name (optional)
- *   onConfirm      () => void
- *   onCancel       () => void
+ *   visible, title, message
+ *   confirmText ("Evet"), cancelText ("İptal")
+ *   type: "danger" | "warning" | "default"
+ *   icon: Ionicon adı (opsiyonel)
+ *   loading: onay butonunda spinner
+ *   onConfirm, onCancel
  */
 export default function ConfirmModal({
   visible,
@@ -35,6 +23,7 @@ export default function ConfirmModal({
   cancelText = 'İptal',
   type = 'default',
   icon,
+  loading = false,
   onConfirm,
   onCancel,
 }) {
@@ -53,39 +42,36 @@ export default function ConfirmModal({
     }
   }, [visible]);
 
-  const confirmColor =
-    type === 'danger' ? COLORS.error : type === 'warning' ? COLORS.warning : COLORS.primary;
-
-  const iconName =
-    icon || (type === 'danger' ? 'trash-outline' : type === 'warning' ? 'warning-outline' : 'help-circle-outline');
-
-  const iconBgColor =
-    type === 'danger' ? '#FEE2E2' : type === 'warning' ? '#FEF3C7' : COLORS.surfaceAlt;
+  const tone = TONES[type] || TONES.default;
+  const iconName = icon || tone.icon;
 
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+    <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onCancel}>
       <Animated.View style={[styles.backdrop, { opacity: opacityAnim }]}>
         <Animated.View
           style={[styles.card, { transform: [{ scale: scaleAnim }], opacity: opacityAnim }]}
+          accessibilityViewIsModal
         >
-          <View style={[styles.iconCircle, { backgroundColor: iconBgColor }]}>
-            <Ionicons name={iconName} size={28} color={confirmColor} />
-          </View>
+          <IconBadge name={iconName} color={tone.color} size={64} style={styles.icon} />
 
-          <Text style={styles.title}>{title}</Text>
-          {message ? <Text style={styles.message}>{message}</Text> : null}
+          <Text style={styles.title} maxFontSizeMultiplier={MAX_FONT_SCALE} accessibilityRole="header">
+            {title}
+          </Text>
+          {!!message && (
+            <Text style={styles.message} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+              {message}
+            </Text>
+          )}
 
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onCancel} activeOpacity={0.75}>
-              <Text style={styles.cancelText}>{cancelText}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.confirmBtn, { backgroundColor: confirmColor }]}
+            <AppButton title={cancelText} variant="secondary" onPress={onCancel} style={styles.btn} haptic={false} disabled={loading} />
+            <AppButton
+              title={confirmText}
+              variant={tone.variant}
               onPress={onConfirm}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.confirmText}>{confirmText}</Text>
-            </TouchableOpacity>
+              loading={loading}
+              style={styles.btn}
+            />
           </View>
         </Animated.View>
       </Animated.View>
@@ -93,10 +79,16 @@ export default function ConfirmModal({
   );
 }
 
+const TONES = {
+  danger: { color: COLORS.error, icon: 'trash-outline', variant: 'dangerSolid' },
+  warning: { color: COLORS.warning, icon: 'warning-outline', variant: 'warningSolid' },
+  default: { color: COLORS.primary, icon: 'help-circle-outline', variant: 'primary' },
+};
+
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: blackAlpha(0.45),
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: SIZES.containerPadding,
@@ -110,14 +102,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...SHADOWS.xl,
   },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SIZES.md,
-  },
+  icon: { marginBottom: SIZES.md },
   title: {
     fontSize: SIZES.h4,
     fontWeight: '700',
@@ -131,38 +116,9 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: SIZES.xl,
+    marginBottom: SIZES.md,
     paddingHorizontal: SIZES.sm,
   },
-  actions: {
-    flexDirection: 'row',
-    gap: SIZES.sm,
-    width: '100%',
-    marginTop: SIZES.md,
-  },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: SIZES.radiusMedium,
-    backgroundColor: COLORS.surfaceAlt,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-  },
-  cancelText: {
-    fontSize: SIZES.body,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  confirmBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: SIZES.radiusMedium,
-    alignItems: 'center',
-  },
-  confirmText: {
-    fontSize: SIZES.body,
-    fontWeight: '700',
-    color: '#fff',
-  },
+  actions: { flexDirection: 'row', gap: SIZES.sm, width: '100%', marginTop: SIZES.md },
+  btn: { flex: 1 },
 });

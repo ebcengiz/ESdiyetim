@@ -1,94 +1,80 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Text, View, StyleSheet, Dimensions } from 'react-native';
+import React, { useEffect, useRef, useCallback } from 'react';
+import { Animated, Text, View, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SIZES, SHADOWS } from '../../constants/theme';
-
-const { width } = Dimensions.get('window');
+import { COLORS, SIZES, HIT_SLOP, MAX_FONT_SCALE, withAlpha, blackAlpha } from '../../constants/theme';
 
 const TOAST_CONFIG = {
-  success: { accent: '#22C55E', icon: 'checkmark-circle' },
-  error:   { accent: '#EF4444', icon: 'close-circle' },
-  warning: { accent: '#F59E0B', icon: 'warning' },
-  info:    { accent: '#3B82F6', icon: 'information-circle' },
+  success: { accent: COLORS.primaryLight, icon: 'checkmark-circle' },
+  error:   { accent: COLORS.error,        icon: 'close-circle' },
+  warning: { accent: COLORS.warning,      icon: 'warning' },
+  info:    { accent: COLORS.accents.sky,  icon: 'information-circle' },
 };
 
-export default function Toast({ visible, type = 'info', message, onHide }) {
+/**
+ * Toast v2 — koyu nötr kart, sol renk şeridi, isteğe bağlı eylem butonu ("Tekrar dene"),
+ * dokununca kapanır. Kuyruk ve zamanlama ToastContext'te.
+ *
+ * props: visible, type, message, action { label, onPress }, duration, onHide
+ */
+export default function Toast({ visible, type = 'info', message, action, duration = 3200, onHide }) {
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-120)).current;
   const opacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.92)).current;
-
+  const timerRef = useRef(null);
   const config = TOAST_CONFIG[type] || TOAST_CONFIG.info;
 
-  useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.spring(translateY, {
-          toValue: 0,
-          tension: 90,
-          friction: 11,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scale, {
-          toValue: 1,
-          tension: 90,
-          friction: 11,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      const timer = setTimeout(() => hide(), 3200);
-      return () => clearTimeout(timer);
-    }
-  }, [visible]);
-
-  const hide = () => {
+  const hide = useCallback(() => {
+    clearTimeout(timerRef.current);
     Animated.parallel([
-      Animated.timing(translateY, {
-        toValue: -120,
-        duration: 260,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
+      Animated.timing(translateY, { toValue: -120, duration: 220, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: true }),
     ]).start(() => onHide?.());
-  };
+  }, [onHide, translateY, opacity]);
+
+  useEffect(() => {
+    if (!visible) return undefined;
+    translateY.setValue(-120);
+    opacity.setValue(0);
+    Animated.parallel([
+      Animated.spring(translateY, { toValue: 0, tension: 90, friction: 11, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+    ]).start();
+    // Eylemli toast'lar biraz daha uzun kalsın (kullanıcı okuyup basabilsin)
+    timerRef.current = setTimeout(hide, action ? Math.max(duration, 5000) : duration);
+    return () => clearTimeout(timerRef.current);
+  }, [visible, message]);
 
   if (!visible) return null;
 
   return (
     <Animated.View
-      style={[
-        styles.container,
-        {
-          top: insets.top + 10,
-          opacity,
-          transform: [{ translateY }, { scale }],
-        },
-      ]}
-      pointerEvents="none"
+      style={[styles.container, { top: insets.top + 10, opacity, transform: [{ translateY }] }]}
+      accessibilityLiveRegion="assertive"
+      accessibilityRole="alert"
     >
-      {/* Sol renkli şerit */}
-      <View style={[styles.stripe, { backgroundColor: config.accent }]} />
-
-      {/* İkon */}
-      <View style={[styles.iconWrap, { backgroundColor: config.accent + '22' }]}>
-        <Ionicons name={config.icon} size={20} color={config.accent} />
-      </View>
-
-      {/* Mesaj */}
-      <Text style={styles.message} numberOfLines={3}>
-        {message}
-      </Text>
+      <Pressable onPress={hide} style={styles.body} accessibilityLabel={`${message}. Kapatmak için dokun`}>
+        <View style={[styles.stripe, { backgroundColor: config.accent }]} />
+        <View style={[styles.iconWrap, { backgroundColor: withAlpha(config.accent, 0.18) }]}>
+          <Ionicons name={config.icon} size={20} color={config.accent} />
+        </View>
+        <Text style={styles.message} numberOfLines={3} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+          {message}
+        </Text>
+        {!!action && (
+          <Pressable
+            onPress={() => { hide(); action.onPress?.(); }}
+            hitSlop={HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel={action.label}
+            style={({ pressed }) => [styles.actionBtn, { borderColor: withAlpha(config.accent, 0.5) }, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={[styles.actionText, { color: config.accent }]} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+              {action.label}
+            </Text>
+          </Pressable>
+        )}
+      </Pressable>
     </Animated.View>
   );
 }
@@ -99,41 +85,34 @@ const styles = StyleSheet.create({
     left: SIZES.containerPadding,
     right: SIZES.containerPadding,
     zIndex: 9999,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1C1C1E',        // koyu nötr — her arkaplan üstünde görünür
-    borderRadius: SIZES.radiusMedium,
-    overflow: 'hidden',
-    paddingVertical: 13,
-    paddingRight: SIZES.md,
-    paddingLeft: 0,
-    gap: SIZES.sm,
-    // Güçlü gölge — arka plandan ayırır
-    shadowColor: '#000',
-    shadowOpacity: 0.45,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 6 },
     elevation: 16,
   },
-  stripe: {
-    width: 4,
-    alignSelf: 'stretch',
-    borderRadius: 2,
-    marginLeft: 0,
-    marginRight: 2,
-  },
-  iconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
+  body: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: COLORS.neutral900,   // koyu nötr — her arkaplan üstünde okunur
+    borderRadius: SIZES.radiusMedium,
+    overflow: 'hidden',
+    paddingVertical: 12,
+    paddingRight: SIZES.md,
+    gap: SIZES.sm,
+    minHeight: 56,
+    shadowColor: COLORS.black,
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 6 },
   },
-  message: {
-    flex: 1,
-    fontSize: SIZES.bodySmall,
-    fontWeight: '600',
-    color: '#F5F5F5',
-    lineHeight: 20,
+  stripe: { width: 4, alignSelf: 'stretch', marginRight: 2 },
+  iconWrap: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  message: { flex: 1, fontSize: SIZES.bodySmall, fontWeight: '600', color: COLORS.neutral100, lineHeight: 20 },
+  actionBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: SIZES.radiusFull,
+    borderWidth: 1,
+    backgroundColor: blackAlpha(0.2),
+    minHeight: 32,
+    justifyContent: 'center',
   },
+  actionText: { fontSize: SIZES.small, fontWeight: '800' },
 });

@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, SIZES, SHADOWS, TYPOGRAPHY } from '../constants/theme';
+import { COLORS, SIZES, TYPOGRAPHY } from '../constants/theme';
 import { normalizeError, logError, onFatalError } from '../services/errors';
+import IconBadge from './ui/IconBadge';
+import AppButton from './ui/AppButton';
 
 /**
  * Uygulama kökündeki hata sınırı.
@@ -46,9 +47,7 @@ export default class ErrorBoundary extends React.Component {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <ScrollView contentContainerStyle={styles.content} bounces={false}>
-          <View style={styles.iconWrap}>
-            <Ionicons name="leaf-outline" size={40} color={COLORS.primary} />
-          </View>
+          <IconBadge name="leaf-outline" size={88} style={styles.icon} />
 
           <Text style={styles.title}>Bir şeyler ters gitti</Text>
           <Text style={styles.body}>
@@ -56,15 +55,7 @@ export default class ErrorBoundary extends React.Component {
             başlatmak genellikle sorunu çözer.
           </Text>
 
-          <Pressable
-            onPress={this.handleRetry}
-            accessibilityRole="button"
-            accessibilityLabel="Tekrar dene"
-            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-          >
-            <Ionicons name="refresh" size={20} color={COLORS.textOnPrimary} />
-            <Text style={styles.buttonText}>Tekrar dene</Text>
-          </Pressable>
+          <AppButton title="Tekrar dene" icon="refresh" size="lg" onPress={this.handleRetry} />
 
           {__DEV__ && (
             <View style={styles.devBox}>
@@ -91,15 +82,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SIZES.lg,
     paddingVertical: SIZES.xl,
   },
-  iconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: COLORS.highlight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SIZES.lg,
-  },
+  icon: { marginBottom: SIZES.lg },
   title: {
     ...TYPOGRAPHY.screenTitle,
     textAlign: 'center',
@@ -111,23 +94,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 320,
     marginBottom: SIZES.xl,
-  },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SIZES.sm,
-    backgroundColor: COLORS.primary,
-    paddingVertical: 14,
-    paddingHorizontal: SIZES.lg,
-    borderRadius: SIZES.radiusFull,
-    minHeight: 48,
-    ...SHADOWS.medium,
-  },
-  buttonPressed: { backgroundColor: COLORS.primaryDark, transform: [{ scale: 0.98 }] },
-  buttonText: {
-    color: COLORS.textOnPrimary,
-    fontSize: SIZES.body,
-    fontWeight: '700',
   },
   devBox: {
     marginTop: SIZES.xl,
