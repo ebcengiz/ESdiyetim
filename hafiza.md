@@ -21,6 +21,19 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-16 — Canlıda premium/ücretsiz limitleri fiilen çalışmıyordu (kullanıcı bildirdi) — 3 gerçek hata bulundu ve düzeltildi
+
+**Belirti (kullanıcı):** "Canlı sürümde premium ile ilgili hiçbir şey çalışmıyor" — somut örnek: ücretsiz kullanıcı günde 1 fotoğraf hakkına sahip olması gerekirken istediği kadar fotoğraf analizi yapabiliyor; "AI ile sınırsız besin analizi" ücretsiz planda günde 3 olması gerekirken 3'ten fazla kullanılabiliyor.
+
+**Kök nedenler (kod incelemesiyle doğrulandı, cihaz gerektirmedi):**
+1. **`src/components/dietPlan/MealFoodPickerSection.js`** (DiyetPlanı ekranındaki öğün düzenleme panelinin "AI ile tam analiz (Türkçe)" butonu) `getFoodNutritionAI`'ı **hiçbir abonelik/günlük limit kontrolü olmadan** doğrudan çağırıyordu — `FoodSearchModal.js`'deki aynı özellik doğru şekilde `dailyUsageService` + `isSubscribed` ile günde 3'e sınırlıyken, bu ikinci giriş noktası tamamen açık kalmıştı. Bu, "AI analizi sınırsız yapılabiliyor" şikâyetinin doğrudan nedeniydi.
+2. **`src/contexts/SubscriptionContext.js`** — fotoğraf kredisi tamamen Supabase'e (`user_credits` tablosu) bağımlıydı; `loadDailyCredits`/`incrementDailyPhotoCredit` içinde herhangi bir hata (ağ, RLS, ya da CLAUDE.md'de zaten bilinen "Supabase Free Plan 7 günde paused olur" durumu) **sessizce "0 kullanıldı"ya düşüp limiti fiilen sınırsız hâle getiriyordu** (fail-open). Artırma işlemi Supabase'e yazılamasa bile artık oturum içinde cihaz-yerel sayaç (`DAILY_PHOTO_CACHE_KEY`, AsyncStorage) doğru artıyor; yükleme başarısız olursa 0 yerine son bilinen cihaz-yerel değere dönülüyor.
+3. **`src/screens/PaywallScreen.js`** — `getPriceLabel` Store fiyatını `p.productId`/`storeProduct.localizedPrice` alanlarından okumaya çalışıyordu; `expo-iap` v4.2.0'da bu alanlar `id`/`displayPrice` olarak değişmiş (`node_modules/expo-iap/build/types.d.ts` ile doğrulandı) — paywall gerçek Store fiyatını hiç göstermiyor, her zaman sabit yedek fiyata (`FALLBACK_PRICE_LABELS`) düşüyordu. Düzeltildi.
+
+**Doğrulama:** `npx expo export --platform ios` iki kez temiz derlendi (1078 modül, 0 hata). `eas env:list --environment production/preview` ile `EXPO_PUBLIC_IS_TESTFLIGHT`/`EXPO_PUBLIC_BYPASS_PAYWALL`'ın production'a sızmadığı doğrulandı (ayrı bir olası kök neden elendi). `user_credits` tablosunun canlı Supabase'de gerçekten var olduğu REST API ile doğrulandı (migration uygulanmış).
+
+**Not:** Satın alma akışının kendisi (`initConnection`/`fetchProducts`/`requestPurchase`/`getAvailablePurchases`) `expo-iap` v4.2.0 kaynak koduyla satır satır karşılaştırıldı, doğru kullanılıyor — asıl sorun satın almada değil, ücretsiz limitlerin uygulanmamasındaymış.
+
 ### 2026-09-15 — Xcode 27 ile yerel build açılışta çöküyordu: "UIScene life cycle is required" → UIScene yaşam döngüsü config plugin'i ile eklendi
 
 **Belirti:** Xcode 27.0 (27A266a) ile cihaza kurulan geliştirme build'i açılır açılmaz `EXC_BREAKPOINT` ile duruyordu: `_UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption ... Application failed to launch: UIScene life cycle is required for apps built with this SDK.`

@@ -40,9 +40,11 @@ export default function PaywallScreen({ navigation }) {
   const [restoring, setRestoring] = useState(false);
 
   // Ürün fiyatını Store'dan al, yoksa sabit göster
+  // Not: expo-iap v4 Product tipinde alan adları `id` ve `displayPrice`'tır
+  // (eski v2 API'sindeki `productId`/`localizedPrice` değil) — bkz. expo-iap ProductCommon tipi.
   const getPriceLabel = (planKey) => {
-    const storeProduct = products.find((p) => p.productId === planKey);
-    if (storeProduct?.localizedPrice) return storeProduct.localizedPrice;
+    const storeProduct = products.find((p) => p.id === planKey);
+    if (storeProduct?.displayPrice) return storeProduct.displayPrice;
     return FALLBACK_PRICE_LABELS[PLAN_META.find((p) => p.id === planKey)?.key] ?? '—';
   };
 

@@ -13,6 +13,10 @@ import { userCreditsService } from '../services/supabase';
 import { bypassPaywall, isTestEnv } from '../utils/environment';
 
 const SUBSCRIPTION_CACHE_KEY = 'esdiyet_sub_status_v1';
+// Supabase'e ulaşılamadığında (ağ hatası, projenin "paused" olması vb.) fotoğraf
+// sayacının sıfıra dönüp ücretsiz limiti fiilen sınırsız hâle getirmesini önlemek
+// için cihaz-yerel yedek kayıt — bkz. dailyUsageService.js'deki aynı desen.
+const DAILY_PHOTO_CACHE_KEY = 'esdiyet_daily_photo_used_v1';
 // Ücretsiz kullanıcılar günde 1 fotoğraf analizini deneyebilir (freemium tadımlık);
 // premium kullanıcılar günde 5 hakka sahip.
 const FREE_DAILY_LIMIT = 1;
@@ -49,12 +53,24 @@ export function SubscriptionProvider({ children }) {
 
   // ─── Günlük kredi yükle ─────────────────────────────────────────────────
   const loadDailyCredits = useCallback(async () => {
+    const today = new Date().toISOString().split('T')[0];
     try {
       const credits = await userCreditsService.getOrInit();
-      setDailyPhotoUsed(credits?.daily_photo_used ?? 0);
-    } catch {
-      // Oturum yoksa (guest) → 0
-      setDailyPhotoUsed(0);
+      const used = credits?.daily_photo_used ?? 0;
+      setDailyPhotoUsed(used);
+      await AsyncStorage.setItem(DAILY_PHOTO_CACHE_KEY, JSON.stringify({ date: today, count: used }));
+    } catch (e) {
+      // Supabase'e ulaşılamadı (guest oturumu, ağ hatası, proje "paused" vb.) —
+      // sayacı 0'a düşürüp limiti fiilen sınırsız yapmak yerine son bilinen
+      // cihaz-yerel değeri kullan (bkz. DAILY_PHOTO_CACHE_KEY tanımı).
+      console.warn('Daily credits load:', e?.message);
+      try {
+        const cached = await AsyncStorage.getItem(DAILY_PHOTO_CACHE_KEY);
+        const parsed = cached ? JSON.parse(cached) : null;
+        setDailyPhotoUsed(parsed?.date === today ? parsed.count : 0);
+      } catch {
+        setDailyPhotoUsed(0);
+      }
     }
   }, []);
 
@@ -104,11 +120,20 @@ export function SubscriptionProvider({ children }) {
   // ─── Krediyi artır ───────────────────────────────────────────────────────
   const incrementDailyPhotoCredit = useCallback(async () => {
     if (bypassPaywall) return;
+    const today = new Date().toISOString().split('T')[0];
     try {
       const newCount = await userCreditsService.increment();
       setDailyPhotoUsed(newCount);
+      await AsyncStorage.setItem(DAILY_PHOTO_CACHE_KEY, JSON.stringify({ date: today, count: newCount }));
     } catch (e) {
+      // Supabase'e yazılamadı — yine de bu oturum içinde limiti doğru uygulamak
+      // için cihaz-yerel sayacı artır (aksi hâlde limit hiç devreye girmez).
       console.warn('Credit increment:', e?.message);
+      setDailyPhotoUsed((prev) => {
+        const next = prev + 1;
+        AsyncStorage.setItem(DAILY_PHOTO_CACHE_KEY, JSON.stringify({ date: today, count: next })).catch(() => {});
+        return next;
+      });
     }
   }, []);
 

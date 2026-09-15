@@ -15,9 +15,13 @@ import {
   getFoodNutritionAI,
   calcNutritionForGrams,
 } from '../../services/nutritionService';
+import { hasReachedDailyLimit, incrementDailyUsage } from '../../services/dailyUsageService';
+import { FREE_AI_SEARCH_DAILY_LIMIT, AI_SEARCH_USAGE_KEY } from '../../services/subscriptionService';
+import { useSubscription } from '../../contexts/SubscriptionContext';
 
 /** Besin günlüğü ile aynı kaynak: OFF/USDA araması + AI + gram/ml → satıra yazılır (kendi state'i var) */
 export default function MealFoodPickerSection({ field, formValue, onAppend, onRemoveLine, showToast }) {
+  const { isSubscribed, openPaywall } = useSubscription();
   const [pickQuery, setPickQuery] = React.useState('');
   const [pickResults, setPickResults] = React.useState([]);
   const [pickSearching, setPickSearching] = React.useState(false);
@@ -47,10 +51,22 @@ export default function MealFoodPickerSection({ field, formValue, onAppend, onRe
 
   const handleAISearch = async () => {
     if (!pickQuery.trim()) { showToast('Önce bir besin adı girin.', 'warning'); return; }
+
+    // Ücretsiz kullanıcılar için günlük yumuşak limit (FoodSearchModal.js ile aynı kaynak/limit).
+    if (!isSubscribed) {
+      const reached = await hasReachedDailyLimit(AI_SEARCH_USAGE_KEY, FREE_AI_SEARCH_DAILY_LIMIT);
+      if (reached) {
+        showToast(`Günlük ücretsiz AI analiz hakkınızı kullandınız (${FREE_AI_SEARCH_DAILY_LIMIT}/gün). Sınırsız analiz için Premium'a geçin.`, 'warning');
+        openPaywall();
+        return;
+      }
+    }
+
     setPickAiLoading(true);
     setPickFood(null);
     try {
       const food = await getFoodNutritionAI(pickQuery.trim(), false);
+      if (!isSubscribed) await incrementDailyUsage(AI_SEARCH_USAGE_KEY);
       setPickFood(food);
       setPickResults([]);
     } catch (e) {
