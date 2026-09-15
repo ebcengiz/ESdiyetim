@@ -1,62 +1,46 @@
-import React, { useState, useRef } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  ActivityIndicator,
-  Image,
-  Animated,
-  Easing,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { COLORS, SIZES, SHADOWS, INPUT_FIELD } from "../constants/theme";
-import { useAuth } from "../contexts/AuthContext";
-import { useAppError } from "../hooks/useAppError";
-import { ERROR_CODES } from "../services/errors";
-
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import React, { useState, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, Image, Animated } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { COLORS, SIZES, SHADOWS, TYPOGRAPHY, MAX_FONT_SCALE, whiteAlpha } from '../constants/theme';
+import { useAuth } from '../contexts/AuthContext';
+import { useAppError } from '../hooks/useAppError';
+import { useShake } from '../hooks/useShake';
+import { useResponsive } from '../hooks/useResponsive';
+import { ERROR_CODES } from '../services/errors';
+import { validateEmail, validateRequired } from '../utils/validation';
+import { ScreenContainer, AppInput, AppButton } from '../components/ui';
+import AuthFooter from '../components/auth/AuthFooter';
 
 export default function LoginScreen({ navigation }) {
-  const insets = useSafeAreaInsets();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [focusedField, setFocusedField] = useState(null);
+  const { topPad, isSmall } = useResponsive();
   const { signIn, continueAsGuest } = useAuth();
   const { handleError } = useAppError();
+  const { shake, shakeStyle } = useShake();
 
-  // Shake animation for submit error
-  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+  const passwordRef = useRef(null);
 
-  const shake = () => {
-    Animated.sequence([
-      Animated.timing(shakeAnim, { toValue: 8,  duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -8, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 6,  duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -6, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 0,  duration: 60, useNativeDriver: true }),
-    ]).start();
+  // Alan bazlı doğrulama — hem blur'da (erken geri bildirim) hem submit'te
+  const validators = {
+    email: () => validateEmail(email.trim()),
+    password: () => validateRequired(password, 'Şifre'),
   };
 
-  const validate = () => {
+  const validateField = useCallback((field) => {
+    const msg = validators[field]();
+    setErrors((prev) => ({ ...prev, [field]: msg || undefined }));
+    return !msg;
+  }, [email, password]);
+
+  const validateAll = () => {
     const errs = {};
-    if (!email.trim()) {
-      errs.email = "E-posta adresi gerekli.";
-    } else if (!emailRegex.test(email)) {
-      errs.email = "Geçerli bir e-posta adresi girin.";
-    }
-    if (!password.trim()) {
-      errs.password = "Şifre gerekli.";
-    }
+    Object.keys(validators).forEach((f) => {
+      const msg = validators[f]();
+      if (msg) errs[f] = msg;
+    });
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -66,11 +50,10 @@ export default function LoginScreen({ navigation }) {
   };
 
   const handleLogin = async () => {
-    if (!validate()) {
+    if (!validateAll()) {
       shake();
       return;
     }
-
     setLoading(true);
     try {
       const { error } = await signIn(email.trim().toLowerCase(), password);
@@ -80,418 +63,140 @@ export default function LoginScreen({ navigation }) {
           setErrors({ password: error.userMessage });
           shake();
         } else {
-          handleError(error, { context: "login" });
+          handleError(error, { context: 'login', onRetry: handleLogin });
         }
       }
     } catch (e) {
-      handleError(e, { context: "login" });
+      handleError(e, { context: 'login' });
     } finally {
       setLoading(false);
     }
   };
 
-  const inputBorderColor = (field) => {
-    if (errors[field]) return COLORS.error;
-    if (focusedField === field) return COLORS.primary;
-    return COLORS.border;
-  };
+  const header = (
+    <LinearGradient
+      colors={[COLORS.gradientStart, COLORS.gradientMiddle]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.header, { paddingTop: topPad }]}
+    >
+      <View style={[styles.logoBadge, isSmall && styles.logoBadgeSmall]}>
+        <Image
+          source={require('../../assets/icon.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+          accessibilityIgnoresInvertColors
+        />
+      </View>
+      <Text style={styles.appTitle} accessibilityRole="header" maxFontSizeMultiplier={MAX_FONT_SCALE}>
+        ESdiyet
+      </Text>
+      <Text style={styles.appSubtitle} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+        Sağlıklı Yaşam Asistanınız
+      </Text>
+    </LinearGradient>
+  );
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom, 16) + 32 },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <LinearGradient
-          colors={[COLORS.gradientStart, COLORS.gradientMiddle]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 16 }]}
-        >
-          <View style={styles.logoContainer}>
-            <View style={styles.logoBadge}>
-              <Image
-                source={require("../../assets/icon.png")}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-            </View>
-            <Text style={styles.appTitle}>ESdiyet</Text>
-            <Text style={styles.appSubtitle}>Sağlıklı Yaşam Asistanınız</Text>
-          </View>
-        </LinearGradient>
+    <ScreenContainer keyboard edges={[]} padded={false} contentContainerStyle={styles.scroll}>
+      {header}
 
-        {/* Form */}
-        <Animated.View
-          style={[
-            styles.formContainer,
-            { transform: [{ translateX: shakeAnim }] },
-          ]}
-        >
-          <Text style={styles.welcomeText}>Hoş Geldiniz</Text>
-          <Text style={styles.subtitleText}>Hesabınıza giriş yapın</Text>
+      <Animated.View style={[styles.form, shakeStyle]}>
+        <Text style={styles.title} accessibilityRole="header" maxFontSizeMultiplier={MAX_FONT_SCALE}>
+          Hoş Geldiniz
+        </Text>
+        <Text style={styles.subtitle} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+          Hesabınıza giriş yapın
+        </Text>
 
-          {/* Email */}
-          <View style={styles.fieldWrap}>
-            <View
-              style={[
-                styles.inputContainer,
-                { borderColor: inputBorderColor("email") },
-                focusedField === "email" && styles.inputFocused,
-              ]}
-            >
-              <View style={styles.inputIconContainer}>
-                <Ionicons
-                  name="mail-outline"
-                  size={20}
-                  color={focusedField === "email" ? COLORS.primary : COLORS.textSecondary}
-                />
-              </View>
-              <TextInput
-                style={styles.input}
-                placeholder="E-posta adresiniz"
-                placeholderTextColor={COLORS.textLight}
-                value={email}
-                onChangeText={(v) => { setEmail(v); clearError("email"); }}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!loading}
-                onFocus={() => setFocusedField("email")}
-                onBlur={() => setFocusedField(null)}
-              />
-            </View>
-            {errors.email ? (
-              <View style={styles.errorRow}>
-                <Ionicons name="alert-circle" size={14} color={COLORS.error} />
-                <Text style={styles.errorText}>{errors.email}</Text>
-              </View>
-            ) : null}
-          </View>
+        <AppInput
+          label="E-posta"
+          icon="mail-outline"
+          placeholder="ornek@eposta.com"
+          value={email}
+          onChangeText={(v) => { setEmail(v); clearError('email'); }}
+          onBlur={() => email && validateField('email')}
+          error={errors.email}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
+          textContentType="emailAddress"
+          returnKeyType="next"
+          onSubmitEditing={() => passwordRef.current?.focus()}
+          editable={!loading}
+        />
 
-          {/* Password */}
-          <View style={styles.fieldWrap}>
-            <View
-              style={[
-                styles.inputContainer,
-                { borderColor: inputBorderColor("password") },
-                focusedField === "password" && styles.inputFocused,
-              ]}
-            >
-              <View style={styles.inputIconContainer}>
-                <Ionicons
-                  name="lock-closed-outline"
-                  size={20}
-                  color={focusedField === "password" ? COLORS.primary : COLORS.textSecondary}
-                />
-              </View>
-              <TextInput
-                style={[styles.input, styles.passwordInput]}
-                placeholder="Şifreniz"
-                placeholderTextColor={COLORS.textLight}
-                value={password}
-                onChangeText={(v) => { setPassword(v); clearError("password"); }}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!loading}
-                onFocus={() => setFocusedField("password")}
-                onBlur={() => setFocusedField(null)}
-              />
-              <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowPassword(!showPassword)}
-                disabled={loading}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons
-                  name={showPassword ? "eye-outline" : "eye-off-outline"}
-                  size={20}
-                  color={COLORS.textSecondary}
-                />
-              </TouchableOpacity>
-            </View>
-            {errors.password ? (
-              <View style={styles.errorRow}>
-                <Ionicons name="alert-circle" size={14} color={COLORS.error} />
-                <Text style={styles.errorText}>{errors.password}</Text>
-              </View>
-            ) : null}
-          </View>
+        <AppInput
+          ref={passwordRef}
+          label="Şifre"
+          icon="lock-closed-outline"
+          placeholder="Şifreniz"
+          value={password}
+          onChangeText={(v) => { setPassword(v); clearError('password'); }}
+          error={errors.password}
+          secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="password"
+          textContentType="password"
+          returnKeyType="go"
+          onSubmitEditing={handleLogin}
+          editable={!loading}
+        />
 
-          {/* Login Button */}
-          <TouchableOpacity
-            style={[styles.loginButton, loading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-            activeOpacity={0.82}
-          >
-            <LinearGradient
-              colors={loading ? [COLORS.disabled, COLORS.disabled] : [COLORS.primary, COLORS.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.buttonGradient}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Text style={styles.buttonText}>Giriş Yap</Text>
-                  <Ionicons name="arrow-forward" size={20} color="#fff" />
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
+        <AppButton
+          title="Giriş Yap"
+          iconRight="arrow-forward"
+          size="lg"
+          fullWidth
+          onPress={handleLogin}
+          loading={loading}
+          style={styles.submit}
+        />
 
-          {/* Divider */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>veya</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Guest */}
-          <TouchableOpacity
-            style={styles.guestButton}
-            onPress={() => continueAsGuest()}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="phone-portrait-outline" size={20} color={COLORS.primary} />
-            <Text style={styles.guestButtonText}>Hesap olmadan devam et</Text>
-          </TouchableOpacity>
-
-          <View style={styles.guestHintBox}>
-            <Ionicons name="information-circle-outline" size={15} color={COLORS.textLight} />
-            <Text style={styles.guestHintText}>
-              Sağlık ipuçları hesap olmadan kullanılabilir. Diyet planı, kilo takibi ve hedefler için giriş gerekir.
-            </Text>
-          </View>
-
-          <View style={styles.privacyFooter}>
-            <TouchableOpacity
-              onPress={() => navigation.navigate("PrivacyPolicy")}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              disabled={loading}
-            >
-              <Text style={styles.privacyFooterLink}>Gizlilik Politikası</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.registerContainer}>
-            <Text style={styles.registerText}>Hesabınız yok mu? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate("Register")} disabled={loading}>
-              <Text style={styles.registerLink}>Kayıt Olun</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        <AuthFooter
+          onGuest={continueAsGuest}
+          guestHint="Sağlık ipuçları hesap olmadan kullanılabilir. Diyet planı, kilo takibi ve hedefler için giriş gerekir."
+          onPrivacy={() => navigation.navigate('PrivacyPolicy')}
+          switchPrompt="Hesabınız yok mu?"
+          switchLabel="Kayıt Olun"
+          onSwitch={() => navigation.navigate('Register')}
+          disabled={loading}
+        />
+      </Animated.View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
+  scroll: { flexGrow: 1, paddingTop: 0 },
   header: {
-    paddingBottom: 44,
-    alignItems: "center",
-  },
-  logoContainer: {
-    alignItems: "center",
+    paddingBottom: SIZES.xl + SIZES.sm,
+    alignItems: 'center',
+    borderBottomLeftRadius: SIZES.radiusXL,
+    borderBottomRightRadius: SIZES.radiusXL,
   },
   logoBadge: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "rgba(255,255,255,0.96)",
-    justifyContent: "center",
-    alignItems: "center",
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    backgroundColor: whiteAlpha(0.96),
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: SIZES.md,
-    overflow: "hidden",
+    overflow: 'hidden',
     ...SHADOWS.large,
   },
-  logoImage: {
-    width: 120,
-    height: 120,
-  },
-  appTitle: {
-    fontSize: 34,
-    fontWeight: "800",
-    letterSpacing: -0.8,
-    color: "#fff",
-    marginBottom: 4,
-  },
-  appSubtitle: {
-    fontSize: SIZES.bodySmall,
-    color: "#fff",
-    opacity: 0.9,
-  },
-  formContainer: {
+  logoBadgeSmall: { width: 92, height: 92, borderRadius: 46 },
+  logoImage: { width: '100%', height: '100%' },
+  appTitle: { ...TYPOGRAPHY.hero, color: COLORS.textOnPrimary, marginBottom: 2 },
+  appSubtitle: { fontSize: SIZES.bodySmall, color: whiteAlpha(0.9) },
+  form: {
     paddingHorizontal: SIZES.containerPadding,
-    paddingTop: SIZES.xl + 4,
+    paddingTop: SIZES.xl,
   },
-  welcomeText: {
-    fontSize: SIZES.h2,
-    fontWeight: "700",
-    color: COLORS.text,
-    marginBottom: 4,
-    letterSpacing: -0.4,
-  },
-  subtitleText: {
-    fontSize: SIZES.body,
-    color: COLORS.textSecondary,
-    marginBottom: SIZES.xl,
-  },
-  fieldWrap: {
-    marginBottom: SIZES.md,
-  },
-  inputContainer: {
-    ...INPUT_FIELD,
-    borderRadius: SIZES.radiusMedium,
-    marginBottom: 0,
-    borderWidth: 1.5,
-  },
-  inputFocused: {
-    shadowOpacity: 0.14,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  inputIconContainer: {
-    width: 40,
-    alignItems: "center",
-  },
-  input: {
-    flex: 1,
-    height: 54,
-    fontSize: SIZES.body,
-    color: COLORS.text,
-  },
-  passwordInput: {
-    paddingRight: 40,
-  },
-  eyeIcon: {
-    position: "absolute",
-    right: SIZES.md,
-    padding: SIZES.xs,
-  },
-  errorRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    marginTop: 6,
-    paddingHorizontal: 4,
-  },
-  errorText: {
-    fontSize: SIZES.small,
-    color: COLORS.error,
-    fontWeight: "500",
-  },
-  loginButton: {
-    borderRadius: SIZES.radiusMedium,
-    overflow: "hidden",
-    marginTop: SIZES.sm,
-    ...SHADOWS.medium,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonGradient: {
-    height: 56,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: SIZES.sm,
-  },
-  buttonText: {
-    fontSize: SIZES.h4,
-    fontWeight: "700",
-    color: "#fff",
-  },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: SIZES.xl,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: COLORS.border,
-  },
-  dividerText: {
-    marginHorizontal: SIZES.md,
-    fontSize: SIZES.bodySmall,
-    color: COLORS.textSecondary,
-  },
-  guestButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: SIZES.sm,
-    paddingVertical: 14,
-    borderRadius: SIZES.radiusMedium,
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.surface,
-  },
-  guestButtonText: {
-    fontSize: SIZES.body,
-    fontWeight: "700",
-    color: COLORS.primary,
-  },
-  guestHintBox: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 6,
-    marginTop: SIZES.md,
-    marginBottom: SIZES.lg,
-    backgroundColor: COLORS.accent,
-    borderRadius: SIZES.radiusSmall,
-    padding: SIZES.sm + 2,
-  },
-  guestHintText: {
-    flex: 1,
-    fontSize: SIZES.small,
-    color: COLORS.textLight,
-    lineHeight: 19,
-  },
-  privacyFooter: {
-    alignItems: "center",
-    marginBottom: SIZES.md,
-  },
-  privacyFooterLink: {
-    fontSize: SIZES.small,
-    color: COLORS.primary,
-    fontWeight: "600",
-    textDecorationLine: "underline",
-  },
-  registerContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    flexWrap: "wrap",
-    paddingBottom: 4,
-  },
-  registerText: {
-    fontSize: SIZES.body,
-    color: COLORS.textSecondary,
-  },
-  registerLink: {
-    fontSize: SIZES.body,
-    color: COLORS.primary,
-    fontWeight: "700",
-  },
+  title: { ...TYPOGRAPHY.screenTitle, marginBottom: 4 },
+  subtitle: { fontSize: SIZES.body, color: COLORS.textSecondary, marginBottom: SIZES.lg },
+  submit: { marginTop: SIZES.xs },
 });
