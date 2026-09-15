@@ -15,6 +15,7 @@ import AIAdviceCard from './AIAdviceCard';
 import { formatShortDate } from '../utils/date';
 import { useFormModal } from '../hooks/useFormModal';
 import { useToast } from '../contexts/ToastContext';
+import { useAppError } from '../hooks/useAppError';
 import ConfirmModal from './ui/ConfirmModal';
 
 const EMPTY_FORM = { weight: '', notes: '' };
@@ -33,6 +34,7 @@ const toDateKey = (value) => {
 export default function WeightPanel({ onWeightChange }) {
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
+  const { handleError } = useAppError();
   const [weights, setWeights] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -142,8 +144,7 @@ export default function WeightPanel({ onWeightChange }) {
         onWeightChange(latestRecord.weight);
       }
     } catch (error) {
-      if (error.code === 'DUPLICATE_DATE') showToast(error.message, 'warning');
-      else showToast('Kilo kaydı kaydedilirken bir hata oluştu.', 'error');
+      handleError(error, { context: 'weightPanel.save' });
     }
   };
 

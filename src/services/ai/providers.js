@@ -2,6 +2,41 @@
 // Her provider ayrı bir fetch fonksiyonu; aiService.js orkestrasyonu yapar.
 
 import { assertAIConsent } from '../aiConsentService';
+import { AppError, ERROR_CODES, normalizeError } from '../errors';
+
+// ─── Hata yardımcıları ───────────────────────────────────────────────────────
+// Kural: sağlayıcı adı, HTTP kodu, env değişkeni, API gövdesi vb. teknik ayrıntı
+// yalnızca AppError.detail'de (→ console) kalır; kullanıcı errorMessages.js'deki
+// sakin metni görür.
+
+/** Env anahtarı tanımsız — kullanıcı için "kullanılamıyor", log için hangi anahtar */
+function notConfigured(envName) {
+  return new AppError(ERROR_CODES.AI_NOT_CONFIGURED, { detail: `${envName} tanımlı değil` });
+}
+
+/** HTTP yanıt hatası → kod eşlemesi */
+function httpError(provider, status, body = '') {
+  const detail = `${provider} HTTP ${status}${body ? ': ' + String(body).slice(0, 300) : ''}`;
+  if (status === 429) return new AppError(ERROR_CODES.AI_RATE_LIMIT, { detail, meta: { provider, status } });
+  if (status === 401 || status === 403) return new AppError(ERROR_CODES.AI_NOT_CONFIGURED, { detail, meta: { provider, status } });
+  return new AppError(ERROR_CODES.AI_UNAVAILABLE, { detail, meta: { provider, status } });
+}
+
+/** fetch() fırlattı (ağ / abort) */
+function fetchError(provider, e) {
+  if (e?.name === 'AbortError') {
+    return new AppError(ERROR_CODES.AI_TIMEOUT, { detail: `${provider} zaman aşımı`, cause: e });
+  }
+  const n = normalizeError(e, { context: provider });
+  // Ağ dışı bilinmeyen bir şeyse yine de AI kapsamında raporla
+  return n.code === ERROR_CODES.UNKNOWN
+    ? new AppError(ERROR_CODES.AI_UNAVAILABLE, { detail: `${provider}: ${e?.message || e}`, cause: e })
+    : n;
+}
+
+function emptyResponse(provider, why = 'boş yanıt') {
+  return new AppError(ERROR_CODES.AI_EMPTY_RESPONSE, { detail: `${provider}: ${why}`, meta: { provider } });
+}
 
 const HUGGINGFACE_API_KEY = process.env.EXPO_PUBLIC_HUGGINGFACE_API_KEY || '';
 const GROQ_API_KEY        = process.env.EXPO_PUBLIC_GROQ_API_KEY        || '';
@@ -61,18 +96,18 @@ export function parseJsonObjectFromLlmText(text) {
     return JSON.parse(str);
   } catch {
     const match = str.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('Besin verisi alınamadı. Lütfen tekrar deneyin.');
+    if (!match) throw new AppError(ERROR_CODES.AI_PARSE_FAILED, { detail: 'LLM metninde JSON bulunamadı' });
     try {
       return JSON.parse(match[0]);
     } catch {
-      throw new Error('Besin verisi alınamadı. Lütfen tekrar deneyin.');
+      throw new AppError(ERROR_CODES.AI_PARSE_FAILED, { detail: 'LLM JSON parse edilemedi' });
     }
   }
 }
 
 function mealCalorieResultFromParsed(parsed, provider) {
   const estimatedCalories = Number(parsed.estimatedCalories);
-  if (Number.isNaN(estimatedCalories)) throw new Error('Tahmini kalori sayısı alınamadı.');
+  if (Number.isNaN(estimatedCalories)) throw new AppError(ERROR_CODES.AI_PARSE_FAILED, { detail: `${provider}: estimatedCalories sayı değil` });
   return {
     success: true,
     mealName: String(parsed.mealName || 'Yemek'),
@@ -86,27 +121,32 @@ function mealCalorieResultFromParsed(parsed, provider) {
 
 // ─── Metin üretimi ───────────────────────────────────────────────────────────
 export async function callHuggingFace(prompt) {
-  if (!HUGGINGFACE_API_KEY) throw new Error('Hugging Face API key tanımlı değil');
-  const response = await fetch(
-    'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2',
-    {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${HUGGINGFACE_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        inputs: prompt,
-        parameters: { max_new_tokens: 1536, temperature: 0.7, top_p: 0.9, return_full_text: false },
-      }),
-    }
-  );
-  if (!response.ok) throw new Error(`Hugging Face API hatası (${response.status})`);
+  if (!HUGGINGFACE_API_KEY) throw notConfigured('EXPO_PUBLIC_HUGGINGFACE_API_KEY');
+  let response;
+  try {
+    response = await fetch(
+      'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2',
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${HUGGINGFACE_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: { max_new_tokens: 1536, temperature: 0.7, top_p: 0.9, return_full_text: false },
+        }),
+      }
+    );
+  } catch (e) {
+    throw fetchError('huggingface', e);
+  }
+  if (!response.ok) throw httpError('huggingface', response.status);
   const data = await response.json();
   if (data[0]?.generated_text) return data[0].generated_text;
-  if (data.error) throw new Error(data.error);
-  throw new Error('Yanıt alınamadı');
+  if (data.error) throw emptyResponse('huggingface', String(data.error));
+  throw emptyResponse('huggingface');
 }
 
 export async function callGroq(prompt) {
-  if (!GROQ_API_KEY) throw new Error('Groq API key tanımlı değil');
+  if (!GROQ_API_KEY) throw notConfigured('EXPO_PUBLIC_GROQ_API_KEY');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 90000);
   let response;
@@ -128,23 +168,17 @@ export async function callGroq(prompt) {
     });
   } catch (e) {
     clearTimeout(timer);
-    if (e.name === 'AbortError') throw new Error('Groq zaman aşımı, lütfen tekrar deneyin.');
-    throw new Error('Ağ bağlantısı kurulamadı, internet bağlantınızı kontrol edin.');
+    throw fetchError('groq', e);
   }
   clearTimeout(timer);
-  if (!response.ok) {
-    const status = response.status;
-    if (status === 429) throw new Error('AI istek limiti doldu, lütfen biraz bekleyin.');
-    if (status === 401) throw new Error('AI API anahtarı geçersiz.');
-    throw new Error(`Groq API hatası (${status})`);
-  }
+  if (!response.ok) throw httpError('groq', response.status);
   const data = await response.json();
   if (data.choices?.[0]?.message?.content) return data.choices[0].message.content;
-  throw new Error('AI yanıt üretemedi.');
+  throw emptyResponse('groq');
 }
 
 export async function callCohere(prompt) {
-  if (!COHERE_API_KEY) throw new Error('Cohere API key tanımlı değil');
+  if (!COHERE_API_KEY) throw notConfigured('EXPO_PUBLIC_COHERE_API_KEY');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20000);
   let response;
@@ -157,26 +191,24 @@ export async function callCohere(prompt) {
     });
   } catch (e) {
     clearTimeout(timer);
-    if (e.name === 'AbortError') throw new Error('Cohere zaman aşımı.');
-    throw e;
+    throw fetchError('cohere', e);
   }
   clearTimeout(timer);
-  if (!response.ok) {
-    if (response.status === 429) throw new Error('AI istek limiti doldu, lütfen biraz bekleyin.');
-    throw new Error(`Cohere API hatası (${response.status})`);
-  }
+  if (!response.ok) throw httpError('cohere', response.status);
   const data = await response.json();
   if (data.generations?.[0]?.text) return data.generations[0].text;
-  throw new Error('Yanıt alınamadı');
+  throw emptyResponse('cohere');
 }
 
 export async function callGemini(prompt) {
-  if (!GEMINI_API_KEY) throw new Error('Gemini API key tanımlı değil');
+  if (!GEMINI_API_KEY) throw notConfigured('EXPO_PUBLIC_GEMINI_API_KEY');
   const body = {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, maxOutputTokens: 8192 },
   };
+  // lastErr: yalnızca log için (kullanıcıya gitmez); lastStatus: kod eşlemesi için
   let lastErr = 'Gemini yanıt veremedi.';
+  let lastStatus = 0;
   for (const model of GEMINI_TEXT_MODELS) {
     try {
       const controller = new AbortController();
@@ -191,9 +223,10 @@ export async function callGemini(prompt) {
         } catch {
           errDetail = await response.text().catch(() => '');
         }
-        lastErr = errDetail || `Gemini API hatası (${response.status})`;
+        lastErr = `${model}: ${errDetail || 'HTTP ' + response.status}`;
+        lastStatus = response.status;
         if (response.status === 429 || response.status === 404) continue;
-        throw new Error(lastErr.slice(0, 200) || `Gemini API hatası (${response.status})`);
+        throw httpError('gemini', response.status, errDetail);
       }
       let data;
       try {
@@ -203,30 +236,36 @@ export async function callGemini(prompt) {
       }
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) return text;
-      lastErr = 'Gemini boş yanıt döndürdü.';
+      lastErr = `${model}: boş yanıt`;
     } catch (e) {
+      if (e instanceof AppError) throw e;
       if (e.name === 'AbortError') {
-        lastErr = 'Gemini zaman aşımı.';
+        lastErr = `${model}: zaman aşımı`;
         continue;
       }
       if (e.message?.includes('Network request failed')) {
-        lastErr = 'Gemini ağ hatası.';
+        lastErr = `${model}: ağ hatası`;
         continue;
       }
-      throw e;
+      throw fetchError('gemini', e);
     }
   }
-  if (/429|Resource exhausted|quota/i.test(String(lastErr))) {
-    throw new Error('AI istek limiti doldu, lütfen biraz bekleyin.');
+  if (lastStatus === 429 || /Resource exhausted|quota/i.test(String(lastErr))) {
+    throw new AppError(ERROR_CODES.AI_RATE_LIMIT, { detail: `gemini: ${lastErr}`, meta: { provider: 'gemini', status: 429 } });
   }
-  throw new Error(
-    `${lastErr} — Model listesi güncellenemedi; https://ai.google.dev/gemini-api/docs/models adresinden geçerli model adlarını kontrol edin.`
-  );
+  if (lastStatus === 404) {
+    // Model listesi eskimiş — geliştirici notu yalnızca log'a
+    throw new AppError(ERROR_CODES.AI_UNAVAILABLE, {
+      detail: `gemini: ${lastErr} — model listesi güncel değil, bkz. https://ai.google.dev/gemini-api/docs/models`,
+      meta: { provider: 'gemini', status: 404 },
+    });
+  }
+  throw new AppError(ERROR_CODES.AI_UNAVAILABLE, { detail: `gemini: ${lastErr}`, meta: { provider: 'gemini', status: lastStatus } });
 }
 
 // ─── Görsel analiz ───────────────────────────────────────────────────────────
 export async function callGroqVision(dataUrl, prompt) {
-  if (!GROQ_API_KEY) throw new Error('Groq API key tanımlı değil');
+  if (!GROQ_API_KEY) throw notConfigured('EXPO_PUBLIC_GROQ_API_KEY');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 60000);
   let response;
@@ -245,29 +284,24 @@ export async function callGroqVision(dataUrl, prompt) {
     });
   } catch (e) {
     clearTimeout(timer);
-    if (e.name === 'AbortError') throw new Error('Groq görsel zaman aşımı.');
-    throw e;
+    throw fetchError('groq-vision', e);
   }
   clearTimeout(timer);
   const rawText = await response.text();
-  if (!response.ok) {
-    if (response.status === 429) throw new Error('AI istek limiti doldu, lütfen biraz bekleyin.');
-    if (response.status === 401) throw new Error('Groq API anahtarı geçersiz.');
-    throw new Error(`Groq görsel API hatası (${response.status}): ${rawText.slice(0, 400)}`);
-  }
+  if (!response.ok) throw httpError('groq-vision', response.status, rawText);
   let data;
   try {
     data = JSON.parse(rawText);
   } catch {
-    throw new Error('Groq yanıtı okunamadı.');
+    throw new AppError(ERROR_CODES.AI_PARSE_FAILED, { detail: 'groq-vision: yanıt JSON değil' });
   }
   const content = data.choices?.[0]?.message?.content;
-  if (!content) throw new Error('Groq boş yanıt verdi.');
+  if (!content) throw emptyResponse('groq-vision');
   return mealCalorieResultFromParsed(parseJsonObjectFromLlmText(content), 'groq-vision');
 }
 
 export async function callGeminiVision(cleanMime, cleanB64, prompt) {
-  if (!GEMINI_API_KEY) throw new Error('Gemini API anahtarı yok. .env içinde EXPO_PUBLIC_GEMINI_API_KEY tanımlayın.');
+  if (!GEMINI_API_KEY) throw notConfigured('EXPO_PUBLIC_GEMINI_API_KEY');
   const body = {
     contents: [
       {
@@ -291,9 +325,9 @@ export async function callGeminiVision(cleanMime, cleanB64, prompt) {
     } catch (e) {
       clearTimeout(timer);
       // Ağ hatası veya zaman aşımı → bu modeli atla, bir sonrakini dene
-      if (e.name === 'AbortError') { lastErr = 'Gemini görsel zaman aşımı.'; continue; }
-      if (e.message?.includes('Network request failed')) { lastErr = 'Gemini görsel ağ hatası.'; continue; }
-      throw e;
+      if (e.name === 'AbortError') { lastErr = `${model}: zaman aşımı`; continue; }
+      if (e.message?.includes('Network request failed')) { lastErr = `${model}: ağ hatası`; continue; }
+      throw fetchError('gemini-vision', e);
     }
     const rawText = await response.text();
     lastStatus = response.status;
@@ -306,28 +340,34 @@ export async function callGeminiVision(cleanMime, cleanB64, prompt) {
       }
       // Kota veya model bulunamadı → sonraki modeli dene
       if (response.status === 429 || response.status === 404) continue;
-      throw new Error(`Gemini API (${response.status}). ${lastErr || 'Anahtar veya kota kontrol edin.'}`);
+      throw httpError('gemini-vision', response.status, lastErr);
     }
     let data;
     try {
       data = JSON.parse(rawText);
     } catch {
-      lastErr = 'Gemini yanıtı okunamadı.';
+      lastErr = `${model}: yanıt JSON değil`;
       continue;
     }
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text ||
       data.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text;
     if (!text) {
       const reason = data.promptFeedback?.blockReason || data.candidates?.[0]?.finishReason;
-      throw new Error(reason ? `İstek reddedildi: ${reason}` : 'Model yanıt üretemedi.');
+      if (reason && /SAFETY|BLOCK|PROHIBITED|RECITATION/i.test(String(reason))) {
+        throw new AppError(ERROR_CODES.AI_CONTENT_BLOCKED, { detail: `gemini-vision: ${reason}` });
+      }
+      throw emptyResponse('gemini-vision', reason ? `finishReason=${reason}` : 'metin yok');
     }
     return mealCalorieResultFromParsed(parseJsonObjectFromLlmText(text), 'gemini-vision');
   }
   // Tüm Gemini vision modelleri başarısız — callMealCalorieVisionChain Groq'a geçer
   if (lastStatus === 429 || /quota|exhausted/i.test(String(lastErr))) {
-    throw new Error('Gemini görsel kota doldu.');
+    throw new AppError(ERROR_CODES.AI_RATE_LIMIT, { detail: `gemini-vision: ${lastErr}`, meta: { provider: 'gemini-vision', status: 429 } });
   }
-  throw new Error(`Gemini görsel başarısız (${lastStatus || '?'}). ${lastErr || 'Bilinmeyen hata.'}`);
+  throw new AppError(ERROR_CODES.AI_UNAVAILABLE, {
+    detail: `gemini-vision (${lastStatus || '?'}): ${lastErr || 'bilinmeyen'}`,
+    meta: { provider: 'gemini-vision', status: lastStatus },
+  });
 }
 
 // ─── Provider seçici ─────────────────────────────────────────────────────────
@@ -339,7 +379,7 @@ export async function callProvider(providerName, prompt) {
     case 'groq':        return callGroq(prompt);
     case 'cohere':      return callCohere(prompt);
     case 'gemini':      return callGemini(prompt);
-    default:            throw new Error(`Geçersiz AI provider: ${providerName}`);
+    default:            throw new AppError(ERROR_CODES.AI_NOT_CONFIGURED, { detail: `Geçersiz AI provider: ${providerName}` });
   }
 }
 
@@ -366,20 +406,19 @@ export async function callTextWithProviderChain(prompt) {
       if (text && String(text).trim()) {
         return { text: String(text), provider: step.id };
       }
-      lastError = new Error(`${step.id} boş yanıt döndürdü.`);
+      lastError = emptyResponse(step.id);
     } catch (e) {
-      lastError = e instanceof Error ? e : new Error(String(e));
-      const msg = lastError.message || '';
-      console.warn(`⚠️ AI [${step.id}] atlandı:`, msg);
+      lastError = normalizeError(e, { context: `ai.${step.id}` });
+      console.warn(`⚠️ AI [${step.id}] atlandı:`, lastError.code, lastError.detail || lastError.message);
     }
   }
 
   if (!tried.length) {
-    throw new Error(
-      'Hiçbir AI anahtarı tanımlı değil. .env içinde en az biri: EXPO_PUBLIC_GEMINI_API_KEY, EXPO_PUBLIC_GROQ_API_KEY, EXPO_PUBLIC_COHERE_API_KEY, EXPO_PUBLIC_HUGGINGFACE_API_KEY'
-    );
+    throw new AppError(ERROR_CODES.AI_NOT_CONFIGURED, {
+      detail: 'Hiçbir AI anahtarı tanımlı değil (.env: EXPO_PUBLIC_GEMINI_API_KEY | GROQ | COHERE | HUGGINGFACE)',
+    });
   }
-  throw lastError || new Error('Tüm AI sağlayıcıları başarısız oldu.');
+  throw lastError || new AppError(ERROR_CODES.AI_UNAVAILABLE, { detail: 'Tüm AI sağlayıcıları başarısız oldu' });
 }
 
 /**
@@ -393,8 +432,8 @@ export async function callMealCalorieVisionChain({ cleanMime, cleanB64, dataUrl,
     try {
       return await callGeminiVision(cleanMime, cleanB64, prompt);
     } catch (e) {
-      lastError = e instanceof Error ? e : new Error(String(e));
-      console.warn('⚠️ Gemini vision (kalori) atlandı:', lastError.message);
+      lastError = normalizeError(e, { context: 'ai.gemini-vision' });
+      console.warn('⚠️ Gemini vision (kalori) atlandı:', lastError.code, lastError.detail || lastError.message);
     }
   }
 
@@ -402,15 +441,15 @@ export async function callMealCalorieVisionChain({ cleanMime, cleanB64, dataUrl,
     try {
       return await callGroqVision(dataUrl, prompt);
     } catch (e) {
-      lastError = e instanceof Error ? e : new Error(String(e));
-      console.warn('⚠️ Groq vision (kalori) atlandı:', lastError.message);
+      lastError = normalizeError(e, { context: 'ai.groq-vision' });
+      console.warn('⚠️ Groq vision (kalori) atlandı:', lastError.code, lastError.detail || lastError.message);
     }
   }
 
   if (lastError) throw lastError;
-  throw new Error(
-    'Görsel analiz için EXPO_PUBLIC_GEMINI_API_KEY veya EXPO_PUBLIC_GROQ_API_KEY tanımlayın.'
-  );
+  throw new AppError(ERROR_CODES.AI_NOT_CONFIGURED, {
+    detail: 'Görsel analiz için EXPO_PUBLIC_GEMINI_API_KEY veya EXPO_PUBLIC_GROQ_API_KEY gerekli',
+  });
 }
 
 export { GROQ_API_KEY, GEMINI_API_KEY, COHERE_API_KEY, HUGGINGFACE_API_KEY };

@@ -17,6 +17,7 @@ import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { bodyInfoService } from '../services/supabase';
 import { useToast } from '../contexts/ToastContext';
+import { useAppError } from '../hooks/useAppError';
 import { useAIConsent } from '../contexts/AIConsentContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import {
@@ -33,6 +34,7 @@ export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user, signOut, deleteAccount, updateProfile, leaveGuestMode, isGuest } = useAuth();
   const { showToast } = useToast();
+  const { handleError } = useAppError();
   const { consent: aiConsent, providers: aiProviders, grantConsent, revokeConsent } = useAIConsent();
   const { isSubscribed, dailyPhotoUsed, dailyLimit, openPaywall } = useSubscription();
   const [bodyInfo, setBodyInfo] = useState(null);
@@ -124,9 +126,7 @@ export default function ProfileScreen({ navigation }) {
   const confirmDeleteAccount = async () => {
     setShowDeleteModal(false);
     const { error } = await deleteAccount();
-    if (error) {
-      showToast(error.message || 'Hesap silinemedi. Lütfen tekrar deneyin.', 'error');
-    }
+    if (error) handleError(error, { context: 'profile.deleteAccount' });
   };
 
   const bmi = getBMI();

@@ -6,6 +6,7 @@ import { callTextWithProviderChain, callMealCalorieVisionChain } from './ai/prov
 import { AIConsentRequiredError } from './aiConsentService';
 import { getCached, setCached, cacheKeyForPrompt } from './aiCacheService';
 import { enqueueAIRequest } from './aiRequestQueue';
+import { AppError, ERROR_CODES, normalizeError, logError } from './errors';
 
 /** Önbellekli + kuyruklu metin çağrısı: aynı prompt için tekrar ağa çıkmaz, eşzamanlı istekleri sıraya alır. */
 async function call(prompt) {
@@ -23,20 +24,23 @@ function isConsentError(error) {
   return error instanceof AIConsentRequiredError || error?.code === 'AI_CONSENT_REQUIRED';
 }
 
-/** Beklenen ağ/kota durumlarında ERROR yerine WARN — Metro günlüğünü kirletmemek için */
-function logProviderError(contextLabel, error) {
-  const msg = error?.message || String(error);
-  const networkish =
-    /ağ bağlantısı|network request|fetch failed|internet|timeout|ECONNREFUSED|ENETUNREACH|offline|NSURLErrorDomain/i.test(
-      msg
-    );
-  const rateOrQuota =
-    /limiti doldu|429|rate limit|quota|kota|too many requests|resource exhausted/i.test(msg);
-  if (networkish || rateOrQuota) {
-    console.warn(`⚠️ ${contextLabel}:`, msg);
-  } else {
-    console.error(`💥 ${contextLabel}:`, msg);
-  }
+/**
+ * Fallback yanıtı: ekranlar ham error.message'ı asla görmez — yalnızca
+ * normalize edilmiş kod + kullanıcı mesajı döner. Beklenen ağ/kota durumları
+ * WARN, gerisi ERROR (logError içinde; Metro günlüğünü kirletmemek için).
+ */
+function fallbackResult(contextLabel, error, payload) {
+  const appErr = isConsentError(error)
+    ? normalizeError(error)
+    : logError(contextLabel, error);
+  return {
+    success: false,
+    ...payload,
+    usingFallback: true,
+    error: appErr.code,
+    errorMessage: appErr.userMessage,
+    consentRequired: appErr.code === ERROR_CODES.AI_CONSENT_REQUIRED,
+  };
 }
 
 // ─── Prompt Builder'lar ───────────────────────────────────────────────────────
@@ -200,8 +204,7 @@ export const aiService = {
       const { text: advice, provider } = await call(buildGoalPrompt(goalData));
       return { success: true, advice, provider };
     } catch (error) {
-      if (!isConsentError(error)) logProviderError('AI hedef tavsiyesi hatası', error);
-      return { success: false, advice: this.getFallbackAdvice(goalData), error: error.message, usingFallback: true, consentRequired: isConsentError(error) };
+      return fallbackResult('AI hedef tavsiyesi', error, { advice: this.getFallbackAdvice(goalData) });
     }
   },
 
@@ -210,8 +213,7 @@ export const aiService = {
       const { text: advice, provider } = await call(buildHealthTipPrompt(category));
       return { success: true, advice, category, provider };
     } catch (error) {
-      if (!isConsentError(error)) logProviderError('Sağlık tavsiyesi (ağ veya API)', error);
-      return { success: false, advice: FALLBACK_HEALTH_TIPS[category] || FALLBACK_HEALTH_TIPS.genel, error: error.message, usingFallback: true, consentRequired: isConsentError(error) };
+      return fallbackResult('Sağlık tavsiyesi', error, { advice: FALLBACK_HEALTH_TIPS[category] || FALLBACK_HEALTH_TIPS.genel, category });
     }
   },
 
@@ -220,8 +222,7 @@ export const aiService = {
       const { text: advice, provider } = await call(buildBMIPrompt(bmiData));
       return { success: true, advice, provider };
     } catch (error) {
-      if (!isConsentError(error)) logProviderError('VKİ tavsiyesi (ağ veya API)', error);
-      return { success: false, advice: FALLBACK_BMI_ADVICE[bmiData.category] || FALLBACK_BMI_ADVICE.Normal, error: error.message, usingFallback: true, consentRequired: isConsentError(error) };
+      return fallbackResult('VKİ tavsiyesi', error, { advice: FALLBACK_BMI_ADVICE[bmiData.category] || FALLBACK_BMI_ADVICE.Normal });
     }
   },
 
@@ -232,8 +233,7 @@ export const aiService = {
       if (bullets.length < 3) return { success: false, bullets: FALLBACK_BMI_BULLETS[bmiData.category] || FALLBACK_BMI_BULLETS.Normal, usingFallback: true, provider };
       return { success: true, bullets: bullets.slice(0, 5), provider };
     } catch (error) {
-      if (!isConsentError(error)) logProviderError('VKİ madde önerileri (ağ veya API)', error);
-      return { success: false, bullets: FALLBACK_BMI_BULLETS[bmiData.category] || FALLBACK_BMI_BULLETS.Normal, usingFallback: true, error: error.message, consentRequired: isConsentError(error) };
+      return fallbackResult('VKİ madde önerileri', error, { bullets: FALLBACK_BMI_BULLETS[bmiData.category] || FALLBACK_BMI_BULLETS.Normal });
     }
   },
 
@@ -242,8 +242,7 @@ export const aiService = {
       const { text: advice, provider } = await call(buildWeightTrackingPrompt(weightData));
       return { success: true, advice, provider };
     } catch (error) {
-      if (!isConsentError(error)) logProviderError('Kilo takip tavsiyesi (ağ veya API)', error);
-      return { success: false, advice: this.getFallbackWeightTrackingAdvice(weightData), error: error.message, usingFallback: true, consentRequired: isConsentError(error) };
+      return fallbackResult('Kilo takip tavsiyesi', error, { advice: this.getFallbackWeightTrackingAdvice(weightData) });
     }
   },
 
@@ -252,13 +251,12 @@ export const aiService = {
       const { text: advice, provider } = await call(buildDietPlanPrompt(dietData));
       return { success: true, advice, provider };
     } catch (error) {
-      if (!isConsentError(error)) logProviderError('Diyet planı tavsiyesi (ağ veya API)', error);
-      return { success: false, advice: this.getFallbackDietPlanAdvice(dietData), error: error.message, usingFallback: true, consentRequired: isConsentError(error) };
+      return fallbackResult('Diyet planı tavsiyesi', error, { advice: this.getFallbackDietPlanAdvice(dietData) });
     }
   },
 
   async getMealCaloriesFromImage({ base64, mimeType = 'image/jpeg' }) {
-    if (!base64 || typeof base64 !== 'string') throw new Error('Görsel verisi bulunamadı.');
+    if (!base64 || typeof base64 !== 'string') throw new AppError(ERROR_CODES.AI_IMAGE_INVALID, { detail: 'base64 boş/geçersiz' });
     const cleanMime = mimeType?.includes('/') ? mimeType : 'image/jpeg';
     const cleanB64 = base64.replace(/^data:image\/\w+;base64,/, '');
     const dataUrl = `data:${cleanMime};base64,${cleanB64}`;

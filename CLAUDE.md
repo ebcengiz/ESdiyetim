@@ -26,6 +26,7 @@ Bu dosya, `ESdiyet` (diyet & sağlık takip) React Native / Expo uygulaması üz
 | Satın Alma | `expo-iap` (paywall + abonelik) — **Expo Go'da native modül yok, sadece dev build/TestFlight/production'da çalışır** |
 | Görüntü | `expo-image-picker` (kamera + galeri, kalori tahmini) |
 | UI | `expo-linear-gradient`, `@expo/vector-icons` (Ionicons, explicit dependency), `expo-blur` (explicit dependency), özel `ModernIcon` |
+| Ağ durumu | `@react-native-community/netinfo` (`services/errors/connectivity.js` sarmalayıcısı) |
 | AI | Gemini → Groq → Cohere → Hugging Face provider zinciri (metin); Gemini Vision → Groq Vision (görsel) |
 | Build | EAS (`eas.json`), özel iOS prebuild plugin (`plugins/with-ios-fmt-consteval-fix.js`) |
 | TypeScript | `tsconfig.json` var (`~6.0.3`) ama kod **JavaScript (.js)** ağırlıklı — yeni dosyaları `.js` olarak yaz. |
@@ -56,10 +57,12 @@ ESdiyetim/
 ├── supabase_goals_table.sql
 └── src/
     ├── constants/theme.js     # TEK tasarım kaynağı (COLORS, SIZES, NavigationTheme)
-    ├── contexts/              # AuthContext, SubscriptionContext, ToastContext
-    ├── hooks/                 # useAlert, useDataFetch, useFormModal
+    ├── constants/errorMessages.js  # Kullanıcıya gösterilen hata metinlerinin TEK kaynağı
+    ├── contexts/              # AuthContext, SubscriptionContext, ToastContext, AIConsentContext
+    ├── hooks/                 # useAppError, useDataFetch, useFormModal
     ├── components/
-    │   ├── ui/                # ConfirmModal, Toast
+    │   ├── ErrorBoundary.js   # Kök hata sınırı (App.js'de SafeAreaProvider'ın hemen altında)
+    │   ├── ui/                # ConfirmModal, Toast, Skeleton, DatePickerSheet
     │   ├── AIAdviceCard, BMIPanel, GuestGateBanner,
     │   ├── HealthSourcesCard, MedicalInfoBanner, ModernIcon,
     │   └── PremiumGate, WeightPanel
@@ -69,6 +72,7 @@ ESdiyetim/
     │   ├── supabase.js        # supabase client + dietPlanService, weightService vb.
     │   ├── aiService.js       # Orchestrator + prompt builder'lar
     │   ├── ai/providers.js    # Gemini/Groq/Cohere/HF provider zinciri
+    │   ├── errors/            # AppError, normalizeError, logError, connectivity, globalHandlers
     │   ├── nutritionService.js
     │   └── subscriptionService.js  # expo-iap sarmalayıcı
     └── utils/                 # bmi, date, environment, validation
@@ -91,6 +95,12 @@ Tab bar: yüzer (absolute), yuvarlatılmış, cam beyaz arka plan. Yeni tab ekle
 4. **Tasarım Sistemi:** Hiçbir renk/boyut **hardcode edilmez**. Her zaman `COLORS`, `SIZES`, `NavigationTheme` import et (`src/constants/theme.js`). Palet: emerald yeşil (#16A34A) + beyaz yüzeyler.
 5. **RLS (Row Level Security):** Supabase tablolarında aktif. Her servis çağrısı önce `supabase.auth.getUser()` ile kullanıcıyı doğrulamalı ve insert/update'lerde `user_id` eklemeli. Bu kalıbı bozma.
 6. **Upsert onConflict:** `diet_plans` için `user_id,date`, `weight_records` için `user_id,date`. Migrations bu unique constraint'leri garantiler — kaldırma.
+7. **Hata yönetimi (ham hata kullanıcıya ASLA gösterilmez):**
+   - Servisler `AppError` fırlatır (`src/services/errors`). HTTP kodu, env adı, sağlayıcı adı, API gövdesi yalnızca `detail`/`cause` alanında kalır → sadece console'a gider.
+   - Ekranlarda `catch (e) { handleError(e, { context }) }` (`useAppError` hook'u). `showToast(e.message)` / `Alert.alert(…, e.message)` **yasak**.
+   - Kullanıcı metinleri `src/constants/errorMessages.js`'de; yeni hata türü = yeni `ERROR_CODES` + mesaj. Ton: sakin, yönlendirici.
+   - Bilinmeyen hata otomatik `UNKNOWN`'a düşer; bir kaynağın hatasını tanımak gerekiyorsa `normalizeError.js`'e regex/kod ekle, ekrana `includes()` yazma.
+   - Supabase servislerinde oturum kontrolü `requireUser()` ile (AppError `AUTH_SESSION_REQUIRED`).
 
 ---
 
@@ -98,7 +108,8 @@ Tab bar: yüzer (absolute), yuvarlatılmış, cam beyaz arka plan. Yeni tab ekle
 
 - `aiService.js` orchestrator. Gerçek çağrılar `services/ai/providers.js` içindeki **provider chain**'de (Gemini → Groq → Cohere → Hugging Face).
 - Prompt builder'lar Türkçe, tıbbi teşhis yasağı **zorunlu**: *"Tıbbi teşhis veya kişisel tedavi/beslenme planı verme; yalnızca genel bilgilendirme ve güvenli motivasyon."* — bu kısıt her yeni prompt'ta korunmalı (App Store health policy).
-- Hata loglaması: ağ/kota hataları `console.warn`, diğerleri `console.error`. Bu ayrımı bozma (Metro log gürültüsü).
+- Hata loglaması: ağ/kota hataları `console.warn`, diğerleri `console.error`. Bu ayrım `services/errors/normalizeError.js → logError()` içinde kod bazlı yapılıyor — bozma (Metro log gürültüsü).
+- Provider fonksiyonları `AppError` fırlatır (`AI_RATE_LIMIT`, `AI_UNAVAILABLE`, `AI_NOT_CONFIGURED`, `AI_TIMEOUT`, `AI_PARSE_FAILED`, `AI_CONTENT_BLOCKED`…). `aiService` fallback yanıtında `error` = kod, `errorMessage` = kullanıcı metni.
 - Env değişkenleri: `EXPO_PUBLIC_*` ön ekiyle `.env` dosyasında tutulur. `npm run env:check` ile doğrula.
 - İlgili dokümanlar: `GROQ_KURULUM.md`, `APP_STORE_HEALTH_AI_NOTLARI.md`.
 
@@ -191,4 +202,4 @@ Proje içi dokümanlar:
 
 ---
 
-**Kısa kural özeti:** Türkçe yaz • theme'den oku • Supabase'de user_id + RLS • AI'da medikal disclaimer • yeni dosyalar `.js` • header & tab stilini bozma • hardcoded renk yok • `newArch` uyumlu kod yaz.
+**Kısa kural özeti:** Türkçe yaz • theme'den oku • Supabase'de user_id + RLS • AI'da medikal disclaimer • yeni dosyalar `.js` • header & tab stilini bozma • hardcoded renk yok • `newArch` uyumlu kod yaz • hata = `AppError` + `handleError`, ham `e.message` kullanıcıya gitmez.

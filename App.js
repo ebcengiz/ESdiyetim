@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/contexts/AuthContext';
@@ -6,20 +6,32 @@ import { ToastProvider } from './src/contexts/ToastContext';
 import { SubscriptionProvider } from './src/contexts/SubscriptionContext';
 import { AIConsentProvider } from './src/contexts/AIConsentContext';
 import MainNavigator from './src/navigation/MainNavigator';
+import ErrorBoundary from './src/components/ErrorBoundary';
+import { installGlobalErrorHandlers, startConnectivityWatch, stopConnectivityWatch } from './src/services/errors';
+
+// Global hata yakalayıcılar modül yüklenirken kurulur — ilk render'dan önce aktif olsun.
+installGlobalErrorHandlers();
 
 export default function App() {
+  useEffect(() => {
+    startConnectivityWatch();
+    return stopConnectivityWatch;
+  }, []);
+
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <AIConsentProvider>
-          <SubscriptionProvider>
-            <ToastProvider>
-              <MainNavigator />
-              <StatusBar style="auto" />
-            </ToastProvider>
-          </SubscriptionProvider>
-        </AIConsentProvider>
-      </AuthProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <AIConsentProvider>
+            <SubscriptionProvider>
+              <ToastProvider>
+                <MainNavigator />
+                <StatusBar style="auto" />
+              </ToastProvider>
+            </SubscriptionProvider>
+          </AIConsentProvider>
+        </AuthProvider>
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Platform,
   Linking,
 } from 'react-native';
@@ -23,6 +22,8 @@ import {
 } from '../services/subscriptionService';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useToast } from '../contexts/ToastContext';
+import { useAppError } from '../hooks/useAppError';
+import { ERROR_CODES } from '../services/errors';
 
 const FEATURES = [
   { icon: 'camera', text: 'Günde 5 fotoğraftan kalori analizi (ücretsiz planda günde 1)' },
@@ -33,6 +34,7 @@ const FEATURES = [
 export default function PaywallScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
+  const { handleError } = useAppError();
   const { refreshSubscription, products, activateTestSubscription } = useSubscription();
 
   const [selectedPlan, setSelectedPlan] = useState(PLAN_META[2].id); // yearly default
@@ -68,7 +70,8 @@ export default function PaywallScreen({ navigation }) {
         navigation.goBack();
       }
     } catch (e) {
-      showToast(e?.message || 'Satın alma başarısız. Tekrar deneyin.', 'error');
+      // Kullanıcı iptali sessiz; StoreKit/Play hataları sakin mesaja çevrilir
+      handleError(e, { context: 'paywall.purchase', fallbackCode: ERROR_CODES.IAP_FAILED });
     } finally {
       setPurchasing(false);
     }
@@ -84,10 +87,10 @@ export default function PaywallScreen({ navigation }) {
         showToast('Aboneliğiniz geri yüklendi!', 'success');
         navigation.goBack();
       } else {
-        Alert.alert('Geri Yükleme', 'Bu Apple ID ile aktif bir abonelik bulunamadı.');
+        showToast('Bu hesapla ilişkili aktif bir abonelik bulunamadı.', 'info');
       }
-    } catch {
-      showToast('Geri yükleme başarısız. Tekrar deneyin.', 'error');
+    } catch (e) {
+      handleError(e, { context: 'paywall.restore', fallbackCode: ERROR_CODES.IAP_UNAVAILABLE });
     } finally {
       setRestoring(false);
     }

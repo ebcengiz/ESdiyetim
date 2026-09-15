@@ -17,6 +17,7 @@ import { COLORS, SIZES, SHADOWS } from '../../constants/theme';
 import { MEAL_TYPES } from '../../constants/foodLogFields';
 import { getSourceBadgeMeta } from '../../utils/foodLogUtils';
 import { useToast } from '../../contexts/ToastContext';
+import { useAppError } from '../../hooks/useAppError';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { foodLogService } from '../../services/supabase';
 import {
@@ -38,6 +39,7 @@ const MACRO_CELL_WIDTH = (width - SIZES.containerPadding * 2 - SIZES.md * 3) / 4
  */
 export default function FoodSearchModal({ visible, initialMealType, dateStr, onClose, onSaved }) {
   const { showToast } = useToast();
+  const { handleError } = useAppError();
   const { isSubscribed, openPaywall } = useSubscription();
 
   const [activeMealType, setActiveMealType] = useState(initialMealType || 'breakfast');
@@ -162,7 +164,7 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
       setSelectedFood(food);
       setSearchResults([]);
     } catch (e) {
-      showToast(e.message || 'AI analizi başarısız.', 'error');
+      handleError(e, { context: 'foodSearch.ai' });
     } finally {
       setAiLoading(false);
     }

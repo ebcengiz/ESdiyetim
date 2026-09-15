@@ -18,7 +18,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS, SIZES, SHADOWS, INPUT_FIELD } from "../constants/theme";
 import { useAuth } from "../contexts/AuthContext";
-import { useToast } from "../contexts/ToastContext";
+import { useAppError } from "../hooks/useAppError";
+import { ERROR_CODES } from "../services/errors";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -31,7 +32,7 @@ export default function LoginScreen({ navigation }) {
   const [errors, setErrors] = useState({});
   const [focusedField, setFocusedField] = useState(null);
   const { signIn, continueAsGuest } = useAuth();
-  const { showToast } = useToast();
+  const { handleError } = useAppError();
 
   // Shake animation for submit error
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -74,17 +75,16 @@ export default function LoginScreen({ navigation }) {
     try {
       const { error } = await signIn(email.trim().toLowerCase(), password);
       if (error) {
-        if (error.message.includes("Invalid login credentials")) {
-          setErrors({ password: "E-posta veya şifre hatalı." });
+        if (error.code === ERROR_CODES.AUTH_INVALID_CREDENTIALS) {
+          // Alan içi hata — toast yerine şifre alanında göster
+          setErrors({ password: error.userMessage });
           shake();
-        } else if (error.message.includes("Email not confirmed")) {
-          showToast("E-postanızdaki doğrulama linkine tıklayın.", "warning");
         } else {
-          showToast(error.message || "Giriş yapılırken bir hata oluştu.", "error");
+          handleError(error, { context: "login" });
         }
       }
-    } catch (_) {
-      showToast("Beklenmeyen bir hata oluştu.", "error");
+    } catch (e) {
+      handleError(e, { context: "login" });
     } finally {
       setLoading(false);
     }

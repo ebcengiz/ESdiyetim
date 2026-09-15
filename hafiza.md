@@ -21,6 +21,31 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-16 — UI/UX yenileme programı Adım 1: Global hata yönetimi altyapısı (teknik uyarılar artık kullanıcıya sızmıyor)
+
+**Bağlam:** Kullanıcı üç adımlı bir program onayladı: (1) hata yönetimi altyapısı, (2) tasarım sistemi + ortak UI kiti + Toast v2 + tab bar, (3) ekranların sırayla yenilenmesi (Login/Register → Home → DietPlan → Kilo&VKİ → Goals → Tips → Profile → MealCalorie/FoodLog → Paywall). **iPad için hiçbir şey yapılmayacak** (kullanıcı kararı; `UIDeviceFamily: [1]` korunuyor). Bu girdi Adım 1'i kapsar.
+
+**Sorun:** Canlıda ham teknik hatalar ekrana yansıyordu — `showToast(e.message)` kalıbı 9 noktada Supabase (`fetch failed`, `JSON object requested…`), AI sağlayıcı (`Gemini API (429)…`, `Groq görsel API hatası (500): <400 karakter gövde>`, `.env içinde EXPO_PUBLIC_GEMINI_API_KEY tanımlayın`), expo-iap (`Cannot find native module`) ve `deleteAccount`'taki geliştirici talimatını (`supabase functions deploy…`) olduğu gibi kullanıcıya gösteriyordu. Ayrıca ErrorBoundary yoktu (render hatası → beyaz ekran / çökme).
+
+**Yapılanlar:**
+1. **Yeni katman `src/services/errors/`:** `AppError` (code/userMessage/severity/retryable/detail/cause), `normalizeError()` (ham hata → AppError: ağ/DNS/502, GoTrue auth mesajları, PostgREST/Postgres kodları, expo-iap kodları, AI onayı), `logError()` (beklenen durumlar WARN, gerisi ERROR — CLAUDE.md §5 kuralı korunuyor), `connectivity.js` (netinfo sarmalayıcı; "çevrimdışı" ile "sunucuya ulaşılamıyor" ayrımı), `globalHandlers.js` (`ErrorUtils.setGlobalHandler` + Hermes promise rejection tracker; dev'de RedBox korunur, prod'da fatal → ErrorBoundary ekranı).
+2. **`src/constants/errorMessages.js`:** Tüm kullanıcı mesajlarının TEK kaynağı (~40 kod; Türkçe, sakin, yönlendirici). Teknik ayrıntı asla buraya yazılmaz.
+3. **`src/components/ErrorBoundary.js`** + `App.js`'e eklendi (SafeAreaProvider → ErrorBoundary → AuthProvider…; provider sırası değişmedi). Yalnızca `__DEV__`'de teknik ayrıntı kutusu görünür.
+4. **`src/hooks/useAppError.js`:** ekranlarda hata gösterimi için tek yol — `handleError(err, { context, fallbackCode, message, silent, silentCodes })`; AppError döndürür (ör. `AI_CONSENT_REQUIRED` için ekran kendi akışını kurar).
+5. **`providers.js` temizlendi:** tüm `throw new Error(...)` → `AppError`; HTTP kodu/gövde/env adı yalnızca `detail` (→ console). 429→`AI_RATE_LIMIT`, 401/403→`AI_NOT_CONFIGURED`, 5xx→`AI_UNAVAILABLE`, abort→`AI_TIMEOUT`, safety block→`AI_CONTENT_BLOCKED`, JSON parse→`AI_PARSE_FAILED`.
+6. **`aiService.js`:** fallback yanıtlarında `error` artık kod, `errorMessage` kullanıcı mesajı (ham `error.message` kaldırıldı). `logProviderError` → `fallbackResult()` + `logError`.
+7. **`AuthContext`:** `signUp/signIn/signOut/updateProfile/deleteAccount` normalize edilmiş AppError döndürüyor; ekranlar `error.code` ile karar veriyor (`error.message.includes(...)` kalktı). Hesap silme geliştirici notu artık sadece log'da.
+8. **`supabase.js`:** ortak `requireUser()` (24 tekrar kaldırıldı, `AUTH_SESSION_REQUIRED` AppError); `DUPLICATE_DATE` → `DB_DUPLICATE_DATE`.
+9. **9 sızıntı noktası `handleError` ile değiştirildi:** Login, Register, MealCalorie, Profile (deleteAccount), Paywall (purchase/restore; `Alert.alert` kaldırıldı), WeightTracker, WeightPanel, FoodSearchModal, MealFoodPickerSection.
+10. `hooks/useAlert.js` **silindi** (kullanılmıyordu, emoji'li `Alert.alert`); `hooks/useDataFetch.js` `Alert.alert`'siz yeniden yazıldı.
+11. `@react-native-community/netinfo@12.0.1` eklendi (`npx expo install`; Expo Go'da gömülü, dev build'de prebuild ile gelir).
+
+**Yan bulgu (gerçek bug, düzeltildi):** `supabase.js` içindeki `userCreditsService.getOrInit/increment` **tanımsız `getCurrentUser()`** çağırıyordu → her çağrı `ReferenceError` ile düşüyor, fotoğraf kredisi hiç Supabase'e yazılamıyor, `SubscriptionContext` sessizce cihaz-yerel sayaca düşüyordu (2026-09-16 premium limit düzeltmesinin bir bacağı fiilen çalışmıyordu). Artık `requireUser()` kullanıyor.
+
+**Doğrulama:** 24 dosya babel ile syntax-check; `normalizeError` 21 gerçek hata örneğiyle (GoTrue, PostgREST, RN fetch, expo-iap) Node'da test edildi — tümü doğru koda eşlendi, `userMessage` içinde HTTP kodu/env/sağlayıcı adı sızmıyor; provider zinciri mock fetch ile 429/500/401/ağ/başarı senaryolarında test edildi. Cihazda uçtan uca deneme kullanıcıya bırakıldı.
+
+**Kalan (Adım 3'te ekran ekran):** `GoalsScreen`, `BMIPanel`, `HomeScreen` vb. hâlâ `console.error + sabit toast` kalıbında (sızıntı yok ama `handleError`'a taşınacak). Offline banner Adım 2'de.
+
 ### 2026-09-16 — Canlıda premium/ücretsiz limitleri fiilen çalışmıyordu (kullanıcı bildirdi) — 3 gerçek hata bulundu ve düzeltildi
 
 **Belirti (kullanıcı):** "Canlı sürümde premium ile ilgili hiçbir şey çalışmıyor" — somut örnek: ücretsiz kullanıcı günde 1 fotoğraf hakkına sahip olması gerekirken istediği kadar fotoğraf analizi yapabiliyor; "AI ile sınırsız besin analizi" ücretsiz planda günde 3 olması gerekirken 3'ten fazla kullanılabiliyor.
@@ -357,6 +382,7 @@ Kullanıcının telefonunda Expo Go SDK 57 kullanıyordu, proje SDK 54'teydi →
 - [x] ~~`IOS_APP_STORE_YAYINLAMA_REHBERI.md` içindeki eski versiyon (1.0.0) / minimum iOS (13.4) bilgilerini güncelle.~~ (2026-09-10 tamamlandı)
 - [x] ~~Orta vadeli: AI caching/kuyruk, skeleton screen, streaming+haptic, büyük ekran dosyalarının (DietPlanScreen, FoodLogScreen, HomeScreen) katmanlara ayrıştırılması.~~ (2026-09-10 tamamlandı — bkz. yukarıdaki günlük girdileri; üç ekran de bitti)
 - [x] ~~ProfileScreen'deki "Yapay Zeka Veri Paylaşımı" Switch'inin ekran dışına taşması (kırpılma) hatası.~~ (2026-09-10 tamamlandı + gerçek cihaz/simulator tap'iyle görsel olarak doğrulandı — Switch artık tam görünüyor, alt metin 2 satıra düzgün sarıyor)
+- [ ] **UI/UX programı Adım 2:** tasarım sistemi genişletme (`theme.js` semantik tokenlar, `useResponsive`), ortak UI kiti (`AppButton/AppCard/AppInput/EmptyState/LoadingState/ScreenContainer/BottomSheet/OfflineBanner/ErrorState`), Toast v2 (eylem butonu + kuyruk + temadan renk), tab bar dinamik yükseklik. Adım 3: ekranlar sırayla (Login/Register → Home → DietPlan → Kilo&VKİ → Goals → Tips → Profile → MealCalorie/FoodLog → Paywall). iPad yok. (2026-09-16)
 - [ ] **TestFlight (Apple backend, BETA_CONTRACT_MISSING):** `APPLE_SUPPORT_TALEBI_TESTFLIGHT.md` içindeki talebi Apple Developer Support + Feedback Assistant'a gönder; Apple "resolved" deyince yeni build yükleyip tester'larla doğrula. Bu süre zarfında tester dağıtımı için EAS `preview` (ad-hoc) profili kullan. (2026-09-15)
 - [ ] Bir sonraki EAS/TestFlight build'inde uçtan uca elle doğrulanması gerekenler: (a) AI onay modalının kabul/red ve Profil'den geri çekme **etkileşiminin** (Switch'e dokunma) tam akışı — görsel render doğrulandı ama toggle etkileşimi simulator'de otomatik tap kalibrasyonu zor olduğu için tam test edilemedi; (b) App Store Connect'teki App Privacy beyanının hâlâ koddaki `ios.privacyManifests` ile birebir uyumlu olduğunun App Review öncesi son kez gözle kontrolü.
 

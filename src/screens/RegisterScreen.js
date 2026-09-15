@@ -17,6 +17,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SIZES, SHADOWS, INPUT_FIELD } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useAppError } from '../hooks/useAppError';
+import { ERROR_CODES } from '../services/errors';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -34,6 +36,7 @@ export default function RegisterScreen({ navigation }) {
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const { signUp, continueAsGuest } = useAuth();
   const { showToast } = useToast();
+  const { handleError } = useAppError();
 
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
@@ -91,11 +94,17 @@ export default function RegisterScreen({ navigation }) {
       );
 
       if (error) {
-        if (error.message.includes('already registered')) {
+        if (error.code === ERROR_CODES.AUTH_ALREADY_REGISTERED) {
           setErrors({ email: 'Bu e-posta adresi zaten kayıtlı.' });
           shake();
+        } else if (error.code === ERROR_CODES.AUTH_WEAK_PASSWORD) {
+          setErrors({ password: error.userMessage });
+          shake();
+        } else if (error.code === ERROR_CODES.AUTH_INVALID_EMAIL) {
+          setErrors({ email: error.userMessage });
+          shake();
         } else {
-          showToast(error.message || 'Kayıt olurken bir hata oluştu.', 'error');
+          handleError(error, { context: 'register' });
         }
         return;
       }
@@ -106,8 +115,8 @@ export default function RegisterScreen({ navigation }) {
         showToast('Hesap oluşturuldu! Gelen kutunuzu kontrol edin.', 'success');
         setTimeout(() => navigation.navigate('Login'), 1200);
       }
-    } catch (_) {
-      showToast('Beklenmeyen bir hata oluştu.', 'error');
+    } catch (e) {
+      handleError(e, { context: 'register' });
     } finally {
       setLoading(false);
     }

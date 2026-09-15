@@ -18,10 +18,12 @@ import {
 import { hasReachedDailyLimit, incrementDailyUsage } from '../../services/dailyUsageService';
 import { FREE_AI_SEARCH_DAILY_LIMIT, AI_SEARCH_USAGE_KEY } from '../../services/subscriptionService';
 import { useSubscription } from '../../contexts/SubscriptionContext';
+import { useAppError } from '../../hooks/useAppError';
 
 /** Besin günlüğü ile aynı kaynak: OFF/USDA araması + AI + gram/ml → satıra yazılır (kendi state'i var) */
 export default function MealFoodPickerSection({ field, formValue, onAppend, onRemoveLine, showToast }) {
   const { isSubscribed, openPaywall } = useSubscription();
+  const { handleError } = useAppError();
   const [pickQuery, setPickQuery] = React.useState('');
   const [pickResults, setPickResults] = React.useState([]);
   const [pickSearching, setPickSearching] = React.useState(false);
@@ -70,7 +72,7 @@ export default function MealFoodPickerSection({ field, formValue, onAppend, onRe
       setPickFood(food);
       setPickResults([]);
     } catch (e) {
-      showToast(e.message || 'AI analizi başarısız.', 'error');
+      handleError(e, { context: 'mealPicker.ai' });
     } finally {
       setPickAiLoading(false);
     }

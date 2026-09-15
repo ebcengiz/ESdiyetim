@@ -1,6 +1,7 @@
 import "react-native-url-polyfill/auto";
 import { createClient } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AppError, ERROR_CODES } from "./errors";
 
 // Supabase yapılandırması
 // Değerler .env dosyasından okunur (bkz. EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY)
@@ -25,12 +26,21 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 
 // Veritabanı işlemleri için yardımcı fonksiyonlar
 
+/**
+ * RLS için zorunlu oturum kontrolü — her servis metodunun başında çağrılır.
+ * Oturum yoksa kullanıcı dostu AppError (AUTH_SESSION_REQUIRED) fırlatır.
+ */
+async function requireUser() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new AppError(ERROR_CODES.AUTH_SESSION_REQUIRED, { detail: "supabase.auth.getUser() → null" });
+  return user;
+}
+
 // Diyet programı işlemleri
 export const dietPlanService = {
   // Tüm diyet planlarını getir (sadece kullanıcının kendi kayıtları)
   async getAll() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from("diet_plans")
@@ -44,8 +54,7 @@ export const dietPlanService = {
 
   // Belirli bir tarihe göre diyet planını getir
   async getByDate(date) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from("diet_plans")
@@ -75,8 +84,7 @@ export const dietPlanService = {
 
   // Yeni diyet planı ekle
   async create(dietPlan) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from("diet_plans")
@@ -92,8 +100,7 @@ export const dietPlanService = {
 
   // Diyet planını güncelle
   async update(id, dietPlan) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from("diet_plans")
@@ -109,8 +116,7 @@ export const dietPlanService = {
 
   // Diyet planını sil
   async delete(id) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { error } = await supabase
       .from("diet_plans")
@@ -126,8 +132,7 @@ export const dietPlanService = {
 export const weightService = {
   // Tüm kilo kayıtlarını getir (sadece kullanıcının kendi kayıtları)
   async getAll() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from("weight_records")
@@ -141,8 +146,7 @@ export const weightService = {
 
   // Son 30 günün kilo kayıtlarını getir
   async getLastMonth() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -160,8 +164,7 @@ export const weightService = {
 
   // Yeni kilo kaydı ekle
   async create(weightRecord) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     let data = null;
     let error = null;
@@ -192,9 +195,11 @@ export const weightService = {
     if (error) {
       // Duplicate key hatası için özel mesaj
       if (error.code === '23505' || error.message.includes('duplicate') || error.message.includes('unique')) {
-        const err = new Error('Bu tarih için zaten bir kilo kaydı bulunuyor. Lütfen farklı bir tarih seçin veya mevcut kaydı düzenleyin.');
-        err.code = 'DUPLICATE_DATE';
-        throw err;
+        throw new AppError(ERROR_CODES.DB_DUPLICATE_DATE, {
+          userMessage: 'Bu tarih için zaten bir kilo kaydı bulunuyor. Farklı bir tarih seçin veya mevcut kaydı düzenleyin.',
+          detail: `weight_records upsert: ${error.code} ${error.message}`,
+          cause: error,
+        });
       }
       throw error;
     }
@@ -203,8 +208,7 @@ export const weightService = {
 
   // Kilo kaydını güncelle
   async update(id, weightRecord) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from("weight_records")
@@ -220,8 +224,7 @@ export const weightService = {
 
   // Kilo kaydını sil
   async delete(id) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { error } = await supabase
       .from("weight_records")
@@ -234,8 +237,7 @@ export const weightService = {
 
   // En son kilo kaydını getir
   async getLatest() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from("weight_records")
@@ -350,8 +352,7 @@ export const homeSummaryService = {
 export const bodyInfoService = {
   // En son vücut bilgisini getir (sadece kullanıcının kendi kaydı)
   async getLatest() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from("body_info")
@@ -367,8 +368,7 @@ export const bodyInfoService = {
 
   // Tüm vücut bilgilerini getir (sadece kullanıcının kendi kayıtları)
   async getAll() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from("body_info")
@@ -382,8 +382,7 @@ export const bodyInfoService = {
 
   // Yeni vücut bilgisi ekle
   async create(bodyInfo) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from("body_info")
@@ -397,8 +396,7 @@ export const bodyInfoService = {
 
   // Vücut bilgisini güncelle
   async update(id, bodyInfo) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from("body_info")
@@ -440,8 +438,7 @@ export const bodyInfoService = {
 
   // Vücut bilgisini sil
   async delete(id) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { error } = await supabase
       .from("body_info")
@@ -457,8 +454,7 @@ export const bodyInfoService = {
 export const goalsService = {
   // Tüm hedefleri getir (sadece kullanıcının kendi hedefleri)
   async getAll() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from("goals")
@@ -472,8 +468,7 @@ export const goalsService = {
 
   // Aktif hedefleri getir (sadece kullanıcının kendi aktif hedefleri)
   async getActive() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from("goals")
@@ -488,8 +483,7 @@ export const goalsService = {
 
   // Yeni hedef ekle
   async create(goal) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from("goals")
@@ -503,8 +497,7 @@ export const goalsService = {
 
   // Hedefi güncelle
   async update(id, goal) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from("goals")
@@ -520,8 +513,7 @@ export const goalsService = {
 
   // Hedefi sil
   async delete(id) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { error } = await supabase
       .from("goals")
@@ -536,8 +528,7 @@ export const goalsService = {
 // ─── Besin Günlüğü (food_logs) ───────────────────────────────────────────────
 export const foodLogService = {
   async getByDate(date) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from('food_logs')
@@ -551,8 +542,7 @@ export const foodLogService = {
   },
 
   async create(entry) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from('food_logs')
@@ -565,8 +555,7 @@ export const foodLogService = {
   },
 
   async delete(id) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı oturumu bulunamadı');
+    const user = await requireUser();
 
     const { error } = await supabase
       .from('food_logs')
@@ -596,7 +585,7 @@ export const foodLogService = {
 export const userCreditsService = {
   // Kredileri getir (gün sıfırlama dahil)
   async getOrInit() {
-    const user = await getCurrentUser();
+    const user = await requireUser();
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
     const { data, error } = await supabase
@@ -635,7 +624,7 @@ export const userCreditsService = {
 
   // Sayacı +1 artır (max 3)
   async increment() {
-    const user = await getCurrentUser();
+    const user = await requireUser();
     const credits = await userCreditsService.getOrInit();
     const newCount = Math.min((credits.daily_photo_used || 0) + 1, 99);
 

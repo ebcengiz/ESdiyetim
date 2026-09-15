@@ -9,6 +9,7 @@
  */
 
 import { callTextWithProviderChain, parseJsonObjectFromLlmText } from './ai/providers';
+import { AppError, ERROR_CODES } from './errors';
 
 // ─── Ortak yardımcılar ────────────────────────────────────────────────────────
 
@@ -247,7 +248,12 @@ export async function getFoodNutritionAI(foodName, isDrink = false) {
   const { text: raw } = await callTextWithProviderChain(prompt);
   const parsed = parseJsonObjectFromLlmText(raw);
 
-  if (!parsed.found) throw new Error(`"${foodName}" için besin değeri bulunamadı.`);
+  if (!parsed.found) {
+    throw new AppError(ERROR_CODES.AI_FOOD_NOT_FOUND, {
+      userMessage: `"${foodName}" için besin değeri bulunamadı. Adını farklı yazmayı deneyin.`,
+      detail: `nutrition AI: found=false (${foodName})`,
+    });
+  }
 
   return {
     source: 'ai',

@@ -23,6 +23,8 @@ import { aiService } from '../services/aiService';
 import GuestGateBanner from '../components/GuestGateBanner';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useAppError } from '../hooks/useAppError';
+import { ERROR_CODES } from '../services/errors';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useAIConsent } from '../contexts/AIConsentContext';
 import Skeleton from '../components/ui/Skeleton';
@@ -71,6 +73,7 @@ export default function MealCalorieScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { handleError } = useAppError();
   const { isSubscribed, canUsePhotoToday, dailyLimit, openPaywall, incrementDailyPhotoCredit } = useSubscription();
   const { requestConsentPrompt } = useAIConsent();
   const [imageUri, setImageUri] = useState(null);
@@ -184,11 +187,10 @@ export default function MealCalorieScreen({ navigation }) {
       setResult(data);
       if (!bypassPaywall) await incrementDailyPhotoCredit();
     } catch (e) {
-      if (e?.code === 'AI_CONSENT_REQUIRED') {
+      const appErr = handleError(e, { context: 'mealCalorie.analyze', silentCodes: [ERROR_CODES.AI_CONSENT_REQUIRED] });
+      if (appErr.code === ERROR_CODES.AI_CONSENT_REQUIRED) {
         showToast('Fotoğraf analizi için yapay zeka veri paylaşımı onayı gerekiyor.', 'warning');
         requestConsentPrompt();
-      } else {
-        showToast(e.message || 'Analiz başarısız. Tekrar deneyin.', 'error');
       }
     } finally {
       setLoading(false);

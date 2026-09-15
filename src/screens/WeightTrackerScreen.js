@@ -20,12 +20,14 @@ import { weightService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from '../components/AIAdviceCard';
 import { useToast } from '../contexts/ToastContext';
+import { useAppError } from '../hooks/useAppError';
 import ConfirmModal from '../components/ui/ConfirmModal';
 
 const { width } = Dimensions.get('window');
 
 export default function WeightTrackerScreen() {
   const { showToast } = useToast();
+  const { handleError } = useAppError();
   const [weights, setWeights] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -138,11 +140,7 @@ export default function WeightTrackerScreen() {
       setModalVisible(false);
       loadWeights();
     } catch (error) {
-      if (error.code === 'DUPLICATE_DATE') {
-        showToast(error.message, 'warning');
-      } else {
-        showToast('Kilo kaydı kaydedilirken bir hata oluştu.', 'error');
-      }
+      handleError(error, { context: 'weightTracker.save' });
     }
   };
 

@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
 import { supabase } from "../services/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AppError, ERROR_CODES, logError } from "../services/errors";
 
 const GUEST_MODE_KEY = "ESDIYET_GUEST_MODE_V1";
 const INVALID_REFRESH_TOKEN_REGEX = /invalid refresh token|refresh token not found/i;
@@ -109,7 +110,7 @@ export const AuthProvider = ({ children }) => {
 
       return { data, error: null };
     } catch (error) {
-      return { data: null, error };
+      return { data: null, error: logError("auth.signUp", error) };
     }
   };
 
@@ -124,7 +125,7 @@ export const AuthProvider = ({ children }) => {
 
       return { data, error: null };
     } catch (error) {
-      return { data: null, error };
+      return { data: null, error: logError("auth.signIn", error) };
     }
   };
 
@@ -139,7 +140,7 @@ export const AuthProvider = ({ children }) => {
 
       return { error: null };
     } catch (error) {
-      return { error };
+      return { error: logError("auth.signOut", error) };
     }
   };
 
@@ -156,7 +157,7 @@ export const AuthProvider = ({ children }) => {
       const {
         data: { session: s },
       } = await supabase.auth.getSession();
-      if (!s?.access_token) throw new Error("Oturum bulunamadı");
+      if (!s?.access_token) throw new AppError(ERROR_CODES.AUTH_SESSION_REQUIRED, { detail: "deleteAccount: access_token yok" });
 
       const { error: invokeErr } = await supabase.functions.invoke("delete-account", {
         method: "POST",
@@ -174,12 +175,15 @@ export const AuthProvider = ({ children }) => {
         return { error: null };
       }
 
-      throw new Error(
-        rpcErr.message ||
-          "Hesap silinemedi. Supabase SQL Editor’de supabase/sql/delete_own_account.sql dosyasını çalıştırın veya: supabase functions deploy delete-account"
-      );
+      // Geliştirici notu yalnızca log'a: Edge Function deploy edilmemiş VE RPC yoksa
+      // supabase/sql/delete_own_account.sql çalıştırılmalı ya da
+      // `supabase functions deploy delete-account` yapılmalı.
+      throw new AppError(ERROR_CODES.ACCOUNT_DELETE_FAILED, {
+        detail: `edge: ${invokeErr?.message || "?"} | rpc: ${rpcErr?.message || "?"}`,
+        cause: rpcErr,
+      });
     } catch (error) {
-      return { error };
+      return { error: logError("auth.deleteAccount", error) };
     }
   };
 
@@ -193,7 +197,7 @@ export const AuthProvider = ({ children }) => {
 
       return { data, error: null };
     } catch (error) {
-      return { data: null, error };
+      return { data: null, error: logError("auth.updateProfile", error) };
     }
   };
 
