@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SIZES } from '../constants/theme';
+import { View, Text, StyleSheet } from 'react-native';
+import { COLORS, SIZES, MAX_FONT_SCALE } from '../constants/theme';
+import { ScreenContainer } from '../components/ui';
 
 /**
  * App Store 5.1.x: Gizlilik politikası uygulama içinde okunabilir olmalıdır.
@@ -61,51 +61,22 @@ const SECTIONS = [
 ];
 
 export default function PrivacyPolicyScreen() {
-  const insets = useSafeAreaInsets();
-
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 24 }]}
-      showsVerticalScrollIndicator={false}
-    >
-      <Text style={styles.updated}>Son güncelleme: Nisan 2026</Text>
+    <ScreenContainer edges={[]}>
+      <Text style={styles.updated} maxFontSizeMultiplier={MAX_FONT_SCALE}>Son güncelleme: Nisan 2026</Text>
       {SECTIONS.map(({ title, body }) => (
         <View key={title} style={styles.block}>
-          <Text style={styles.sectionTitle}>{title}</Text>
-          <Text style={styles.sectionBody}>{body}</Text>
+          <Text style={styles.sectionTitle} accessibilityRole="header" maxFontSizeMultiplier={MAX_FONT_SCALE}>{title}</Text>
+          <Text style={styles.sectionBody} maxFontSizeMultiplier={MAX_FONT_SCALE}>{body}</Text>
         </View>
       ))}
-    </ScrollView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  content: {
-    padding: SIZES.containerPadding,
-    paddingTop: SIZES.md,
-  },
-  updated: {
-    fontSize: SIZES.tiny,
-    color: COLORS.textLight,
-    marginBottom: SIZES.lg,
-  },
-  block: {
-    marginBottom: SIZES.lg,
-  },
-  sectionTitle: {
-    fontSize: SIZES.body,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: SIZES.sm,
-  },
-  sectionBody: {
-    fontSize: SIZES.small,
-    lineHeight: 22,
-    color: COLORS.textSecondary,
-  },
+  updated: { fontSize: SIZES.tiny, color: COLORS.textLight, marginBottom: SIZES.lg },
+  block: { marginBottom: SIZES.lg },
+  sectionTitle: { fontSize: SIZES.body, fontWeight: '700', color: COLORS.text, marginBottom: SIZES.sm },
+  sectionBody: { fontSize: SIZES.small, lineHeight: 22, color: COLORS.textSecondary },
 });

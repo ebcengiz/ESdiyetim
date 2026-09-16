@@ -21,6 +21,22 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-16 — UI/UX yenileme programı Adım 3: Tüm ekranlar ortak UI kitine taşındı (9 commit)
+
+**Sıra ve commit'ler:** Login/Register (`180800f`) → Home (`4bb6cd5`) → DietPlan (`81eb909`) → Kilo&VKİ (`bd5582b`) → Goals (`3f4c424`) → Tips (`04723ed`) → Profile (`52dc059`) → MealCalorie (`503b69f`) → FoodLog (`03ce01e`) → Paywall + küçük ekranlar + AIConsentModal (bu commit).
+
+**Her ekranda uygulanan ortak değişiklikler:** `ScreenContainer` (safe area + tab alt boşluğu + klavye + pull-to-refresh), hero başlıklar `header` prop'uyla scroll dışında; `TouchableOpacity` → `Pressable` (basılı durum); `Dimensions.get` → `useResponsive`; hardcoded renkler → token (`whiteAlpha/withAlpha/accents/*Bg`); `console.error + sabit toast` → `handleError` (+ retryable ise "Tekrar dene"); `maxFontSizeMultiplier`, `accessibilityRole/Label`, 44pt dokunma hedefleri; formlar `BottomSheet + AppInput (inline doğrulama) + DateField`; boş/yükleme durumları `EmptyState/LoadingState`.
+
+**Kite bu adımda eklenenler:** `DateStepper` (+`formatDayLabel`), `ProgressBar`, `ActionCta`, `SegmentedControl`, `Chip` (surface/onPrimary), `DateField`, `ListRow`; `hooks/useShake`; özellik bileşenleri `components/auth/AuthFooter`, `components/goals/GoalCard`, `components/dietPlan/{DietPlanHeader,DietPlanEditSheet}`, `components/mealCalorie/MealResultCard`.
+
+**UX kararları:** Home'da üç kez tekrarlanan durum bilgisi (hero metrik + KPI hap + stat kart) tek özet kartına indirildi, "Son güncelleme" teknik metni kaldırıldı; Kilo/Goals/FoodLog kayıtlarında "basılı tutarak sil" (keşfedilemiyordu) yerine açık sil butonu; Goals'ta belirsiz ikon butonu yerine "Tamamlandı / Yeniden aç" metinli buton; Tips'e diğer tab'larla tutarlı hero (native header kapatıldı); MealCalorie'de aynı durumu üç kez gösteren widget'lar tek adım piline indirildi; FoodLog kalori çubuğu yeşil zemin üstünde görünür renklere (beyaz/amber/coral) çevrildi; Profile alt boşluğu artık yüzen tab bar'ı hesaba katıyor (önceden içerik tab'ın altında kalıyordu).
+
+**Silinenler:** `WeightTrackerScreen.js` (legacy) ve `BodyInfoScreen.js` — ikisi de navigator'da kayıtlı değildi, hiçbir yerden import edilmiyordu.
+
+**Satır sayıları:** Login 497→202, Register 553→272, DietPlan 948→439, Goals 649→378, Profile 984→330, MealCalorie 1156→304, Paywall 412→253.
+
+**Doğrulama:** Her ekran babel syntax-check; `npx expo export --platform ios` temiz; simülatörde (misafir modu, geçici `initialRouteName` ile) Login, Register, Home, DietPlan, Kilo&VKİ, Goals, Tips, Profile ekran görüntüleriyle doğrulandı. **Giriş gerektiren akışlar** (WeightPanel/BMIPanel içerikleri, DietPlan düzenleme sheet'i, Goals formu, FoodLog, MealCalorie, Paywall) simülatörde tap gönderilemediği ve test hesabı olmadığı için görsel olarak doğrulanamadı — kullanıcı gerçek hesapla denemeli. `FoodSearchModal` (600 satır) yalnızca token/responsive düzeyinde güncellendi; yapısal yeniden yazımı ileride.
+
 ### 2026-09-16 — UI/UX yenileme programı Adım 2: Tasarım sistemi genişletme + ortak UI kiti + Toast v2 + dinamik tab bar
 
 **Kapsam:** Ekranlara dokunmadan ortak parçalar (Adım 3'te ekranlar bu kit üstüne taşınacak).
@@ -403,7 +419,7 @@ Kullanıcının telefonunda Expo Go SDK 57 kullanıyordu, proje SDK 54'teydi →
 - [x] ~~`IOS_APP_STORE_YAYINLAMA_REHBERI.md` içindeki eski versiyon (1.0.0) / minimum iOS (13.4) bilgilerini güncelle.~~ (2026-09-10 tamamlandı)
 - [x] ~~Orta vadeli: AI caching/kuyruk, skeleton screen, streaming+haptic, büyük ekran dosyalarının (DietPlanScreen, FoodLogScreen, HomeScreen) katmanlara ayrıştırılması.~~ (2026-09-10 tamamlandı — bkz. yukarıdaki günlük girdileri; üç ekran de bitti)
 - [x] ~~ProfileScreen'deki "Yapay Zeka Veri Paylaşımı" Switch'inin ekran dışına taşması (kırpılma) hatası.~~ (2026-09-10 tamamlandı + gerçek cihaz/simulator tap'iyle görsel olarak doğrulandı — Switch artık tam görünüyor, alt metin 2 satıra düzgün sarıyor)
-- [ ] **UI/UX programı Adım 3:** ekranları sırayla kite taşı (Login/Register → Home → DietPlan → Kilo&VKİ → Goals → Tips → Profile → MealCalorie/FoodLog → Paywall). Her ekranda: `ScreenContainer`, `AppButton/AppInput/AppCard`, `useResponsive` (modül seviyesi `Dimensions.get` kaldır), hardcoded renkleri token'a çevir, `console.error + sabit toast` → `handleError`, erişilebilirlik etiketleri. iPad yok. (2026-09-16)
+- [ ] **UI/UX programı — kalan:** (a) giriş gerektiren akışların gerçek hesapla uçtan uca görsel doğrulaması (Weight/BMI panelleri, DietPlan düzenleme, Goals formu, FoodLog, MealCalorie, Paywall); (b) `FoodSearchModal.js` (600 satır) ve `DietPlanHistorySheet.js`'in `BottomSheet` üstüne yapısal taşınması; (c) `AIAdviceCard`/`HealthSourcesCard`'daki `TouchableOpacity`'lerin `Pressable`'a çevrilmesi; (d) TestFlight'a yeni build (netinfo native modülü içermeli). (2026-09-16)
 - [ ] **TestFlight (Apple backend, BETA_CONTRACT_MISSING):** `APPLE_SUPPORT_TALEBI_TESTFLIGHT.md` içindeki talebi Apple Developer Support + Feedback Assistant'a gönder; Apple "resolved" deyince yeni build yükleyip tester'larla doğrula. Bu süre zarfında tester dağıtımı için EAS `preview` (ad-hoc) profili kullan. (2026-09-15)
 - [ ] Bir sonraki EAS/TestFlight build'inde uçtan uca elle doğrulanması gerekenler: (a) AI onay modalının kabul/red ve Profil'den geri çekme **etkileşiminin** (Switch'e dokunma) tam akışı — görsel render doğrulandı ama toggle etkileşimi simulator'de otomatik tap kalibrasyonu zor olduğu için tam test edilemedi; (b) App Store Connect'teki App Privacy beyanının hâlâ koddaki `ios.privacyManifests` ile birebir uyumlu olduğunun App Review öncesi son kez gözle kontrolü.
 

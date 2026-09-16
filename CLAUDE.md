@@ -59,12 +59,13 @@ ESdiyetim/
     ├── constants/theme.js     # TEK tasarım kaynağı (COLORS, SIZES, TYPOGRAPHY, tabBarMetrics, withAlpha)
     ├── constants/errorMessages.js  # Kullanıcıya gösterilen hata metinlerinin TEK kaynağı
     ├── contexts/              # AuthContext, SubscriptionContext, ToastContext, AIConsentContext
-    ├── hooks/                 # useAppError, useResponsive, useDataFetch, useFormModal
+    ├── hooks/                 # useAppError, useResponsive, useShake, useDataFetch, useFormModal
     ├── components/
     │   ├── ErrorBoundary.js   # Kök hata sınırı (App.js'de SafeAreaProvider'ın hemen altında)
     │   ├── ui/                # ORTAK UI KİTİ (index.js barrel): AppButton, AppInput, AppCard, IconBadge,
     │   │                      #   SectionHeader, EmptyState, ErrorState, LoadingState, ScreenContainer,
-    │   │                      #   BottomSheet, OfflineBanner, ConfirmModal, DatePickerSheet, Skeleton, Toast
+    │   │                      #   BottomSheet, OfflineBanner, ConfirmModal, DatePickerSheet, DateField,
+    │   │                      #   DateStepper, SegmentedControl, Chip, ListRow, ProgressBar, ActionCta, Skeleton, Toast
     │   ├── AIAdviceCard, BMIPanel, GuestGateBanner,
     │   ├── HealthSourcesCard, MedicalInfoBanner, ModernIcon,
     │   └── PremiumGate, WeightPanel
@@ -81,7 +82,9 @@ ESdiyetim/
 ```
 
 ### Ekranlar
-`HomeScreen`, `DietPlanScreen`, `WeightAndBMIScreen`, `WeightTrackerScreen` (legacy), `GoalsScreen`, `TipsScreen`, `ProfileScreen`, `LoginScreen`, `RegisterScreen`, `MealCalorieScreen` (fotoğraftan kalori), `FoodLogScreen`, `HealthSourcesInfoScreen`, `PrivacyPolicyScreen`, `PaywallScreen`, `BodyInfoScreen`.
+`HomeScreen`, `DietPlanScreen`, `WeightAndBMIScreen` (WeightPanel + BMIPanel), `GoalsScreen`, `TipsScreen`, `ProfileScreen`, `LoginScreen`, `RegisterScreen`, `MealCalorieScreen` (fotoğraftan kalori), `FoodLogScreen`, `HealthSourcesInfoScreen`, `PrivacyPolicyScreen`, `PaywallScreen`. (Eski `WeightTrackerScreen` ve `BodyInfoScreen` navigator'da kullanılmadığı için 2026-09-16'da silindi.)
+
+Tüm ekranlar ortak UI kiti üstünde: `ScreenContainer` iskelet, hero başlıklar `header` prop'u ile, formlar `BottomSheet + AppInput + AppButton + DateField`, listeler `EmptyState/LoadingState/ErrorState`. Özellik bazlı alt bileşenler: `components/home/*`, `components/dietPlan/*`, `components/goals/GoalCard`, `components/foodLog/*`, `components/mealCalorie/MealResultCard`, `components/auth/AuthFooter`.
 
 ### Tab düzeni (MainNavigator)
 `Home • DietPlan • WeightAndBMI • Goals • Tips • Profile`

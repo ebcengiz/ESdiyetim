@@ -1,18 +1,7 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  Platform,
-  Linking,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, StyleSheet, Pressable, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SIZES, SHADOWS } from '../constants/theme';
+import { COLORS, SIZES, SHADOWS, HIT_SLOP, MAX_FONT_SCALE, withAlpha } from '../constants/theme';
 import {
   purchaseSubscription,
   restorePurchases,
@@ -23,7 +12,9 @@ import {
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useToast } from '../contexts/ToastContext';
 import { useAppError } from '../hooks/useAppError';
+import { useResponsive } from '../hooks/useResponsive';
 import { ERROR_CODES } from '../services/errors';
+import { ScreenContainer, AppButton, IconBadge, SectionHeader } from '../components/ui';
 
 const FEATURES = [
   { icon: 'camera', text: 'Günde 5 fotoğraftan kalori analizi (ücretsiz planda günde 1)' },
@@ -32,7 +23,7 @@ const FEATURES = [
 ];
 
 export default function PaywallScreen({ navigation }) {
-  const insets = useSafeAreaInsets();
+  const { topPad } = useResponsive();
   const { showToast } = useToast();
   const { handleError } = useAppError();
   const { refreshSubscription, products, activateTestSubscription } = useSubscription();
@@ -96,320 +87,167 @@ export default function PaywallScreen({ navigation }) {
     }
   };
 
+  const footer = (
+    <View>
+      <AppButton title="Abone Ol" size="lg" fullWidth onPress={handlePurchase} loading={purchasing} disabled={restoring} />
+      <AppButton
+        title="Mevcut aboneliği geri yükle"
+        variant="ghost"
+        size="sm"
+        onPress={handleRestore}
+        loading={restoring}
+        disabled={purchasing}
+        haptic={false}
+        style={styles.restoreBtn}
+      />
+    </View>
+  );
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Kapat butonu */}
-      <TouchableOpacity
-        style={styles.closeBtn}
+    <ScreenContainer edges={[]} footer={footer} contentContainerStyle={{ paddingTop: topPad }}>
+      <Pressable
         onPress={() => navigation.goBack()}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        hitSlop={HIT_SLOP}
+        accessibilityRole="button"
+        accessibilityLabel="Kapat"
+        style={({ pressed }) => [styles.closeBtn, { top: topPad - SIZES.sm }, pressed && { opacity: 0.6 }]}
       >
         <Ionicons name="close" size={22} color={COLORS.textSecondary} />
-      </TouchableOpacity>
+      </Pressable>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]}
-      >
-        {/* Başlık */}
-        <LinearGradient
-          colors={['#6366F1', '#818CF8']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.iconWrap}
-        >
-          <Ionicons name="star" size={34} color="white" />
-        </LinearGradient>
+      <IconBadge name="star" tone="solid" color={COLORS.accents.indigo} size={72} iconSize={34} style={styles.heroIcon} />
+      <Text style={styles.title} accessibilityRole="header" maxFontSizeMultiplier={MAX_FONT_SCALE}>ESdiyet Premium</Text>
+      <Text style={styles.subtitle} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+        Diyet planı, kilo & VKİ takibi, hedefler ve tavsiyeler zaten ücretsiz. Premium,
+        yapay zeka destekli fotoğraf ve besin analizinde günlük limitleri kaldırır.
+      </Text>
 
-        <Text style={styles.title}>ESdiyet Premium</Text>
-        <Text style={styles.subtitle}>
-          Diyet planı, kilo & VKİ takibi, hedefler ve tavsiyeler zaten ücretsiz. Premium,
-          yapay zeka destekli fotoğraf ve besin analizinde günlük limitleri kaldırır.
-        </Text>
+      <View style={styles.featureList}>
+        {FEATURES.map((f, i) => (
+          <View key={i} style={styles.featureRow}>
+            <IconBadge name={f.icon} size={32} iconSize={16} shape="rounded" />
+            <Text style={styles.featureText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{f.text}</Text>
+          </View>
+        ))}
+      </View>
 
-        {/* Özellik listesi */}
-        <View style={styles.featureList}>
-          {FEATURES.map((f, i) => (
-            <View key={i} style={styles.featureRow}>
-              <View style={styles.featureIconWrap}>
-                <Ionicons name={f.icon} size={16} color={COLORS.primary} />
-              </View>
-              <Text style={styles.featureText}>{f.text}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Plan kartları */}
-        <Text style={styles.sectionLabel}>Abonelik Seçin</Text>
-        <View style={styles.planList}>
-          {PLAN_META.map((plan) => {
-            const selected = selectedPlan === plan.id;
-            return (
-              <TouchableOpacity
-                key={plan.id}
-                style={[styles.planCard, selected && styles.planCardSelected]}
-                onPress={() => setSelectedPlan(plan.id)}
-                activeOpacity={0.8}
-              >
-                {plan.highlight && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>En İyi Değer</Text>
-                  </View>
-                )}
-                <View style={styles.planRow}>
-                  <View style={styles.planRadio}>
-                    {selected && <View style={styles.planRadioInner} />}
-                  </View>
-                  <View style={styles.planInfo}>
-                    <Text style={[styles.planLabel, selected && styles.planLabelSelected]}>
-                      {plan.label}
-                    </Text>
-                    <Text style={styles.planRate}>{plan.monthlyRate}</Text>
-                  </View>
-                  <View style={styles.planPriceWrap}>
-                    <Text style={[styles.planPrice, selected && styles.planPriceSelected]}>
-                      {getPriceLabel(plan.id)}
-                    </Text>
-                    {plan.savingPct && (
-                      <View style={styles.savingBadge}>
-                        <Text style={styles.savingText}>-%{plan.savingPct}</Text>
-                      </View>
-                    )}
-                  </View>
+      <SectionHeader title="Abonelik Seçin" />
+      <View style={styles.planList} accessibilityRole="radiogroup">
+        {PLAN_META.map((plan) => {
+          const selected = selectedPlan === plan.id;
+          return (
+            <Pressable
+              key={plan.id}
+              style={({ pressed }) => [styles.planCard, selected && styles.planCardSelected, pressed && styles.pressed]}
+              onPress={() => setSelectedPlan(plan.id)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected, checked: selected }}
+              accessibilityLabel={`${plan.label}, ${getPriceLabel(plan.id)}, ${plan.monthlyRate}${plan.savingPct ? `, yüzde ${plan.savingPct} tasarruf` : ''}`}
+            >
+              {plan.highlight && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText} maxFontSizeMultiplier={MAX_FONT_SCALE}>En İyi Değer</Text>
                 </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+              )}
+              <View style={styles.planRow}>
+                <View style={[styles.radio, selected && styles.radioSelected]}>
+                  {selected && <View style={styles.radioInner} />}
+                </View>
+                <View style={styles.planInfo}>
+                  <Text style={[styles.planLabel, selected && styles.planLabelSelected]} maxFontSizeMultiplier={MAX_FONT_SCALE}>{plan.label}</Text>
+                  <Text style={styles.planRate} maxFontSizeMultiplier={MAX_FONT_SCALE}>{plan.monthlyRate}</Text>
+                </View>
+                <View style={styles.planPriceWrap}>
+                  <Text style={[styles.planPrice, selected && styles.planPriceSelected]} maxFontSizeMultiplier={MAX_FONT_SCALE}>{getPriceLabel(plan.id)}</Text>
+                  {!!plan.savingPct && (
+                    <View style={styles.savingBadge}>
+                      <Text style={styles.savingText} maxFontSizeMultiplier={MAX_FONT_SCALE}>-%{plan.savingPct}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
 
-        {/* Satın al butonu */}
-        <TouchableOpacity
-          style={[styles.buyBtn, purchasing && styles.buyBtnDisabled]}
-          onPress={handlePurchase}
-          activeOpacity={0.85}
-          disabled={purchasing}
+      <Text style={styles.legal} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+        Abonelikler iTunes hesabınızdan otomatik olarak yenilenir. Yenileme döneminden en az 24 saat önce iptal edilmezse dönem sonunda aynı fiyattan otomatik yenilenir. Aboneliği iTunes hesap ayarlarından yönetebilir ve satın alma sonrası iptal edebilirsiniz. Ödeme onaylandıktan sonra mevcut dönem için iade yapılmaz.
+      </Text>
+
+      {/* EULA + Gizlilik bağlantıları (Apple 3.1.2(c) zorunluluk) */}
+      <View style={styles.legalLinksRow}>
+        <Pressable
+          onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}
+          hitSlop={HIT_SLOP}
+          accessibilityRole="link"
+          style={({ pressed }) => pressed && { opacity: 0.6 }}
         >
-          <LinearGradient
-            colors={[COLORS.primaryDark, COLORS.primary]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.buyGradient}
-          >
-            {purchasing ? (
-              <ActivityIndicator color="white" size="small" />
-            ) : (
-              <Text style={styles.buyText}>Abone Ol</Text>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
-
-        {/* Restore */}
-        <TouchableOpacity
-          style={styles.restoreBtn}
-          onPress={handleRestore}
-          disabled={restoring}
-          activeOpacity={0.7}
+          <Text style={styles.linkText}>Kullanım Koşulları (EULA)</Text>
+        </Pressable>
+        <Text style={styles.linkSeparator}>·</Text>
+        <Pressable
+          onPress={() => navigation.navigate('PrivacyPolicy')}
+          hitSlop={HIT_SLOP}
+          accessibilityRole="link"
+          style={({ pressed }) => pressed && { opacity: 0.6 }}
         >
-          {restoring ? (
-            <ActivityIndicator size="small" color={COLORS.textLight} />
-          ) : (
-            <Text style={styles.restoreText}>Mevcut aboneliği geri yükle</Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Yasal uyarı */}
-        <Text style={styles.legal}>
-          Abonelikler iTunes hesabınızdan otomatik olarak yenilenir. Yenileme döneminden en az 24 saat önce iptal edilmezse dönem sonunda aynı fiyattan otomatik yenilenir. Aboneliği iTunes hesap ayarlarından yönetebilir ve satın alma sonrası iptal edebilirsiniz. Ödeme onaylandıktan sonra mevcut dönem için iade yapılmaz.
-        </Text>
-
-        {/* EULA + Gizlilik bağlantıları (Apple 3.1.2(c) zorunluluk) */}
-        <View style={styles.legalLinksRow}>
-          <TouchableOpacity
-            onPress={() =>
-              Linking.openURL(
-                'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/'
-              )
-            }
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.linkText}>Kullanım Koşulları (EULA)</Text>
-          </TouchableOpacity>
-          <Text style={styles.linkSeparator}>·</Text>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('PrivacyPolicy')}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.linkText}>Gizlilik Politikası</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </View>
+          <Text style={styles.linkText}>Gizlilik Politikası</Text>
+        </Pressable>
+      </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
   closeBtn: {
     position: 'absolute',
-    top: 16,
-    right: 16,
+    right: SIZES.md,
     zIndex: 10,
     width: 36,
     height: 36,
     borderRadius: 18,
     backgroundColor: COLORS.surfaceAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...SHADOWS.small,
-  },
-  scroll: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 60 },
-
-  iconWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    ...SHADOWS.medium,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: COLORS.text,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-    paddingHorizontal: 8,
-  },
-
-  featureList: {
-    width: '100%',
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 16,
-    gap: 12,
-    marginBottom: 24,
-    ...SHADOWS.small,
-  },
-  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  featureIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: COLORS.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  featureText: { flex: 1, fontSize: 14, color: COLORS.text, fontWeight: '500' },
-
-  sectionLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.textLight,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    alignSelf: 'flex-start',
-    marginBottom: 10,
-  },
-  planList: { width: '100%', gap: 10, marginBottom: 24 },
-  planCard: {
-    width: '100%',
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pressed: { opacity: 0.85 },
+  heroIcon: { alignSelf: 'center', marginTop: SIZES.xl, marginBottom: SIZES.md, ...SHADOWS.medium },
+  title: { fontSize: SIZES.h2, fontWeight: '800', color: COLORS.text, textAlign: 'center', letterSpacing: -0.5 },
+  subtitle: { fontSize: SIZES.bodySmall, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22, marginTop: SIZES.sm, marginBottom: SIZES.lg, paddingHorizontal: SIZES.sm },
+  featureList: { gap: SIZES.sm + 2, marginBottom: SIZES.lg },
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm + 2 },
+  featureText: { flex: 1, fontSize: SIZES.small, color: COLORS.text, lineHeight: 20 },
+  planList: { gap: SIZES.sm + 2, marginBottom: SIZES.md },
+  planCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusLarge,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    padding: SIZES.md,
     ...SHADOWS.small,
   },
-  planCardSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.accent,
-  },
-  badge: {
-    alignSelf: 'flex-start',
-    backgroundColor: COLORS.primary,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginBottom: 8,
-  },
-  badgeText: { fontSize: 11, fontWeight: '700', color: 'white' },
-  planRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  planRadio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  planRadioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: COLORS.primary,
-  },
+  planCardSelected: { borderColor: COLORS.primary, backgroundColor: COLORS.surfaceAlt },
+  badge: { position: 'absolute', top: -10, right: SIZES.md, backgroundColor: COLORS.primary, paddingHorizontal: 10, paddingVertical: 3, borderRadius: SIZES.radiusFull },
+  badgeText: { fontSize: SIZES.micro + 1, fontWeight: '800', color: COLORS.white, letterSpacing: 0.3 },
+  planRow: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm + 2 },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center' },
+  radioSelected: { borderColor: COLORS.primary },
+  radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: COLORS.primary },
   planInfo: { flex: 1 },
-  planLabel: { fontSize: 15, fontWeight: '700', color: COLORS.textSecondary },
-  planLabelSelected: { color: COLORS.text },
-  planRate: { fontSize: 12, color: COLORS.textLight, marginTop: 2 },
+  planLabel: { fontSize: SIZES.body, fontWeight: '700', color: COLORS.text },
+  planLabelSelected: { color: COLORS.primaryDark },
+  planRate: { fontSize: SIZES.tiny, color: COLORS.textSecondary, marginTop: 2 },
   planPriceWrap: { alignItems: 'flex-end', gap: 4 },
-  planPrice: { fontSize: 16, fontWeight: '800', color: COLORS.textSecondary },
-  planPriceSelected: { color: COLORS.primary },
-  savingBadge: {
-    backgroundColor: '#DCFCE7',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  savingText: { fontSize: 11, fontWeight: '700', color: COLORS.primaryDark },
-
-  buyBtn: { width: '100%', borderRadius: 14, overflow: 'hidden', marginBottom: 12, ...SHADOWS.medium },
-  buyBtnDisabled: { opacity: 0.7 },
-  buyGradient: {
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buyText: { fontSize: 17, fontWeight: '800', color: 'white', letterSpacing: 0.3 },
-
-  restoreBtn: { paddingVertical: 10, marginBottom: 16 },
-  restoreText: { fontSize: 14, color: COLORS.textLight, textDecorationLine: 'underline' },
-
-  legal: {
-    fontSize: 11,
-    color: COLORS.textLight,
-    textAlign: 'center',
-    lineHeight: 16,
-    paddingHorizontal: 8,
-    marginBottom: 10,
-  },
-  legalLinksRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-    paddingHorizontal: 8,
-  },
-  linkText: {
-    fontSize: 12,
-    color: COLORS.primary,
-    fontWeight: '700',
-    textDecorationLine: 'underline',
-  },
-  linkSeparator: {
-    fontSize: 12,
-    color: COLORS.textLight,
-  },
+  planPrice: { fontSize: SIZES.h5, fontWeight: '800', color: COLORS.text },
+  planPriceSelected: { color: COLORS.primaryDark },
+  savingBadge: { backgroundColor: withAlpha(COLORS.primary, 0.12), paddingHorizontal: 8, paddingVertical: 2, borderRadius: SIZES.radiusFull },
+  savingText: { fontSize: SIZES.micro + 1, fontWeight: '800', color: COLORS.primaryDark },
+  restoreBtn: { alignSelf: 'center', marginTop: SIZES.xs },
+  legal: { fontSize: SIZES.micro + 1, color: COLORS.textLight, lineHeight: 15, textAlign: 'center', marginTop: SIZES.sm },
+  legalLinksRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: SIZES.sm, marginTop: SIZES.sm, minHeight: SIZES.minTouch - 8 },
+  linkText: { fontSize: SIZES.tiny, color: COLORS.primary, fontWeight: '600', textDecorationLine: 'underline' },
+  linkSeparator: { color: COLORS.textLight },
 });
