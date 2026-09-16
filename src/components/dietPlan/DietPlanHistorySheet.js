@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Modal, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, SHADOWS } from '../../constants/theme';
+import { COLORS, SIZES, SHADOWS, blackAlpha } from '../../constants/theme';
 import { MEAL_FIELDS, MONTHS_TR } from '../../constants/dietPlanFields';
 import { toDateStr } from '../../utils/dietPlanUtils';
 
@@ -164,7 +164,7 @@ export default function DietPlanHistorySheet({
                       </View>
                       {plan.total_calories ? (
                         <View style={hist.kcalBadge}>
-                          <Ionicons name="flame" size={11} color="#F59E0B" />
+                          <Ionicons name="flame" size={11} color={COLORS.accents.amber} />
                           <Text style={hist.kcalText}>{plan.total_calories}</Text>
                           <Text style={hist.kcalUnit}>kcal</Text>
                         </View>
@@ -189,7 +189,7 @@ export default function DietPlanHistorySheet({
 }
 
 const modalStyles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: blackAlpha(0.5) },
   sheet: {
     backgroundColor: COLORS.surface,
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
@@ -231,7 +231,7 @@ const hist = StyleSheet.create({
     backgroundColor: COLORS.primary, borderColor: COLORS.primary,
   },
   filterChipText: { fontSize: SIZES.small, fontWeight: '700', color: COLORS.textSecondary },
-  filterChipTextActive: { color: '#fff' },
+  filterChipTextActive: { color: COLORS.white },
   resultCount: {
     fontSize: SIZES.small, color: COLORS.textSecondary, fontWeight: '600',
     paddingHorizontal: SIZES.containerPadding, marginBottom: SIZES.sm, marginTop: 4,
@@ -261,11 +261,11 @@ const hist = StyleSheet.create({
   mealPillText: { fontSize: 9, fontWeight: '700' },
   kcalBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 2,
-    backgroundColor: '#FEF3C7', borderRadius: 999,
+    backgroundColor: COLORS.warningBg, borderRadius: 999,
     paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start',
   },
-  kcalText: { fontSize: SIZES.small, fontWeight: '800', color: '#92400E' },
-  kcalUnit: { fontSize: 10, color: '#92400E', fontWeight: '600' },
+  kcalText: { fontSize: SIZES.small, fontWeight: '800', color: COLORS.warningText },
+  kcalUnit: { fontSize: 10, color: COLORS.warningText, fontWeight: '600' },
   preview: {
     fontSize: SIZES.small, color: COLORS.textSecondary,
     marginTop: SIZES.sm, paddingTop: SIZES.sm,

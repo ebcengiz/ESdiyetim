@@ -118,7 +118,7 @@ export default function MealFoodPickerSection({ field, formValue, onAppend, onRe
       {/* Eklenen besinler (silinebilir satırlar) */}
       {foodLines.map((line, idx) => (
         <View key={idx} style={mp.foodLineRow}>
-          <Ionicons name="checkmark-circle" size={15} color="#22C55E" />
+          <Ionicons name="checkmark-circle" size={15} color={COLORS.primaryLight} />
           <Text style={mp.foodLineText} numberOfLines={1}>{line.replace(/^•\s*/, '')}</Text>
           <TouchableOpacity onPress={() => onRemoveLine(idx)} hitSlop={8}>
             <Ionicons name="close-circle" size={18} color={COLORS.textLight} />
@@ -146,10 +146,10 @@ export default function MealFoodPickerSection({ field, formValue, onAppend, onRe
           disabled={pickAiLoading || !pickQuery.trim()}
         >
           {pickAiLoading ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={COLORS.white} />
           ) : (
             <>
-              <Ionicons name="sparkles" size={14} color="#fff" />
+              <Ionicons name="sparkles" size={14} color={COLORS.white} />
               <Text style={mp.aiBtnText}>AI ile tam analiz (Türkçe)</Text>
             </>
           )}
@@ -198,7 +198,7 @@ export default function MealFoodPickerSection({ field, formValue, onAppend, onRe
             </View>
             {preview != null ? <Text style={mp.estKcal}>Tahmini: {preview} kcal</Text> : null}
             <TouchableOpacity style={mp.addBtn} onPress={handleAppend} activeOpacity={0.85}>
-              <Ionicons name="add-circle-outline" size={18} color="#fff" />
+              <Ionicons name="add-circle-outline" size={18} color={COLORS.white} />
               <Text style={mp.addBtnText}>Ekle</Text>
             </TouchableOpacity>
           </View>
@@ -222,11 +222,11 @@ const mp = StyleSheet.create({
     minWidth: 20, height: 20, borderRadius: 10,
     justifyContent: 'center', alignItems: 'center', paddingHorizontal: 5,
   },
-  countBadgeText: { fontSize: 11, fontWeight: '800', color: '#fff' },
+  countBadgeText: { fontSize: 11, fontWeight: '800', color: COLORS.white },
   foodLineRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#F0FDF4', borderRadius: SIZES.radius,
-    borderWidth: 1, borderColor: '#BBF7D0',
+    backgroundColor: COLORS.surfaceAlt, borderRadius: SIZES.radius,
+    borderWidth: 1, borderColor: COLORS.disclaimerBorder,
     paddingHorizontal: SIZES.sm, paddingVertical: 7, marginBottom: 4,
   },
   foodLineText: { flex: 1, fontSize: 12, color: COLORS.text, fontWeight: '500' },
@@ -260,7 +260,7 @@ const mp = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: SIZES.sm,
   },
-  aiBtnText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  aiBtnText: { fontSize: 12, fontWeight: '700', color: COLORS.white },
   searchingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SIZES.sm },
   searchingText: { fontSize: 12, color: COLORS.textSecondary },
   resultsScroll: { maxHeight: 160, marginBottom: SIZES.sm },
@@ -306,7 +306,7 @@ const mp = StyleSheet.create({
     textAlign: 'right',
     backgroundColor: COLORS.surfaceAlt,
   },
-  estKcal: { fontSize: SIZES.small, fontWeight: '700', color: '#F59E0B', marginBottom: SIZES.sm },
+  estKcal: { fontSize: SIZES.small, fontWeight: '700', color: COLORS.accents.amber, marginBottom: SIZES.sm },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -316,5 +316,5 @@ const mp = StyleSheet.create({
     borderRadius: SIZES.radius,
     paddingVertical: 11,
   },
-  addBtnText: { fontSize: SIZES.body, fontWeight: '700', color: '#fff' },
+  addBtnText: { fontSize: SIZES.body, fontWeight: '700', color: COLORS.white },
 });

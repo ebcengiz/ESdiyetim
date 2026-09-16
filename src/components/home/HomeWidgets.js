@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, SHADOWS, MAX_FONT_SCALE, withAlpha } from '../../constants/theme';
+import { COLORS, SIZES, SHADOWS, MAX_FONT_SCALE } from '../../constants/theme';
 import IconBadge from '../ui/IconBadge';
+import ActionCta from '../ui/ActionCta';
 
 // Küçük, tekrar kullanılan sunum bileşenleri — HomeScreen ve alt bölümleri
 // (HomeStatsRow, HomeSections) arasında paylaşılır.
@@ -33,22 +34,9 @@ export const QuickActionButton = ({ icon, label, color, onPress, style }) => (
   </Pressable>
 );
 
-/** "Fotoğraftan kalori" / "Besin Takibi" gibi tek satırlık CTA kartı — ikisi de aynı desen. */
-export const HomeActionCta = ({ icon, color = COLORS.primary, title, subtitle, user, onPress }) => (
-  <Pressable
-    style={({ pressed }) => [styles.cta, !user && styles.ctaGuest, pressed && styles.pressed]}
-    onPress={onPress}
-    accessibilityRole="button"
-    accessibilityLabel={title}
-    accessibilityHint={subtitle}
-  >
-    <IconBadge name={icon} color={color} size={48} />
-    <View style={styles.ctaText}>
-      <Text style={styles.ctaTitle} maxFontSizeMultiplier={MAX_FONT_SCALE}>{title}</Text>
-      <Text style={styles.ctaSub} numberOfLines={2} maxFontSizeMultiplier={MAX_FONT_SCALE}>{subtitle}</Text>
-    </View>
-    <Ionicons name={user ? 'chevron-forward' : 'lock-closed-outline'} size={20} color={COLORS.textLight} />
-  </Pressable>
+/** "Fotoğraftan kalori" / "Besin Takibi" — ortak ActionCta; misafirde kilitli görünür. */
+export const HomeActionCta = ({ icon, color, title, subtitle, user, onPress }) => (
+  <ActionCta icon={icon} color={color} title={title} subtitle={subtitle} locked={!user} onPress={onPress} />
 );
 
 const styles = StyleSheet.create({
@@ -74,22 +62,4 @@ const styles = StyleSheet.create({
   quickActionBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SIZES.xs },
   quickActionLabel: { flex: 1, fontSize: SIZES.bodySmall, fontWeight: '700', color: COLORS.text },
 
-  // HomeActionCta
-  cta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radiusLarge,
-    padding: SIZES.md,
-    marginBottom: SIZES.md,
-    gap: SIZES.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    minHeight: 80,
-    ...SHADOWS.small,
-  },
-  ctaGuest: { borderStyle: 'dashed', backgroundColor: withAlpha(COLORS.surface, 0.9) },
-  ctaText: { flex: 1 },
-  ctaTitle: { fontSize: SIZES.body, fontWeight: '700', color: COLORS.text },
-  ctaSub: { fontSize: SIZES.small, color: COLORS.textSecondary, marginTop: 2, lineHeight: 18 },
 });
