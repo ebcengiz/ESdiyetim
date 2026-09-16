@@ -21,6 +21,26 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-17 — Sürüm 1.3.3 yayın turu: build 7/8/9, AI modelleri düzeltildi, ekran görüntüleri üretildi
+
+**Build'ler (hepsi 1.3.3, ASC'de):**
+- **(7)** EAS production (`dd463a7c`) + `eas submit` (`ece753df`) — hero header sadeleştirmesi var, tab bar hâlâ yüzer. *Kullanılmayacak.*
+- **(8)** Xcode arşivi (`xcodebuild archive` + `-exportArchive` `destination: upload`, Xcode hesabı) — dock'lu tab bar var, AI modelleri eski. *Kullanılmayacak.*
+- **(9)** Xcode arşivi — dock'lu tab bar + AI model düzeltmesi + tarih düzeltmesi. **İncelemeye gönderilecek build.**
+- Sürüm kaynağı: `app.json ios.buildNumber` + `ios/ESdiyet/Info.plist CFBundleVersion` + `project.pbxproj CURRENT_PROJECT_VERSION/MARKETING_VERSION` elle senkron (ios/ prebuild ürünü). EAS remote sayaç 7'de kaldı — bir sonraki EAS build'de `eas build:version:set` ile ≥10 yapılmalı.
+
+**Kritik bulgu — AI zinciri canlıda kırıktı:** Simülatörde Debug LogBox "VKİ tavsiyesi → AI_UNAVAILABLE | groq HTTP 404" gösterdi. Kök neden: (1) Groq `llama-3.1-8b-instant` ve `llama-4-scout` kaldırılmış (`model_not_found`); Groq'ta artık vision modeli yok. (2) Gemini `2.0-flash-001`/`1.5-flash-002` 404; `2.5-flash` ücretsiz kotada 429 (tek anahtar, tüm kullanıcılar). Düzeltme (`providers.js`): Groq metin → `openai/gpt-oss-20b` + `reasoning_effort: 'low'` (yoksa content boş, reasoning token'a gidiyor); Gemini listesi → `3.5-flash-lite, 3.5-flash, 3.1-flash-lite, 2.5-flash-lite, 2.5-flash, flash-lite-latest` (hepsi 200 doğrulandı; 429/404'te sıradakine geçiliyor). Vision → `3.5-flash, 3.5-flash-lite, 2.5-flash, 2.5-flash-lite, flash-latest`. **Canlı 1.3.2 de etkileniyor** — 1.3.3 (9) onayı bu yüzden önemli.
+
+**Tarih hatası:** `utils/date.toDateString` `toISOString` (UTC) kullanıyordu → TR'de 21:00 sonrası hedef tarihleri bir gün geri (17 Eylül → "2026-09-16"). Yerel takvim gününe çevrildi. (`dailyUsageService`/`SubscriptionContext`'teki günlük sayaç anahtarları hâlâ UTC — limit 03:00'te sıfırlanıyor, kabul edilebilir, dokunulmadı.)
+
+**Test/demo hesabı (Supabase, e-posta onayı kapalı):** `enesbugracengiz+ekran@gmail.com` / `EkranTest2026` ("Ayse Demir"). İçinde 3 kilo kaydı (11/14/17 Eyl), VKİ (168 cm, 29, kadın → 25.7), bugünün planı (yumurta / ızgara tavuk / mercimek çorbası, AI analiziyle) ve 1 hedef. App Review "Demo Account" alanında kullanılacak.
+
+**Ekran görüntüleri:** `~/Desktop/ESdiyet-1.3.3-store/` — 5 adet 1320×2868 (6.9"): Ana Sayfa, Diyet Planı, Kilo, Hedefler, Tavsiyeler + `ASC_NOTLAR.md` (What's New metni, review notu). Debug build + dev toast kapatılarak çekildi (Release simülatör build'i "No space left on device" ile düşmüştü; DerivedData'dan 15 GB temizlendi).
+
+**Kalan (Chrome eklentisi bağlanınca ASC'de):** 1.3.3 sürümü oluştur → build (9) bağla → What's New → 5 ekran görüntüsünü yükle → Demo hesap + notlar → Submit for Review. TestFlight dahili gruba build otomatik düşer; harici için Apple'daki BETA_CONTRACT_MISSING durumu belirleyici.
+
+**Yan not (paywall):** Simülatörde (IAP native yok) fiyatlar `FALLBACK_PRICE_LABELS` ile "$4.99 / ₺99,99/ay" karışık görünüyor; production'da StoreKit fiyatı gelir. Review'da sorun çıkarsa fallback etiketini tek para birimine çekmek gerekebilir.
+
 ### 2026-09-17 — Tab bar ekranın en altına dock'landı (yüzen bar kaldırıldı)
 
 **İstek:** Tab bar tüm cihazlarda responsive olacak şekilde sayfanın en altına taşınsın.
