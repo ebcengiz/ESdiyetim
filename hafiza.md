@@ -21,6 +21,18 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-17 — UX kararı: Kaydırınca gizlenen tab bar DEĞERLENDİRİLDİ, REDDEDİLDİ (kod değişikliği yok)
+
+**Soru:** Tab bar kullanıcı aşağı kaydırdıkça gizlenip yukarı kaydırınca geri gelse daha kullanışlı olur mu?
+
+**Karar: Hayır, uygulanmadı.** Gerekçeler:
+- Tab ekranları kısa (Home dashboard kartları, DietPlan tek günün öğünleri, Kilo&VKİ istatistik+form, Goals birkaç kart, Profile ayarlar; yalnızca Tips'te liste var). Gizle/göster mantığı uzun tek yönlü akışlarda (Instagram/X/Safari) işe yarar; 1–2 ekran boyu içerikte her küçük fiske ile bar kaçıp geri gelir ("dans eden tab bar").
+- Bar zaten yüzer + `expo-blur` cam zeminli (`MainNavigator.js` `styles.tabBar`, absolute); içerik altından akıyor ve alt boşluk `tabBarMetrics()`'ten türüyor. Gizlemenin ekran alanı kazancı (~64pt) 6 tab'lı ana gezinmeyi feda etmeye değmez.
+- Apple HIG: tab bar her zaman görünür küresel gezinme. iOS 26'nın Liquid Glass davranışı tam gizleme değil **küçültme** (`tabBarMinimizeBehavior`) ve native `UITabBar` özelliği; react-navigation JS tab bar'ında elle taklit gerekir.
+- Maliyet: `tabBarHideOnKeyboard` (aktif), BottomSheet formları, Home pull-to-refresh, VoiceOver/Reduce Motion ile çakışan durum yönetimi; `ScreenContainer`, Tips FlatList, WeightPanel gibi her kaydırıcıya `onScroll` bağlanması gerekir. Kazanç küçük, hata yüzeyi büyük.
+
+**Ne zaman yeniden değerlendirilir:** İleride uzun tek yönlü kaydırılan bir ekran eklenirse (ör. aylık besin günlüğü geçmişi, makale akışı) iOS 26 native küçültme davranışı (`react-native-bottom-tabs`) düşünülebilir — gizleme değil, küçültme.
+
 ### 2026-09-17 — Xcode "Upload failed: Invalid Pre-Release Train / CFBundleShortVersionString 1.3.2" → sürüm 1.3.3'e yükseltildi
 
 **Sorun:** Xcode Organizer'dan App Store Connect'e yükleme iki hatayla düştü: (1) *"Invalid Pre-Release Train. The train version '1.3.2' is closed for new build submissions"*, (2) *"CFBundleShortVersionString [1.3.2] must contain a higher version than that of the previously approved version [1.3.2]"*. Kök neden: **1.3.2 App Store'da onaylanıp yayınlandığı için** bu sürüm treni kapanmış; aynı `version` ile yeni build (build numarası ne olursa olsun) kabul edilmiyor. Kod/konfig hatası değil, sürüm numarası artırılmamış.
