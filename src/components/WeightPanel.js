@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS, HIT_SLOP, MAX_FONT_SCALE, whiteAlpha } from '../constants/theme';
 import { weightService, bodyInfoService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from './AIAdviceCard';
-import { formatShortDate, formatLongDate } from '../utils/date';
+import { formatShortDate } from '../utils/date';
 import { validateWeight } from '../utils/validation';
 import { useFormModal } from '../hooks/useFormModal';
 import { useToast } from '../contexts/ToastContext';
 import { useAppError } from '../hooks/useAppError';
 import {
-  ScreenContainer, AppButton, AppInput, BottomSheet, ConfirmModal, DatePickerSheet,
-  EmptyState, LoadingState, SectionHeader, IconBadge,
+  ScreenContainer, AppButton, AppInput, BottomSheet, ConfirmModal, DateField,
+  EmptyState, LoadingState, SectionHeader,
 } from './ui';
 
 const EMPTY_FORM = { weight: '', notes: '' };
@@ -93,7 +93,6 @@ export default function WeightPanel({ onWeightChange }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [weightError, setWeightError] = useState(null);
   const [aiAdvice, setAiAdvice] = useState('');
   const [loadingAdvice, setLoadingAdvice] = useState(false);
@@ -166,11 +165,6 @@ export default function WeightPanel({ onWeightChange }) {
     setSelectedDate(new Date(record.date));
     setWeightError(null);
     modal.openEdit(record, (r) => ({ weight: r.weight.toString(), notes: r.notes || '' }));
-  };
-
-  const onDateChange = (event, date) => {
-    if (Platform.OS === 'android') setShowDatePicker(false);
-    if (date) setSelectedDate(date);
   };
 
   const saveWeight = async () => {
@@ -295,18 +289,13 @@ export default function WeightPanel({ onWeightChange }) {
       >
         <Text style={s.hint} maxFontSizeMultiplier={MAX_FONT_SCALE}>Tarih ve kilo yeterli; not alanı opsiyoneldir.</Text>
 
-        <Text style={s.label} maxFontSizeMultiplier={MAX_FONT_SCALE}>Tarih</Text>
-        <Pressable
-          onPress={() => setShowDatePicker(true)}
-          accessibilityRole="button"
-          accessibilityLabel={`Tarih: ${formatLongDate(selectedDate)}. Değiştirmek için dokunun`}
-          style={({ pressed }) => [s.dateBtn, pressed && s.pressed]}
-        >
-          <IconBadge name="calendar-outline" size={36} shape="rounded" />
-          <Text style={s.dateText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{formatLongDate(selectedDate)}</Text>
-          <Ionicons name="chevron-down" size={18} color={COLORS.textSecondary} />
-        </Pressable>
-        <Text style={s.dateHint} maxFontSizeMultiplier={MAX_FONT_SCALE}>Bu tarih için kayıt varsa üzerine yazılır.</Text>
+        <DateField
+          label="Tarih"
+          value={selectedDate}
+          onChange={setSelectedDate}
+          maximumDate={new Date()}
+          helper="Bu tarih için kayıt varsa üzerine yazılır."
+        />
 
         <AppInput
           label="Kilo"
@@ -332,14 +321,6 @@ export default function WeightPanel({ onWeightChange }) {
           inputStyle={s.notesInput}
         />
       </BottomSheet>
-
-      <DatePickerSheet
-        visible={showDatePicker}
-        onClose={() => setShowDatePicker(false)}
-        value={selectedDate}
-        onChange={onDateChange}
-        maximumDate={new Date()}
-      />
 
       <ConfirmModal
         visible={deleteTargetId !== null}
@@ -385,21 +366,6 @@ const s = StyleSheet.create({
   footer: { flexDirection: 'row', gap: SIZES.sm },
   footerBtn: { flex: 1 },
   hint: { fontSize: SIZES.small, color: COLORS.textLight, marginBottom: SIZES.md },
-  label: { fontSize: SIZES.small, fontWeight: '700', color: COLORS.textSecondary, letterSpacing: 0.2, marginBottom: 6, marginLeft: 4 },
-  dateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radiusMedium,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    paddingHorizontal: SIZES.sm + 2,
-    minHeight: SIZES.inputHeight,
-    gap: SIZES.sm + 2,
-    ...SHADOWS.small,
-  },
-  dateText: { flex: 1, fontSize: SIZES.body, fontWeight: '600', color: COLORS.text },
-  dateHint: { fontSize: SIZES.tiny, color: COLORS.textLight, marginTop: 6, marginLeft: 4, marginBottom: SIZES.md },
   weightInput: { fontSize: SIZES.h4, fontWeight: '600' },
   notesInput: { minHeight: 80, paddingTop: 12 },
 });

@@ -19,3 +19,4 @@ export { default as DateStepper, formatDayLabel } from './DateStepper';
 export { default as ProgressBar } from './ProgressBar';
 export { default as ActionCta } from './ActionCta';
 export { default as SegmentedControl } from './SegmentedControl';
+export { default as DateField } from './DateField';
