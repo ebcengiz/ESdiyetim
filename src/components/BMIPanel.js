@@ -1,24 +1,40 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import {
-  View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, ActivityIndicator, Animated, Easing,
-} from 'react-native';
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SIZES, SHADOWS, scrollTabScreenBottomPad } from '../constants/theme';
+import { COLORS, SIZES, SHADOWS, MAX_FONT_SCALE, whiteAlpha, withAlpha } from '../constants/theme';
 import { bodyInfoService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from './AIAdviceCard';
+import MedicalInfoBanner from './MedicalInfoBanner';
 import { calculateBMI, getBMICategory, getBMICategoryName } from '../utils/bmi';
 import { useToast } from '../contexts/ToastContext';
+import { useAppError } from '../hooks/useAppError';
+import {
+  ScreenContainer, AppCard, AppInput, AppButton, SegmentedControl, IconBadge,
+  LoadingState, SectionHeader, ActionCta,
+} from './ui';
+
+const GENDER_OPTIONS = [
+  { key: 'male', label: 'Erkek', icon: 'male' },
+  { key: 'female', label: 'Kadın', icon: 'female' },
+];
+
+const BMI_SCALE = [
+  { label: 'Zayıf (<18.5)', color: COLORS.info },
+  { label: 'Normal (18.5–24.9)', color: COLORS.success },
+  { label: 'Fazla Kilolu (25–29.9)', color: COLORS.warning },
+  { label: 'Obez (≥30)', color: COLORS.error },
+];
 
 export default function BMIPanel({ latestWeight }) {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const { showToast } = useToast();
+  const { handleError } = useAppError();
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState({});
   const [bodyInfo, setBodyInfo] = useState({ height: '', age: '', gender: 'male', weight: '' });
   const [existingId, setExistingId] = useState(null);
   const [isSaved, setIsSaved] = useState(false);
@@ -80,7 +96,7 @@ export default function BMIPanel({ latestWeight }) {
         setIsSaved(false);
       }
     } catch (e) {
-      console.error(e);
+      handleError(e, { context: 'bmi.load', onRetry: loadBodyInfo });
     } finally {
       setLoading(false);
     }
@@ -105,9 +121,10 @@ export default function BMIPanel({ latestWeight }) {
       const result = await aiService.getBMIAdvice(payload);
       setAiAdvice(result.advice || '');
       aiFailedRef.current = false;
-    } catch {
+    } catch (e) {
       aiFailedRef.current = true;
-      setAiAdvice('⚠️ Tavsiye alınırken bir hata oluştu.');
+      handleError(e, { context: 'bmi.advice', silent: true });
+      setAiAdvice('');
     } finally {
       setLoadingAdvice(false);
     }
@@ -122,8 +139,9 @@ export default function BMIPanel({ latestWeight }) {
       const result = await aiService.getBMIBulletRecommendations(payload);
       setBulletRecs(result.bullets || []);
       aiFailedRef.current = false;
-    } catch {
+    } catch (e) {
       aiFailedRef.current = true;
+      handleError(e, { context: 'bmi.bullets', silent: true });
       setBulletRecs(aiService.getFallbackBMIBullets(payload.category));
     } finally {
       setLoadingBullets(false);
@@ -143,30 +161,52 @@ export default function BMIPanel({ latestWeight }) {
     }).start();
   }, [isSaved, bmi, bmiCategory, bmiRevealAnim]);
 
-  const saveBodyInfo = async () => {
-    if (!bodyInfo.height || !bodyInfo.age) { showToast('Lütfen boy ve yaş alanlarını doldurun.', 'warning'); return; }
+  const setField = (field, value) => {
+    setBodyInfo((b) => ({ ...b, [field]: value }));
+    setIsSaved(false);
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: undefined }));
+  };
+
+  const validate = () => {
+    const errs = {};
+    const h = parseFloat(bodyInfo.height);
+    const a = parseInt(bodyInfo.age, 10);
     const w = parsedWeight();
-    if (!w) { showToast('Lütfen geçerli bir kilo değeri girin.', 'warning'); return; }
+    if (!bodyInfo.height) errs.height = 'Boy gerekli.';
+    else if (!Number.isFinite(h) || h < 100 || h > 250) errs.height = '100–250 cm arasında bir değer girin.';
+    if (!bodyInfo.age) errs.age = 'Yaş gerekli.';
+    else if (!Number.isFinite(a) || a < 10 || a > 120) errs.age = '10–120 arasında bir yaş girin.';
+    if (!w) errs.weight = 'Geçerli bir kilo girin.';
+    else if (w > 500) errs.weight = 'Kilo değeri çok yüksek.';
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const saveBodyInfo = async () => {
+    if (!validate()) return;
+    const w = parsedWeight();
+    setSaving(true);
     try {
       const data = { height: parseFloat(bodyInfo.height), weight: w, age: parseInt(bodyInfo.age, 10), gender: bodyInfo.gender };
       if (existingId) {
         await bodyInfoService.update(existingId, data);
-        setIsSaved(true);
       } else {
         const newInfo = await bodyInfoService.create(data);
         setExistingId(newInfo.id);
-        setIsSaved(true);
       }
-      showToast('Bilgileriniz güncellendi. AI tavsiyesi hazırlanıyor...', 'success');
+      setIsSaved(true);
+      showToast('Bilgileriniz kaydedildi. Öneriler hazırlanıyor…', 'success');
       fetchAIAdvice(data);
       fetchBulletRecommendations(data);
-    } catch {
-      showToast('Vücut bilgileri kaydedilirken bir hata oluştu.', 'error');
+    } catch (e) {
+      handleError(e, { context: 'bmi.save', onRetry: saveBodyInfo });
+    } finally {
+      setSaving(false);
     }
   };
 
   if (loading) {
-    return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={COLORS.primary} /></View>;
+    return <LoadingState label="Bilgiler yükleniyor…" />;
   }
 
   const bmiRevealStyle = {
@@ -187,243 +227,161 @@ export default function BMIPanel({ latestWeight }) {
     ],
   };
 
+  const hasResult = isSaved && bmi && bmiCategory;
+  const busy = loadingBullets || loadingAdvice;
+
   return (
-    <ScrollView
-      style={{ flex: 1 }}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={[s.listContent, { paddingBottom: scrollTabScreenBottomPad(insets.bottom) }]}
-    >
-      <LinearGradient
-        colors={[COLORS.primary, COLORS.primaryLight]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={s.heroCard}
-      >
-        <View style={s.heroTopRow}>
+    <ScreenContainer tab edges={[]} keyboard>
+      <LinearGradient colors={[COLORS.primary, COLORS.primaryLight]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.hero}>
+        <View style={s.heroTop}>
           <View style={s.heroBadge}>
             <Ionicons name="body-outline" size={14} color={COLORS.textOnPrimary} />
-            <Text style={s.heroBadgeText}>VKİ Analizi</Text>
+            <Text style={s.heroBadgeText} maxFontSizeMultiplier={MAX_FONT_SCALE}>VKİ Analizi</Text>
           </View>
-          <Text style={s.heroDate}>
+          <Text style={s.heroDate} maxFontSizeMultiplier={MAX_FONT_SCALE}>
             {new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}
           </Text>
         </View>
-        <Text style={s.heroTitle}>Vücut Kitle İndeksi</Text>
-        <Text style={s.heroSub}>Temel bilgilerini gir, VKİ sonucunu ve kişisel önerileri anında gör.</Text>
+        <Text style={s.heroTitle} accessibilityRole="header" maxFontSizeMultiplier={MAX_FONT_SCALE}>Vücut Kitle İndeksi</Text>
+        <Text style={s.heroSub} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+          Temel bilgilerini gir, VKİ sonucunu ve kişisel önerileri anında gör.
+        </Text>
       </LinearGradient>
 
-      <View style={s.syncBadge}>
-        <Ionicons name="information-circle" size={16} color={COLORS.info} />
-        <Text style={s.syncText}>
-          Bu kilo VKİ ve profil bilginiz için saklanır. Kilo takibindeki tarihli ölçümlerinizi değiştirmez;
-          ölçüm eklemek için &quot;Kilo Takibi&quot; sekmesini kullanın.
+      <View style={s.infoBox} accessibilityRole="text">
+        <Ionicons name="information-circle" size={16} color={COLORS.infoText} />
+        <Text style={s.infoText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+          Bu kilo VKİ ve profil bilginiz için saklanır; tarihli ölçüm eklemek için "Kilo Takibi" sekmesini kullanın.
         </Text>
       </View>
 
-      <View style={s.sectionCard}>
-        <Text style={s.sectionTitle}>Temel Bilgiler</Text>
+      <AppCard title="Temel Bilgiler" icon="person-outline">
+        <AppInput
+          label="Boy"
+          icon="resize-outline"
+          unit="cm"
+          value={bodyInfo.height}
+          onChangeText={(t) => setField('height', t)}
+          error={errors.height}
+          placeholder="175"
+          keyboardType="decimal-pad"
+          returnKeyType="next"
+        />
+        <AppInput
+          label="Kilo"
+          icon="fitness-outline"
+          unit="kg"
+          value={bodyInfo.weight}
+          onChangeText={(t) => setField('weight', t)}
+          error={errors.weight}
+          placeholder="72.5"
+          keyboardType="decimal-pad"
+          returnKeyType="next"
+        />
+        <AppInput
+          label="Yaş"
+          icon="calendar-outline"
+          value={bodyInfo.age}
+          onChangeText={(t) => setField('age', t)}
+          error={errors.age}
+          placeholder="30"
+          keyboardType="number-pad"
+          returnKeyType="done"
+        />
+        <Text style={s.fieldLabel} maxFontSizeMultiplier={MAX_FONT_SCALE}>Cinsiyet</Text>
+        <SegmentedControl options={GENDER_OPTIONS} value={bodyInfo.gender} onChange={(g) => setField('gender', g)} tone="surface" />
+      </AppCard>
 
-        {[
-          { label: 'Boy (cm)', field: 'height', icon: 'resize', placeholder: '175', keyboard: 'decimal-pad' },
-          { label: 'Kilo (kg)', field: 'weight', icon: 'fitness', placeholder: '72.5', keyboard: 'decimal-pad' },
-          { label: 'Yaş', field: 'age', icon: 'calendar', placeholder: '30', keyboard: 'number-pad' },
-        ].map(({ label, field, icon, placeholder, keyboard }) => (
-          <View key={field} style={s.inputGroup}>
-            <Text style={s.inputLabel}>{label}</Text>
-            <View style={s.textInputWrap}>
-              <Ionicons name={icon} size={20} color={COLORS.primary} />
-              <TextInput
-                style={s.textInput}
-                value={bodyInfo[field]}
-                onChangeText={(t) => { setBodyInfo({ ...bodyInfo, [field]: t }); setIsSaved(false); }}
-                placeholder={placeholder}
-                keyboardType={keyboard}
-                placeholderTextColor={COLORS.textLight}
-              />
-            </View>
-          </View>
-        ))}
+      <AppButton title={isSaved ? 'Güncelle' : 'Hesapla ve Kaydet'} icon="calculator-outline" size="lg" fullWidth onPress={saveBodyInfo} loading={saving} />
 
-        <View style={s.inputGroup}>
-          <Text style={s.inputLabel}>Cinsiyet</Text>
-          <View style={{ flexDirection: 'row', gap: SIZES.md }}>
-            {[{ key: 'male', label: 'Erkek' }, { key: 'female', label: 'Kadın' }].map(({ key, label }) => (
-              <TouchableOpacity
-                key={key}
-                style={[s.genderBtn, bodyInfo.gender === key && s.genderBtnActive]}
-                onPress={() => { setBodyInfo({ ...bodyInfo, gender: key }); setIsSaved(false); }}
-              >
-                <Ionicons name={key} size={20} color={bodyInfo.gender === key ? COLORS.textOnPrimary : COLORS.textSecondary} />
-                <Text style={[s.genderText, bodyInfo.gender === key && { color: COLORS.textOnPrimary }]}>{label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </View>
-
-      <TouchableOpacity style={s.saveBtn} onPress={saveBodyInfo}>
-        <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={s.saveBtnGradient}>
-          <Ionicons name="save" size={18} color={COLORS.textOnPrimary} />
-          <Text style={s.saveBtnText}>Kaydet</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-
-      {isSaved && bmi && bmiCategory && (
+      {hasResult && (
         <>
-          <Text style={[s.sectionTitle, { marginTop: SIZES.xl }]}>Vücut Kitle İndeksi (VKİ)</Text>
-          <Animated.View style={[s.bmiCard, bmiRevealStyle]}>
-            <LinearGradient colors={[bmiCategory.color, bmiCategory.color + 'CC']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.bmiGradient}>
-              <View style={s.bmiIconCircle}><Ionicons name={bmiCategory.icon} size={38} color={COLORS.textOnPrimary} /></View>
-              <Text style={s.bmiVal}>{bmi}</Text>
-              <Text style={s.bmiCat}>{bmiCategory.name}</Text>
+          <SectionHeader title="Sonuç" subtitle="Vücut Kitle İndeksi (VKİ)" style={s.sectionHeader} />
+          <Animated.View style={[s.bmiCard, bmiRevealStyle]} accessibilityLabel={`VKİ ${bmi}, ${bmiCategory.name}`}>
+            <LinearGradient colors={[bmiCategory.color, withAlpha(bmiCategory.color, 0.8)]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.bmiGradient}>
+              <IconBadge name={bmiCategory.icon} tone="glass" size={72} iconSize={38} style={s.bmiIcon} />
+              <Text style={s.bmiVal} maxFontSizeMultiplier={MAX_FONT_SCALE}>{bmi}</Text>
+              <Text style={s.bmiCat} maxFontSizeMultiplier={MAX_FONT_SCALE}>{bmiCategory.name}</Text>
             </LinearGradient>
           </Animated.View>
 
-          <View style={s.bmiScale}>
-            {[
-              { label: 'Zayıf (<18.5)', color: COLORS.info },
-              { label: 'Normal (18.5–24.9)', color: COLORS.success },
-              { label: 'Fazla Kilolu (25–29.9)', color: COLORS.warning },
-              { label: 'Obez (≥30)', color: COLORS.error },
-            ].map(({ label, color }) => (
-              <View key={label} style={s.bmiScaleItem}>
+          <AppCard variant="flat" padding={SIZES.md}>
+            {BMI_SCALE.map(({ label, color }) => (
+              <View key={label} style={s.scaleItem}>
                 <View style={[s.dot, { backgroundColor: color }]} />
-                <Text style={s.bmiScaleText}>{label}</Text>
+                <Text style={s.scaleText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{label}</Text>
               </View>
             ))}
-          </View>
+          </AppCard>
 
           {(loadingAdvice || aiAdvice) && (
-            <AIAdviceCard visible loading={loadingAdvice} advice={aiAdvice} onRefresh={refreshBMIInsights} gradientColors={[bmiCategory.color, `${bmiCategory.color}BB`]} iconTint={bmiCategory.color} subtitle="VKİ ve profilinize göre kişiselleştirilir" />
+            <AIAdviceCard
+              visible
+              loading={loadingAdvice}
+              advice={aiAdvice}
+              onRefresh={refreshBMIInsights}
+              gradientColors={[bmiCategory.color, withAlpha(bmiCategory.color, 0.73)]}
+              iconTint={bmiCategory.color}
+              subtitle="VKİ ve profilinize göre kişiselleştirilir"
+            />
           )}
-        </>
-      )}
 
-      {isSaved && bmi && bmiCategory && (
-        <>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: SIZES.xl, marginBottom: SIZES.sm }}>
-            <Text style={s.sectionTitle}>Öneriler</Text>
-            <TouchableOpacity onPress={refreshBMIInsights} disabled={loadingBullets || loadingAdvice} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, opacity: loadingBullets || loadingAdvice ? 0.5 : 1 }} hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}>
-              <Ionicons name="refresh" size={16} color={bmiCategory.color} />
-              <Text style={{ fontSize: SIZES.small, fontWeight: '600', color: bmiCategory.color }}>Yenile</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={{ fontSize: SIZES.tiny, color: COLORS.textSecondary, marginBottom: SIZES.md }}>
-            Yapay zeka ile kişiselleştirilmiş kısa öneriler (tıbbi teşhis değildir).
-          </Text>
+          <SectionHeader
+            title="Öneriler"
+            subtitle="Yapay zeka ile kısa öneriler (tıbbi teşhis değildir)"
+            actionLabel={busy ? undefined : 'Yenile'}
+            onAction={busy ? undefined : refreshBMIInsights}
+            style={s.sectionHeader}
+          />
           {loadingBullets ? (
-            <View style={{ paddingVertical: SIZES.lg, alignItems: 'center' }}>
-              <ActivityIndicator size="small" color={bmiCategory.color} />
-              <Text style={{ marginTop: SIZES.sm, fontSize: SIZES.small, color: COLORS.textSecondary }}>Öneriler hazırlanıyor...</Text>
-            </View>
+            <LoadingState variant="inline" label="Öneriler hazırlanıyor…" />
           ) : (
             bulletRecs.map((rec, i) => (
               <View key={i} style={s.recCard}>
-                <View style={s.recIcon}><Ionicons name="sparkles" size={16} color={bmiCategory.color} /></View>
-                <Text style={s.recText}>{rec}</Text>
+                <IconBadge name="sparkles" color={bmiCategory.color} size={30} iconSize={15} />
+                <Text style={s.recText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{rec}</Text>
               </View>
             ))
           )}
         </>
       )}
 
-      <LinearGradient colors={[COLORS.disclaimerBackground, COLORS.disclaimerBackgroundEnd]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.disclaimerBanner}>
-        <View style={s.disclaimerIconWrap}><Ionicons name="shield-checkmark" size={20} color={COLORS.disclaimerIcon} /></View>
-        <View style={{ flex: 1 }}>
-          <Text style={s.disclaimerBannerTitle}>Tıbbi Uyarı</Text>
-          <Text style={s.disclaimerBannerText}>Bu uygulama kişisel takip ve genel bilgilendirme amaçlıdır. VKİ hesaplamaları ve öneriler tıbbi teşhis yerine geçmez. Sağlığınız için bir doktor veya diyetisyene danışınız.</Text>
-        </View>
-      </LinearGradient>
+      <MedicalInfoBanner title="Tıbbi Uyarı" style={s.disclaimer}>
+        Bu uygulama kişisel takip ve genel bilgilendirme amaçlıdır. VKİ hesaplamaları ve öneriler tıbbi
+        teşhis yerine geçmez. Sağlığınız için bir doktor veya diyetisyene danışınız.
+      </MedicalInfoBanner>
 
-      <TouchableOpacity
-        style={s.sourcesNavRow}
+      <ActionCta
+        icon="library-outline"
+        title="Bilimsel kaynaklar ve uyarılar"
+        subtitle="Tüm liste"
         onPress={() => navigation.navigate('HealthSourcesInfo')}
-        activeOpacity={0.75}
-      >
-        <Ionicons name="library-outline" size={18} color={COLORS.primary} />
-        <Text style={s.sourcesNavText}>Bilimsel kaynaklar ve uyarılar (tüm liste)</Text>
-        <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
-      </TouchableOpacity>
-    </ScrollView>
+      />
+    </ScreenContainer>
   );
 }
 
 const s = StyleSheet.create({
-  listContent: { padding: SIZES.containerPadding },
-  heroCard: {
-    borderRadius: SIZES.radiusLarge,
-    padding: SIZES.md,
-    marginBottom: SIZES.md,
-  },
-  heroTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SIZES.sm,
-  },
-  heroBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  heroBadgeText: { color: COLORS.textOnPrimary, fontSize: 11, fontWeight: '700' },
-  heroDate: { color: COLORS.textOnPrimary, fontSize: 11, opacity: 0.9, fontWeight: '600' },
+  hero: { borderRadius: SIZES.radiusLarge, padding: SIZES.md, marginBottom: SIZES.md },
+  heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SIZES.sm },
+  heroBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: SIZES.radiusFull, backgroundColor: whiteAlpha(0.2) },
+  heroBadgeText: { color: COLORS.textOnPrimary, fontSize: SIZES.tiny, fontWeight: '700' },
+  heroDate: { color: whiteAlpha(0.9), fontSize: SIZES.tiny, fontWeight: '600' },
   heroTitle: { color: COLORS.textOnPrimary, fontSize: SIZES.h3, fontWeight: '800', letterSpacing: -0.3 },
-  heroSub: { color: COLORS.textOnPrimary, opacity: 0.92, fontSize: SIZES.tiny, marginTop: 4, lineHeight: 18 },
-  syncBadge: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: COLORS.info + '12', borderRadius: SIZES.radiusMedium, padding: SIZES.md, marginBottom: SIZES.lg, borderWidth: 1, borderColor: COLORS.info + '35' },
-  syncText: { flex: 1, fontSize: SIZES.small, color: COLORS.textSecondary, lineHeight: 18 },
-  sectionCard: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
-    borderRadius: SIZES.radiusLarge,
-    padding: SIZES.md,
-    marginBottom: SIZES.md,
-    ...SHADOWS.small,
-  },
-  sectionTitle: { fontSize: SIZES.h4, fontWeight: '700', color: COLORS.text, marginBottom: SIZES.md },
-  inputGroup: { marginBottom: SIZES.md },
-  inputLabel: { fontSize: SIZES.small, fontWeight: '600', color: COLORS.textSecondary, marginBottom: SIZES.xs },
-  textInputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surfaceAlt, borderRadius: SIZES.radiusMedium, paddingHorizontal: SIZES.md, gap: SIZES.sm, borderWidth: 1, borderColor: COLORS.border },
-  textInput: { flex: 1, fontSize: 22, fontWeight: '600', color: COLORS.text, paddingVertical: SIZES.md - 2 },
-  saveBtn: { borderRadius: SIZES.radiusMedium, overflow: 'hidden', height: 52, ...SHADOWS.medium },
-  saveBtnGradient: { flex: 1, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6 },
-  saveBtnText: { fontSize: SIZES.h5, fontWeight: '700', color: COLORS.textOnPrimary },
-  genderBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surface, borderRadius: SIZES.radiusMedium, padding: SIZES.md - 2, gap: SIZES.sm, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.small },
-  genderBtnActive: { backgroundColor: COLORS.primary },
-  genderText: { fontSize: SIZES.body, fontWeight: '600', color: COLORS.textSecondary },
+  heroSub: { color: whiteAlpha(0.92), fontSize: SIZES.tiny, marginTop: 4, lineHeight: 18 },
+  infoBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: COLORS.infoBg, borderRadius: SIZES.radiusMedium, padding: SIZES.md, marginBottom: SIZES.md, borderWidth: 1, borderColor: withAlpha(COLORS.info, 0.25) },
+  infoText: { flex: 1, fontSize: SIZES.small, color: COLORS.infoText, lineHeight: 18 },
+  fieldLabel: { fontSize: SIZES.small, fontWeight: '700', color: COLORS.textSecondary, letterSpacing: 0.2, marginBottom: 6, marginLeft: 4 },
+  sectionHeader: { marginTop: SIZES.lg },
   bmiCard: { borderRadius: SIZES.radiusLarge, overflow: 'hidden', marginBottom: SIZES.md, ...SHADOWS.medium },
   bmiGradient: { padding: SIZES.xl, alignItems: 'center' },
-  bmiIconCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: SIZES.md },
+  bmiIcon: { marginBottom: SIZES.md },
   bmiVal: { fontSize: 44, fontWeight: '700', color: COLORS.textOnPrimary },
   bmiCat: { fontSize: SIZES.h4, fontWeight: '600', color: COLORS.textOnPrimary },
-  bmiScale: { backgroundColor: COLORS.surface, borderRadius: SIZES.radiusMedium, padding: SIZES.md, gap: SIZES.sm, ...SHADOWS.small },
-  bmiScaleItem: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm },
+  scaleItem: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm, paddingVertical: 4 },
   dot: { width: 11, height: 11, borderRadius: 6 },
-  bmiScaleText: { fontSize: SIZES.small, color: COLORS.textSecondary },
-  recCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: COLORS.surface, borderRadius: SIZES.radiusMedium, padding: SIZES.md, marginBottom: SIZES.sm, gap: SIZES.sm, ...SHADOWS.small },
-  recIcon: { width: 30, height: 30, borderRadius: 15, backgroundColor: COLORS.highlight, justifyContent: 'center', alignItems: 'center' },
+  scaleText: { fontSize: SIZES.small, color: COLORS.textSecondary },
+  recCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: COLORS.surface, borderRadius: SIZES.radiusMedium, padding: SIZES.md, marginBottom: SIZES.sm, gap: SIZES.sm, borderWidth: 1, borderColor: COLORS.borderLight, ...SHADOWS.small },
   recText: { flex: 1, fontSize: SIZES.body, color: COLORS.text, lineHeight: 22 },
-  disclaimerBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: SIZES.md, borderRadius: SIZES.radiusLarge, padding: SIZES.md, marginTop: SIZES.xl, marginBottom: SIZES.md, borderWidth: 1, borderColor: COLORS.disclaimerBorder, ...SHADOWS.small },
-  disclaimerIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.overlayLight, justifyContent: 'center', alignItems: 'center' },
-  disclaimerBannerTitle: { fontSize: SIZES.small, fontWeight: '700', color: COLORS.disclaimerTitle, marginBottom: 3 },
-  disclaimerBannerText: { fontSize: SIZES.tiny, color: COLORS.disclaimerText, lineHeight: 18 },
-  sourcesNavRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SIZES.sm,
-    paddingVertical: SIZES.md,
-    paddingHorizontal: SIZES.md,
-    marginBottom: SIZES.xl,
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radiusMedium,
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
-    ...SHADOWS.small,
-  },
-  sourcesNavText: { flex: 1, fontSize: SIZES.small, fontWeight: '600', color: COLORS.primary },
+  disclaimer: { marginTop: SIZES.lg },
 });

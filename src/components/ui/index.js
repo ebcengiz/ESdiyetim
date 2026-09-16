@@ -18,3 +18,4 @@ export { default as Toast } from './Toast';
 export { default as DateStepper, formatDayLabel } from './DateStepper';
 export { default as ProgressBar } from './ProgressBar';
 export { default as ActionCta } from './ActionCta';
+export { default as SegmentedControl } from './SegmentedControl';
