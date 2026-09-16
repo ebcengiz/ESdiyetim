@@ -21,6 +21,16 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-17 — Xcode "Upload failed: Invalid Pre-Release Train / CFBundleShortVersionString 1.3.2" → sürüm 1.3.3'e yükseltildi
+
+**Sorun:** Xcode Organizer'dan App Store Connect'e yükleme iki hatayla düştü: (1) *"Invalid Pre-Release Train. The train version '1.3.2' is closed for new build submissions"*, (2) *"CFBundleShortVersionString [1.3.2] must contain a higher version than that of the previously approved version [1.3.2]"*. Kök neden: **1.3.2 App Store'da onaylanıp yayınlandığı için** bu sürüm treni kapanmış; aynı `version` ile yeni build (build numarası ne olursa olsun) kabul edilmiyor. Kod/konfig hatası değil, sürüm numarası artırılmamış.
+
+**Yapılan:** `app.json` → `expo.version` `1.3.2` → **`1.3.3`**; `ios/` gitignore'lu ve prebuild ürünü olduğu, Xcode arşivi de oradan alındığı için üretilmiş `ios/ESdiyet/Info.plist` içindeki `CFBundleShortVersionString` da elle `1.3.3` yapıldı (bir sonraki `expo prebuild` zaten `app.json`'dan aynı değeri üretir). `eas.json`'da `appVersionSource: "remote"` + `autoIncrement` olduğundan EAS build'lerde build numarası uzaktan artıyor; Xcode'dan manuel arşivde `CFBundleVersion` = 1 kaldı (yeni train'de 1'den başlamak sorun değil).
+
+**Not (uyarı, engelleyici değil):** "Upload Symbols Failed — no dSYM for hermesvm.framework" yalnızca crash sembolizasyonuyla ilgili bir uyarı; yüklemeyi engellemez. İstenirse `ios/Podfile` post_install'da Hermes dSYM üretimi ya da EAS build ile giderilir.
+
+**Sırada:** Xcode'da **Product → Clean Build Folder → Archive** ile yeni arşiv alıp tekrar Distribute; ya da `eas build --platform ios --profile production` + `eas submit`.
+
 ### 2026-09-16 — UI/UX yenileme programı Adım 3: Tüm ekranlar ortak UI kitine taşındı (9 commit)
 
 **Sıra ve commit'ler:** Login/Register (`180800f`) → Home (`4bb6cd5`) → DietPlan (`81eb909`) → Kilo&VKİ (`bd5582b`) → Goals (`3f4c424`) → Tips (`04723ed`) → Profile (`52dc059`) → MealCalorie (`503b69f`) → FoodLog (`03ce01e`) → Paywall + küçük ekranlar + AIConsentModal (bu commit).
