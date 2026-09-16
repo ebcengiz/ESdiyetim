@@ -1,34 +1,23 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  Platform,
-  Animated,
-  Easing,
-} from 'react-native';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Image, Pressable, Animated, Easing } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SIZES, SHADOWS } from '../constants/theme';
+import { COLORS, SIZES, SHADOWS, HIT_SLOP, MAX_FONT_SCALE, whiteAlpha } from '../constants/theme';
 import { aiService } from '../services/aiService';
 import GuestGateBanner from '../components/GuestGateBanner';
+import MedicalInfoBanner from '../components/MedicalInfoBanner';
+import MealResultCard from '../components/mealCalorie/MealResultCard';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useAppError } from '../hooks/useAppError';
-import { ERROR_CODES } from '../services/errors';
+import { useResponsive } from '../hooks/useResponsive';
+import { AppError, ERROR_CODES } from '../services/errors';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useAIConsent } from '../contexts/AIConsentContext';
-import Skeleton from '../components/ui/Skeleton';
 import { bypassPaywall } from '../utils/environment';
+import { ScreenContainer, AppButton, BottomSheet, IconBadge, LoadingState, EmptyState } from '../components/ui';
 
 const DISCLAIMER_STORAGE_KEY = 'mealCalorieHealthDisclaimerV1';
 
@@ -38,79 +27,56 @@ Bu uygulama tıbbi teşhis, tedavi veya kişiye özel beslenme planı sunmaz. Di
 
 Yapay zeka hata yapabilir; sonuçları tek başına sağlık kararı için kullanmayın.`;
 
-const getConfidenceMeta = (confidence) => {
-  const value = String(confidence || '').toLowerCase();
-  if (value.includes('yüksek') || value.includes('high')) {
-    return {
-      label: 'Yüksek güven',
-      bg: '#DCFCE7',
-      color: '#166534',
-      icon: 'checkmark-circle',
-    };
-  }
-  if (value.includes('düşük') || value.includes('low')) {
-    return {
-      label: 'Düşük güven',
-      bg: '#FEF2F2',
-      color: '#B91C1C',
-      icon: 'alert-circle',
-    };
-  }
-  return {
-    label: 'Orta güven',
-    bg: '#FEF9C3',
-    color: '#854D0E',
-    icon: 'information-circle',
-  };
-};
-
-const getItemKcal = (item) => {
-  const kcal = Number(item?.estimatedKcal ?? item?.kcal);
-  return Number.isFinite(kcal) && kcal > 0 ? Math.round(kcal) : 0;
-};
+/** Galeri / Kamera seçenek kartı */
+function PickOption({ icon, title, subtitle, onPress, style }) {
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.pick, pressed && styles.pressed, style]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityHint={subtitle}
+    >
+      <IconBadge name={icon} size={44} />
+      <Text style={styles.pickTitle} maxFontSizeMultiplier={MAX_FONT_SCALE}>{title}</Text>
+      <Text style={styles.pickSub} numberOfLines={2} maxFontSizeMultiplier={MAX_FONT_SCALE}>{subtitle}</Text>
+    </Pressable>
+  );
+}
 
 export default function MealCalorieScreen({ navigation }) {
-  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { showToast } = useToast();
   const { handleError } = useAppError();
-  const { isSubscribed, canUsePhotoToday, dailyLimit, openPaywall, incrementDailyPhotoCredit } = useSubscription();
+  const { columnWidth } = useResponsive();
+  const { isSubscribed, canUsePhotoToday, dailyLimit, dailyPhotoUsed, openPaywall, incrementDailyPhotoCredit } = useSubscription();
   const { requestConsentPrompt } = useAIConsent();
+
   const [imageUri, setImageUri] = useState(null);
   const [base64, setBase64] = useState(null);
   const [mimeType, setMimeType] = useState('image/jpeg');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
-  const [disclaimerModalVisible, setDisclaimerModalVisible] = useState(false);
+  const [disclaimerVisible, setDisclaimerVisible] = useState(false);
   const [displayedCalories, setDisplayedCalories] = useState(0);
-  const previewAnim = React.useRef(new Animated.Value(0)).current;
-  const resultAnim = React.useRef(new Animated.Value(0)).current;
-  const analyzePressAnim = React.useRef(new Animated.Value(0)).current;
-  const kcalCountAnim = React.useRef(new Animated.Value(0)).current;
 
+  const previewAnim = useRef(new Animated.Value(0)).current;
+  const resultAnim = useRef(new Animated.Value(0)).current;
+  const kcalCountAnim = useRef(new Animated.Value(0)).current;
+
+  // İlk kullanımda sağlık/AI bilgilendirmesi (App Store health policy)
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    (async () => {
-      try {
-        const v = await AsyncStorage.getItem(DISCLAIMER_STORAGE_KEY);
-        if (!cancelled && v !== '1') setDisclaimerModalVisible(true);
-      } catch {
-        /* ignore */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    AsyncStorage.getItem(DISCLAIMER_STORAGE_KEY)
+      .then((v) => { if (!cancelled && v !== '1') setDisclaimerVisible(true); })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, [user]);
 
   const acceptDisclaimer = useCallback(async () => {
-    try {
-      await AsyncStorage.setItem(DISCLAIMER_STORAGE_KEY, '1');
-    } catch {
-      /* ignore */
-    }
-    setDisclaimerModalVisible(false);
+    try { await AsyncStorage.setItem(DISCLAIMER_STORAGE_KEY, '1'); } catch { /* ignore */ }
+    setDisclaimerVisible(false);
   }, []);
 
   const reset = useCallback(() => {
@@ -122,50 +88,28 @@ export default function MealCalorieScreen({ navigation }) {
 
   const pickImage = async (useCamera) => {
     try {
-      if (useCamera) {
-        const { status } = await ImagePicker.requestCameraPermissionsAsync();
-        if (status !== 'granted') {
-          showToast('Kamera kullanımı için izin gerekli.', 'warning');
-          return;
-        }
-      } else {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
-          showToast('Galeri erişimi için izin gerekli.', 'warning');
-          return;
-        }
+      const perm = useCamera
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (perm.status !== 'granted') {
+        handleError(new AppError(useCamera ? ERROR_CODES.PERMISSION_CAMERA : ERROR_CODES.PERMISSION_GALLERY), { context: 'mealCalorie.permission' });
+        return;
       }
-
-      const options = {
-        mediaTypes: 'images',
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.62,
-        base64: true,
-      };
-
-      const res = useCamera
-        ? await ImagePicker.launchCameraAsync(options)
-        : await ImagePicker.launchImageLibraryAsync(options);
-
+      const options = { mediaTypes: 'images', allowsEditing: true, aspect: [4, 3], quality: 0.62, base64: true };
+      const res = useCamera ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
       if (res.canceled || !res.assets?.[0]) return;
-
       const asset = res.assets[0];
       setImageUri(asset.uri);
       setBase64(asset.base64 || null);
       setMimeType(asset.mimeType || 'image/jpeg');
       setResult(null);
     } catch (e) {
-      console.error(e);
-      showToast('Görsel seçilemedi.', 'error');
+      handleError(e, { context: 'mealCalorie.pick', fallbackCode: ERROR_CODES.AI_IMAGE_INVALID });
     }
   };
 
   const analyze = async () => {
-    if (!base64) {
-      showToast('Önce bir fotoğraf seçin.', 'warning');
-      return;
-    }
+    if (!base64) { showToast('Önce bir fotoğraf seçin.', 'warning'); return; }
 
     if (!bypassPaywall && !canUsePhotoToday) {
       if (!isSubscribed) {
@@ -180,14 +124,11 @@ export default function MealCalorieScreen({ navigation }) {
     setLoading(true);
     setResult(null);
     try {
-      const data = await aiService.getMealCaloriesFromImage({
-        base64,
-        mimeType,
-      });
+      const data = await aiService.getMealCaloriesFromImage({ base64, mimeType });
       setResult(data);
       if (!bypassPaywall) await incrementDailyPhotoCredit();
     } catch (e) {
-      const appErr = handleError(e, { context: 'mealCalorie.analyze', silentCodes: [ERROR_CODES.AI_CONSENT_REQUIRED] });
+      const appErr = handleError(e, { context: 'mealCalorie.analyze', silentCodes: [ERROR_CODES.AI_CONSENT_REQUIRED], onRetry: analyze });
       if (appErr.code === ERROR_CODES.AI_CONSENT_REQUIRED) {
         showToast('Fotoğraf analizi için yapay zeka veri paylaşımı onayı gerekiyor.', 'warning');
         requestConsentPrompt();
@@ -198,961 +139,166 @@ export default function MealCalorieScreen({ navigation }) {
   };
 
   useEffect(() => {
-    Animated.timing(previewAnim, {
-      toValue: imageUri ? 1 : 0,
-      duration: imageUri ? 260 : 170,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
+    Animated.timing(previewAnim, { toValue: imageUri ? 1 : 0, duration: imageUri ? 260 : 170, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, [imageUri, previewAnim]);
 
   useEffect(() => {
-    Animated.timing(resultAnim, {
-      toValue: result ? 1 : 0,
-      duration: result ? 300 : 170,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
+    Animated.timing(resultAnim, { toValue: result ? 1 : 0, duration: result ? 300 : 170, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, [result, resultAnim]);
 
+  // Kalori sayacı animasyonu
   useEffect(() => {
     const target = Math.max(0, Math.round(Number(result?.estimatedCalories) || 0));
     kcalCountAnim.stopAnimation();
     kcalCountAnim.setValue(0);
     setDisplayedCalories(0);
-
-    if (!result || !target) return;
-
-    const listenerId = kcalCountAnim.addListener(({ value }) => {
-      setDisplayedCalories(Math.round(value));
-    });
-
-    Animated.timing(kcalCountAnim, {
-      toValue: target,
-      duration: 900,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-
-    return () => {
-      kcalCountAnim.removeListener(listenerId);
-    };
+    if (!result || !target) return undefined;
+    const listenerId = kcalCountAnim.addListener(({ value }) => setDisplayedCalories(Math.round(value)));
+    Animated.timing(kcalCountAnim, { toValue: target, duration: 900, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+    return () => kcalCountAnim.removeListener(listenerId);
   }, [result, kcalCountAnim]);
 
-  const previewAnimatedStyle = {
-    opacity: previewAnim,
-    transform: [
-      {
-        translateY: previewAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [8, 0],
-        }),
-      },
-    ],
-  };
-
-  const resultAnimatedStyle = {
-    opacity: resultAnim,
-    transform: [
-      {
-        translateY: resultAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [12, 0],
-        }),
-      },
-    ],
-  };
-
-  const analyzeAnimatedStyle = {
-    transform: [
-      {
-        scale: analyzePressAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [1, 0.98],
-        }),
-      },
-    ],
-  };
-  const confidenceMeta = getConfidenceMeta(result?.confidence);
-  const maxItemKcal = result?.items?.length
-    ? Math.max(...result.items.map((it) => getItemKcal(it)), 1)
-    : 1;
-
-  const animateAnalyzePress = (toValue) => {
-    Animated.timing(analyzePressAnim, {
-      toValue,
-      duration: 130,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
-    }).start();
-  };
+  const fadeUp = (anim, dy) => ({
+    opacity: anim,
+    transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [dy, 0] }) }],
+  });
 
   if (!user) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top }]}>
-        <ScrollView
-          contentContainerStyle={{
-            paddingHorizontal: SIZES.containerPadding,
-            paddingBottom: Math.max(insets.bottom, 24),
-            paddingTop: SIZES.md,
-          }}
-        >
-          <GuestGateBanner
-            navigation={navigation}
-            message="Fotoğraftan kalori tahmini hesabınıza bağlıdır. Giriş yaparak veya kayıt olarak kullanabilirsiniz."
-          />
-        </ScrollView>
-      </View>
+      <ScreenContainer edges={[]}>
+        <GuestGateBanner
+          navigation={navigation}
+          message="Fotoğraftan kalori tahmini hesabınıza bağlıdır. Giriş yaparak veya kayıt olarak kullanabilirsiniz."
+        />
+      </ScreenContainer>
     );
   }
 
-  return (
-    <View style={styles.root}>
-      <Modal
-        visible={disclaimerModalVisible}
-        animationType="fade"
-        transparent
-        onRequestClose={() => {}}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { paddingBottom: Math.max(insets.bottom, 20) + 8 }]}>
-            <View style={styles.modalIconWrap}>
-              <Ionicons name="shield-checkmark" size={28} color={COLORS.warning} />
-            </View>
-            <Text style={styles.modalTitle}>Sağlık ve yapay zeka bilgilendirmesi</Text>
-            <Text style={styles.modalBody}>{healthDisclaimerBody}</Text>
-            <Text style={styles.modalSub}>
-              Devam ederek bu bilgilendirmeyi okuduğunuzu ve anladığınızı kabul etmiş olursunuz.
-            </Text>
-            <TouchableOpacity style={styles.modalBtn} onPress={acceptDisclaimer} activeOpacity={0.9}>
-              <LinearGradient
-                colors={[COLORS.primary, COLORS.primaryDark]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.modalBtnGrad}
-              >
-                <Text style={styles.modalBtnText}>Anladım, devam et</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+  const stepLabel = result ? '2/2 tamamlandı' : imageUri ? '1/2 hazır' : 'Başla';
+  const pickWidth = columnWidth(2);
+  const quotaLabel = bypassPaywall ? null : `Bugün ${dailyPhotoUsed}/${dailyLimit} analiz`;
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[
-          styles.scrollInner,
-          { paddingBottom: Math.max(insets.bottom, 28) + 16 },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        <LinearGradient
-          colors={[COLORS.primary, COLORS.primaryLight]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroBlock}
-        >
-          <View style={styles.heroTopRow}>
+  return (
+    <>
+      <ScreenContainer edges={[]}>
+        <LinearGradient colors={[COLORS.primary, COLORS.primaryLight]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+          <View style={styles.heroTop}>
             <View style={styles.heroBadge}>
               <Ionicons name="flash-outline" size={14} color={COLORS.textOnPrimary} />
-              <Text style={styles.heroBadgeText}>AI destekli analiz</Text>
+              <Text style={styles.heroBadgeText} maxFontSizeMultiplier={MAX_FONT_SCALE}>AI destekli analiz</Text>
             </View>
-            <View style={styles.heroStepPill}>
-              <Text style={styles.heroStepText}>{result ? '2/2 tamamlandı' : imageUri ? '1/2 hazır' : '0/2 başla'}</Text>
+            <View style={styles.stepPill}>
+              <Text style={styles.stepText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{stepLabel}</Text>
             </View>
           </View>
-          <Text style={styles.introTitle}>Öğününüzü görselden analiz edin</Text>
-          <Text style={styles.introSub}>
+          <Text style={styles.heroTitle} accessibilityRole="header" maxFontSizeMultiplier={MAX_FONT_SCALE}>Öğününüzü görselden analiz edin</Text>
+          <Text style={styles.heroSub} maxFontSizeMultiplier={MAX_FONT_SCALE}>
             Fotoğraf yükleyin; yaklaşık kalori ve bileşen özeti alın. Sonuçlar referans amaçlıdır.
           </Text>
-          <View style={styles.heroMetaRow}>
-            <MetaChip icon="camera-outline" text={imageUri ? 'Fotoğraf eklendi' : 'Fotoğraf bekleniyor'} />
-            <MetaChip icon="analytics-outline" text={result ? 'Analiz hazır' : 'Analiz bekleniyor'} />
-          </View>
+          {!!quotaLabel && (
+            <View style={styles.quotaRow}>
+              <Ionicons name="camera-outline" size={13} color={whiteAlpha(0.9)} />
+              <Text style={styles.quotaText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{quotaLabel}</Text>
+            </View>
+          )}
         </LinearGradient>
 
-        <View style={styles.infoStrip}>
-          <InfoStat icon="restaurant-outline" label="Öğün" value={result?.mealName ? 'Tanımlandı' : 'Bekliyor'} />
-          <InfoStat icon="flame-outline" label="Kalori" value={result?.estimatedCalories ? `${result.estimatedCalories}` : '--'} />
-        </View>
-
-        <View style={styles.stepsRow}>
-          <View style={styles.stepChip}>
-            <View style={styles.stepNumCircle}>
-              <Text style={styles.stepNumDigit}>1</Text>
-            </View>
-            <Text style={styles.stepLabel}>Fotoğraf</Text>
-          </View>
-          <View style={styles.stepLine} />
-          <View style={styles.stepChip}>
-            <View style={styles.stepNumCircle}>
-              <Text style={styles.stepNumDigit}>2</Text>
-            </View>
-            <Text style={styles.stepLabel}>Analiz</Text>
-          </View>
-        </View>
-
-        <View style={styles.actions}>
-          <ActionOptionCard
-            icon="images-outline"
-            title="Galeriden seç"
-            subtitle="Mevcut bir öğün fotoğrafı yükle"
-            onPress={() => pickImage(false)}
-          />
-          <ActionOptionCard
-            icon="camera-outline"
-            title="Fotoğraf çek"
-            subtitle="Kamera ile yeni fotoğraf al"
-            onPress={() => pickImage(true)}
-          />
+        <View style={styles.pickRow}>
+          <PickOption icon="images-outline" title="Galeriden seç" subtitle="Mevcut bir öğün fotoğrafı yükle" onPress={() => pickImage(false)} style={{ width: pickWidth }} />
+          <PickOption icon="camera-outline" title="Fotoğraf çek" subtitle="Kamera ile yeni fotoğraf al" onPress={() => pickImage(true)} style={{ width: pickWidth }} />
         </View>
 
         {imageUri ? (
-          <Animated.View style={[styles.previewSection, previewAnimatedStyle]}>
-            <Text style={styles.sectionLabel}>Seçilen görsel</Text>
-            <View style={styles.previewWrap}>
-              <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="cover" />
-              <TouchableOpacity style={styles.clearPhoto} onPress={reset} hitSlop={12}>
-                <Ionicons name="close-circle" size={30} color={COLORS.error} />
-              </TouchableOpacity>
-            </View>
+          <Animated.View style={[styles.previewWrap, fadeUp(previewAnim, 8)]}>
+            <Image source={{ uri: imageUri }} style={styles.preview} resizeMode="cover" accessibilityLabel="Seçilen öğün fotoğrafı" />
+            <Pressable onPress={reset} hitSlop={HIT_SLOP} accessibilityRole="button" accessibilityLabel="Fotoğrafı kaldır" style={({ pressed }) => [styles.clearBtn, pressed && { opacity: 0.7 }]}>
+              <Ionicons name="close" size={18} color={COLORS.white} />
+            </Pressable>
           </Animated.View>
         ) : (
-          <View style={styles.placeholderCard}>
-            <Ionicons name="image-outline" size={40} color={COLORS.textLight} />
-            <Text style={styles.placeholderText}>Henüz görsel yok</Text>
-            <Text style={styles.placeholderHint}>Yukarıdaki seçeneklerden birini kullanın</Text>
-          </View>
+          <EmptyState compact icon="image-outline" iconColor={COLORS.textLight} title="Henüz görsel yok" message="Yukarıdaki seçeneklerden biriyle fotoğraf ekleyin." style={styles.placeholder} />
         )}
 
-        <Animated.View style={analyzeAnimatedStyle}>
-          <TouchableOpacity
-            style={[styles.analyzeBtn, (!base64 || loading) && styles.analyzeBtnDisabled]}
-            onPress={analyze}
-            disabled={!base64 || loading}
-            activeOpacity={0.96}
-            onPressIn={() => animateAnalyzePress(1)}
-            onPressOut={() => animateAnalyzePress(0)}
-          >
-            <LinearGradient
-              colors={
-                !base64 || loading
-                  ? [COLORS.disabled, COLORS.disabled]
-                  : [COLORS.primary, COLORS.primaryDark]
-              }
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.analyzeGradient}
-            >
-              {loading ? (
-                <ActivityIndicator color={COLORS.textOnPrimary} />
-              ) : (
-                <>
-                  <Ionicons name="sparkles" size={22} color={COLORS.textOnPrimary} />
-                  <Text style={styles.analyzeText}>Tahmini kaloriyi hesapla</Text>
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-        </Animated.View>
+        <AppButton
+          title={loading ? 'Analiz ediliyor…' : 'Tahmini kaloriyi hesapla'}
+          icon="sparkles"
+          size="lg"
+          fullWidth
+          onPress={analyze}
+          loading={loading}
+          disabled={!base64}
+          style={styles.analyzeBtn}
+        />
 
-        {loading && !result ? (
-          <View style={styles.resultCard}>
-            <View style={styles.resultHeaderBand}>
-              <Skeleton width={80} height={11} borderRadius={4} />
-              <Skeleton width="70%" height={20} style={{ marginTop: 8 }} />
-            </View>
-            <View style={styles.resultBody}>
-              <Skeleton width={120} height={34} style={{ marginBottom: SIZES.xs }} />
-              <Skeleton width={100} height={22} borderRadius={999} style={{ marginBottom: SIZES.md }} />
-              <View style={styles.itemsBox}>
-                <Skeleton width={110} height={13} style={{ marginBottom: SIZES.md }} />
-                <Skeleton height={10} style={{ marginBottom: SIZES.md }} />
-                <Skeleton height={10} width="80%" style={{ marginBottom: SIZES.md }} />
-                <Skeleton height={10} width="60%" />
-              </View>
-            </View>
-          </View>
-        ) : null}
+        {loading && !result ? <LoadingState variant="card" /> : null}
+        {result ? <MealResultCard result={result} displayedCalories={displayedCalories} animatedStyle={fadeUp(resultAnim, 12)} /> : null}
 
-        {result ? (
-          <Animated.View style={[styles.resultCard, resultAnimatedStyle]}>
-            <LinearGradient
-              colors={['#F0FDF4', '#FFFFFF']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.resultHeaderBand}
-            >
-              <Text style={styles.resultKicker}>Tahmini sonuç</Text>
-              <Text style={styles.resultMeal} numberOfLines={3}>
-                {result.mealName}
-              </Text>
-            </LinearGradient>
-            <View style={styles.resultBody}>
-              <View style={styles.kcalRow}>
-                <Text style={styles.kcalValue}>{displayedCalories}</Text>
-                <Text style={styles.kcalUnit}>kcal</Text>
-              </View>
-              <View style={styles.resultMetaRow}>
-                <View style={[styles.confidenceBadge, { backgroundColor: confidenceMeta.bg }]}>
-                  <Ionicons name={confidenceMeta.icon} size={14} color={confidenceMeta.color} />
-                  <Text style={[styles.confidenceBadgeText, { color: confidenceMeta.color }]}>
-                    {confidenceMeta.label}
-                  </Text>
-                </View>
-                {result.provider === 'groq-vision' || result.provider === 'gemini-vision' ? (
-                  <View style={styles.providerChip}>
-                    <Ionicons name="hardware-chip-outline" size={14} color={COLORS.textLight} />
-                    <Text style={styles.providerHint}>
-                      {result.provider === 'groq-vision' ? 'Groq Vision' : 'Gemini Vision'}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-              {result.items?.length > 0 ? (
-                <View style={styles.itemsBox}>
-                  <Text style={styles.itemsTitle}>Tahmini dağılım</Text>
-                  {result.items.map((it, i) => (
-                    <View key={i} style={styles.itemRow}>
-                      <View style={styles.itemMain}>
-                        <View style={styles.itemTopRow}>
-                          <Text style={styles.itemName} numberOfLines={2}>
-                            {it.name || 'Öğe'}
-                          </Text>
-                          <Text style={styles.itemKcal}>
-                            {getItemKcal(it) > 0 ? `${getItemKcal(it)} kcal` : '—'}
-                          </Text>
-                        </View>
-                        <View style={styles.itemBarTrack}>
-                          <View
-                            style={[
-                              styles.itemBarFill,
-                              {
-                                width: `${Math.max(
-                                  6,
-                                  Math.min(100, (getItemKcal(it) / maxItemKcal) * 100)
-                                )}%`,
-                              },
-                            ]}
-                          />
-                        </View>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-              {result.notes ? <Text style={styles.notes}>{result.notes}</Text> : null}
-            </View>
-          </Animated.View>
-        ) : null}
-
-        <View style={styles.warningCard}>
-          <View style={styles.warningHeader}>
-            <Ionicons name="alert-circle" size={22} color="#B45309" />
-            <Text style={styles.warningTitle}>Önemli uyarı</Text>
-          </View>
-          <Text style={styles.warningText}>
-            Tahminler tıbbi veya profesyonel beslenme tavsiyesi değildir. Özel sağlık durumlarınız
-            için uzmanınıza danışın. Yapay zeka yanıtları hatalı olabilir.
-          </Text>
-          <Pressable
-            onPress={() => setDisclaimerModalVisible(true)}
-            style={styles.warningLink}
-            hitSlop={8}
-          >
-            <Text style={styles.warningLinkText}>Tam metni göster</Text>
-            <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
-          </Pressable>
-        </View>
+        <MedicalInfoBanner title="Önemli uyarı">
+          Tahminler tıbbi veya profesyonel beslenme tavsiyesi değildir. Özel sağlık durumlarınız için uzmanınıza
+          danışın. Yapay zeka yanıtları hatalı olabilir.
+        </MedicalInfoBanner>
+        <AppButton title="Tam bilgilendirme metnini göster" iconRight="chevron-forward" variant="ghost" size="sm" onPress={() => setDisclaimerVisible(true)} style={styles.fullTextBtn} haptic={false} />
 
         <View style={styles.footerLegal}>
-          <Ionicons name="document-text-outline" size={16} color={COLORS.textLight} />
-          <Text style={styles.footerLegalText}>
+          <Ionicons name="document-text-outline" size={14} color={COLORS.textLight} />
+          <Text style={styles.footerLegalText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
             Apple bu uygulamanın sağlık içeriğini doğrulamaz. Tahminler bilgi amaçlıdır.
           </Text>
         </View>
+      </ScreenContainer>
 
-      </ScrollView>
-    </View>
+      <BottomSheet
+        visible={disclaimerVisible}
+        onClose={acceptDisclaimer}
+        title="Sağlık ve yapay zeka bilgilendirmesi"
+        dismissOnBackdrop={false}
+        showClose={false}
+        keyboard={false}
+        footer={<AppButton title="Anladım, devam et" icon="checkmark-circle-outline" fullWidth onPress={acceptDisclaimer} />}
+      >
+        <IconBadge name="shield-checkmark" color={COLORS.warning} size={56} style={styles.disclaimerIcon} />
+        <Text style={styles.disclaimerBody} maxFontSizeMultiplier={MAX_FONT_SCALE}>{healthDisclaimerBody}</Text>
+        <Text style={styles.disclaimerSub} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+          Devam ederek bu bilgilendirmeyi okuduğunuzu ve anladığınızı kabul etmiş olursunuz.
+        </Text>
+      </BottomSheet>
+    </>
   );
 }
 
-const MetaChip = ({ icon, text }) => (
-  <View style={styles.metaChip}>
-    <Ionicons name={icon} size={14} color={COLORS.textOnPrimary} />
-    <Text style={styles.metaChipText}>{text}</Text>
-  </View>
-);
-
-const InfoStat = ({ icon, label, value }) => (
-  <View style={styles.infoStat}>
-    <View style={styles.infoStatIcon}>
-      <Ionicons name={icon} size={16} color={COLORS.primary} />
-    </View>
-    <View style={styles.infoStatTextWrap}>
-      <Text style={styles.infoStatLabel}>{label}</Text>
-      <Text style={styles.infoStatValue} numberOfLines={1}>{value}</Text>
-    </View>
-  </View>
-);
-
-const ActionOptionCard = ({ icon, title, subtitle, onPress }) => (
-  <TouchableOpacity style={styles.pickBtn} onPress={onPress} activeOpacity={0.88}>
-    <View style={styles.pickIconCircle}>
-      <Ionicons name={icon} size={20} color={COLORS.primary} />
-    </View>
-    <Text style={styles.pickBtnText}>{title}</Text>
-    <Text style={styles.pickBtnSub}>{subtitle}</Text>
-  </TouchableOpacity>
-);
-
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#F4F7F5',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
-    justifyContent: 'center',
-    paddingHorizontal: SIZES.containerPadding,
-  },
-  modalCard: {
+  pressed: { transform: [{ scale: 0.985 }], opacity: 0.96 },
+  hero: { borderRadius: SIZES.radiusLarge, padding: SIZES.md, marginBottom: SIZES.md, ...SHADOWS.medium },
+  heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SIZES.sm },
+  heroBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: whiteAlpha(0.2), paddingHorizontal: 10, paddingVertical: 6, borderRadius: SIZES.radiusFull },
+  heroBadgeText: { color: COLORS.textOnPrimary, fontSize: SIZES.tiny, fontWeight: '700' },
+  stepPill: { backgroundColor: whiteAlpha(0.9), paddingHorizontal: 10, paddingVertical: 5, borderRadius: SIZES.radiusFull },
+  stepText: { color: COLORS.primaryDark, fontSize: SIZES.tiny, fontWeight: '800' },
+  heroTitle: { color: COLORS.textOnPrimary, fontSize: SIZES.h3, fontWeight: '800', letterSpacing: -0.3 },
+  heroSub: { color: whiteAlpha(0.92), fontSize: SIZES.small, marginTop: 4, lineHeight: 19 },
+  quotaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: SIZES.sm + 2 },
+  quotaText: { color: whiteAlpha(0.9), fontSize: SIZES.tiny, fontWeight: '600' },
+  pickRow: { flexDirection: 'row', gap: SIZES.md, marginBottom: SIZES.md },
+  pick: {
     backgroundColor: COLORS.surface,
     borderRadius: SIZES.radiusLarge,
-    padding: SIZES.lg,
-    ...Platform.select({
-      ios: SHADOWS.large,
-      android: { elevation: 12 },
-    }),
-  },
-  modalIconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: '#FFFBEB',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SIZES.md,
-  },
-  modalTitle: {
-    fontSize: SIZES.h4,
-    fontWeight: '800',
-    color: COLORS.text,
-    letterSpacing: -0.4,
-    marginBottom: SIZES.sm,
-  },
-  modalBody: {
-    fontSize: SIZES.bodySmall,
-    color: COLORS.textSecondary,
-    lineHeight: 22,
-    marginBottom: SIZES.md,
-  },
-  modalSub: {
-    fontSize: SIZES.tiny,
-    color: COLORS.textLight,
-    lineHeight: 18,
-    marginBottom: SIZES.lg,
-  },
-  modalBtn: {
-    borderRadius: SIZES.radiusMedium,
-    overflow: 'hidden',
-  },
-  modalBtnGrad: {
-    paddingVertical: SIZES.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalBtnText: {
-    fontSize: SIZES.h5,
-    fontWeight: '700',
-    color: COLORS.textOnPrimary,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollInner: {
-    paddingHorizontal: SIZES.containerPadding,
-    paddingTop: SIZES.md,
-  },
-  heroBlock: {
-    borderRadius: SIZES.radiusLarge,
-    padding: SIZES.md + 2,
-    marginBottom: SIZES.md,
-  },
-  heroTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: SIZES.sm,
-    gap: SIZES.sm,
-  },
-  heroBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  heroBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.textOnPrimary,
-  },
-  heroStepPill: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  heroStepText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.textOnPrimary,
-  },
-  introBlock: {
-    marginBottom: SIZES.lg,
-  },
-  introTitle: {
-    fontSize: SIZES.h2,
-    fontWeight: '800',
-    color: COLORS.textOnPrimary,
-    letterSpacing: -0.8,
-    lineHeight: 34,
-    marginBottom: SIZES.sm,
-  },
-  introSub: {
-    fontSize: SIZES.bodySmall,
-    color: 'rgba(255,255,255,0.94)',
-    lineHeight: 22,
-  },
-  heroMetaRow: {
-    flexDirection: 'row',
-    gap: SIZES.sm,
-    marginTop: SIZES.md,
-  },
-  metaChip: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.28)',
-  },
-  metaChipText: {
-    fontSize: 11,
-    color: COLORS.textOnPrimary,
-    fontWeight: '600',
-  },
-  infoStrip: {
-    flexDirection: 'row',
-    gap: SIZES.sm,
-    marginBottom: SIZES.lg,
-  },
-  infoStat: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    padding: SIZES.md,
+    gap: 6,
     ...SHADOWS.small,
   },
-  infoStatIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.surfaceAlt,
-    marginRight: 8,
-  },
-  infoStatTextWrap: {
-    flex: 1,
-  },
-  infoStatLabel: {
-    fontSize: SIZES.tiny,
-    color: COLORS.textSecondary,
-  },
-  infoStatValue: {
-    marginTop: 2,
-    fontSize: SIZES.small,
-    color: COLORS.text,
-    fontWeight: '700',
-  },
-  warningCard: {
-    backgroundColor: '#FFFBEB',
-    borderRadius: SIZES.radiusLarge,
-    padding: SIZES.md + 2,
-    marginBottom: SIZES.lg,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    ...SHADOWS.small,
-  },
-  warningHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SIZES.sm,
-    marginBottom: SIZES.sm,
-  },
-  warningTitle: {
-    fontSize: SIZES.h5,
-    fontWeight: '800',
-    color: '#92400E',
-  },
-  warningText: {
-    fontSize: SIZES.small,
-    color: '#78350F',
-    lineHeight: 20,
-    marginBottom: SIZES.sm,
-  },
-  warningLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-start',
-  },
-  warningLinkText: {
-    fontSize: SIZES.small,
-    fontWeight: '700',
-    color: COLORS.primary,
-  },
-  stepsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SIZES.lg,
-    paddingHorizontal: SIZES.xs,
-  },
-  stepChip: {
-    alignItems: 'center',
-  },
-  stepNumCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepNumDigit: {
-    color: COLORS.textOnPrimary,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  stepLabel: {
-    marginTop: 4,
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  stepLine: {
-    flex: 1,
-    height: 2,
-    backgroundColor: COLORS.border,
-    marginHorizontal: SIZES.sm,
-    marginBottom: 20,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: SIZES.md,
-    marginBottom: SIZES.lg,
-  },
-  pickBtn: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-    paddingVertical: SIZES.md + 2,
-    paddingHorizontal: SIZES.sm,
-    borderRadius: SIZES.radiusLarge,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0f172a',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-      },
-      android: { elevation: 2 },
-    }),
-  },
-  pickIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.surfaceAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SIZES.sm,
-  },
-  pickBtnText: {
-    fontSize: SIZES.small,
-    fontWeight: '700',
-    color: COLORS.text,
-    textAlign: 'center',
-  },
-  pickBtnSub: {
-    marginTop: 4,
-    fontSize: 11,
-    color: COLORS.textLight,
-    textAlign: 'center',
-    lineHeight: 15,
-    paddingHorizontal: 4,
-  },
-  sectionLabel: {
-    fontSize: SIZES.tiny,
-    fontWeight: '700',
-    color: COLORS.textLight,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    marginBottom: SIZES.sm,
-  },
-  previewSection: {
-    marginBottom: SIZES.lg,
-  },
-  previewWrap: {
-    borderRadius: SIZES.radiusLarge,
-    overflow: 'hidden',
-    backgroundColor: COLORS.surfaceAlt,
-    ...SHADOWS.medium,
-  },
-  preview: {
-    width: '100%',
-    height: 240,
-  },
-  clearPhoto: {
-    position: 'absolute',
-    top: SIZES.sm,
-    right: SIZES.sm,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 22,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.12,
-        shadowRadius: 4,
-      },
-      android: { elevation: 3 },
-    }),
-  },
-  placeholderCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SIZES.xxl + 8,
-    marginBottom: SIZES.lg,
-    borderRadius: SIZES.radiusLarge,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: COLORS.border,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-  },
-  placeholderText: {
-    marginTop: SIZES.sm,
-    fontSize: SIZES.bodySmall,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  placeholderHint: {
-    marginTop: 4,
-    fontSize: SIZES.tiny,
-    color: COLORS.textLight,
-  },
-  analyzeBtn: {
-    borderRadius: SIZES.radiusLarge,
-    overflow: 'hidden',
-    marginBottom: SIZES.lg,
-    ...SHADOWS.medium,
-  },
-  analyzeBtnDisabled: {
-    opacity: 0.88,
-  },
-  analyzeGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SIZES.sm,
-    paddingVertical: SIZES.md + 4,
-  },
-  analyzeText: {
-    fontSize: SIZES.h5,
-    fontWeight: '700',
-    color: COLORS.textOnPrimary,
-  },
-  resultCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radiusLarge,
-    overflow: 'hidden',
-    marginBottom: SIZES.lg,
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0f172a',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 24,
-      },
-      android: { elevation: 4 },
-    }),
-  },
-  resultHeaderBand: {
-    padding: SIZES.lg,
-    paddingBottom: SIZES.md,
-  },
-  resultKicker: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    color: COLORS.primary,
-    textTransform: 'uppercase',
-    marginBottom: SIZES.xs,
-  },
-  resultMeal: {
-    fontSize: SIZES.h4,
-    fontWeight: '800',
-    color: COLORS.text,
-    letterSpacing: -0.3,
-    lineHeight: 24,
-  },
-  resultBody: {
-    paddingHorizontal: SIZES.lg,
-    paddingBottom: SIZES.lg,
-  },
-  kcalRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-    marginBottom: SIZES.xs,
-  },
-  kcalValue: {
-    fontSize: 44,
-    fontWeight: '800',
-    color: COLORS.primary,
-    letterSpacing: -1.5,
-  },
-  kcalUnit: {
-    fontSize: SIZES.h4,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  confidence: {
-    fontSize: SIZES.small,
-    color: COLORS.textSecondary,
-    marginBottom: SIZES.xs,
-  },
-  resultMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: SIZES.sm,
-    marginBottom: SIZES.md,
-  },
-  confidenceBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  confidenceBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  providerChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surfaceAlt,
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  providerHint: {
-    fontSize: 12,
-    color: COLORS.textLight,
-  },
-  itemsBox: {
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
-    paddingTop: SIZES.md,
-  },
-  itemsTitle: {
-    fontSize: SIZES.small,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: SIZES.sm,
-  },
-  itemRow: {
-    marginBottom: SIZES.md,
-  },
-  itemMain: {
-    width: '100%',
-  },
-  itemTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: SIZES.md,
-    marginBottom: 6,
-  },
-  itemName: {
-    flex: 1,
-    fontSize: SIZES.bodySmall,
-    color: COLORS.textSecondary,
-  },
-  itemKcal: {
-    fontSize: SIZES.bodySmall,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  itemBarTrack: {
-    width: '100%',
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: COLORS.borderLight,
-    overflow: 'hidden',
-  },
-  itemBarFill: {
-    height: '100%',
-    borderRadius: 999,
-    backgroundColor: COLORS.primary,
-  },
-  notes: {
-    fontSize: SIZES.small,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
-    marginTop: SIZES.sm,
-    fontStyle: 'italic',
-  },
-  footerLegal: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SIZES.sm,
-    paddingVertical: SIZES.md,
-    paddingHorizontal: SIZES.sm,
-    marginBottom: SIZES.sm,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: SIZES.radiusMedium,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  footerLegalText: {
-    flex: 1,
-    fontSize: 11,
-    color: COLORS.textLight,
-    lineHeight: 16,
-  },
+  pickTitle: { fontSize: SIZES.bodySmall, fontWeight: '700', color: COLORS.text, marginTop: 4 },
+  pickSub: { fontSize: SIZES.tiny, color: COLORS.textSecondary, lineHeight: 16 },
+  previewWrap: { borderRadius: SIZES.radiusLarge, overflow: 'hidden', marginBottom: SIZES.md, ...SHADOWS.medium },
+  preview: { width: '100%', aspectRatio: 4 / 3, backgroundColor: COLORS.neutral100 },
+  clearBtn: { position: 'absolute', top: SIZES.sm, right: SIZES.sm, width: 34, height: 34, borderRadius: 17, backgroundColor: COLORS.neutral900, opacity: 0.85, alignItems: 'center', justifyContent: 'center' },
+  placeholder: { backgroundColor: COLORS.surface, borderRadius: SIZES.radiusLarge, borderWidth: 1, borderColor: COLORS.border, borderStyle: 'dashed', marginBottom: SIZES.md },
+  analyzeBtn: { marginBottom: SIZES.md },
+  fullTextBtn: { alignSelf: 'center', marginTop: -SIZES.sm, marginBottom: SIZES.sm },
+  footerLegal: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center', paddingHorizontal: SIZES.md },
+  footerLegalText: { flex: 1, fontSize: SIZES.tiny, color: COLORS.textLight, textAlign: 'center' },
+  disclaimerIcon: { alignSelf: 'center', marginBottom: SIZES.md },
+  disclaimerBody: { fontSize: SIZES.bodySmall, color: COLORS.text, lineHeight: 22 },
+  disclaimerSub: { fontSize: SIZES.tiny, color: COLORS.textSecondary, marginTop: SIZES.md, lineHeight: 17 },
 });
