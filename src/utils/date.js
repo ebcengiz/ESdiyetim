@@ -1,7 +1,14 @@
 // Tarih yardımcı fonksiyonları
 
-export const toDateString = (date) =>
-  (date instanceof Date ? date : new Date(date)).toISOString().split('T')[0];
+// YEREL takvim günü (YYYY-MM-DD). toISOString UTC döndürdüğü için TR'de 21:00 sonrası
+// seçilen tarih bir gün geri kayıyordu (ör. 17 Eylül → "2026-09-16").
+export const toDateString = (date) => {
+  const d = date instanceof Date ? date : new Date(date);
+  const y = d.getFullYear();
+  const m = `${d.getMonth() + 1}`.padStart(2, '0');
+  const day = `${d.getDate()}`.padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
 
 export const formatShortDate = (dateStr) =>
   new Date(dateStr).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });

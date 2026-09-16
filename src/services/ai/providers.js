@@ -43,8 +43,11 @@ const GROQ_API_KEY        = process.env.EXPO_PUBLIC_GROQ_API_KEY        || '';
 const COHERE_API_KEY      = process.env.EXPO_PUBLIC_COHERE_API_KEY      || '';
 const GEMINI_API_KEY      = process.env.EXPO_PUBLIC_GEMINI_API_KEY      || '';
 
+// 2026-09: Groq, Llama ailesini kaldırdı (llama-3.1-8b-instant / llama-4-scout → 404).
+// Metin: gpt-oss-20b (reasoning modeli; reasoning_effort=low, content boş kalmasın diye).
+// Görsel: Groq'ta artık vision modeli yok — zincir Gemini vision'a güvenir, bu yalnızca son çare.
 const GROQ_VISION_MODEL   = 'meta-llama/llama-4-scout-17b-16e-instruct';
-const GROQ_TEXT_MODEL     = 'llama-3.1-8b-instant';
+const GROQ_TEXT_MODEL     = 'openai/gpt-oss-20b';
 
 /**
  * Google AI Studio (aistudio.google.com/apikey) — generativelanguage.googleapis.com
@@ -52,19 +55,24 @@ const GROQ_TEXT_MODEL     = 'llama-3.1-8b-instant';
  * @see https://ai.google.dev/gemini-api/docs/models
  * Not: `gemini-1.5-flash` (takma ad) bazı projelerde v1 ile 404 verir; sürümlü ad kullanın.
  */
+// Ücretsiz kota model başına (tek anahtar, tüm kullanıcılar) — 429'da sıradakine geçilir,
+// bu yüzden liste uzun tutuluyor. 2026-09 doğrulandı: hepsi 200 döndü.
 const GEMINI_TEXT_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.0-flash-001',
+  'gemini-3.5-flash-lite',
+  'gemini-3.5-flash',
+  'gemini-3.1-flash-lite',
   'gemini-2.5-flash-lite',
-  'gemini-1.5-flash-002',
+  'gemini-2.5-flash',
+  'gemini-flash-lite-latest',
 ];
 
 /** Çok modlu (metin+görsel) — Flash ailesi (generateContent + görüntü girişi) */
 const GEMINI_VISION_MODELS = [
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
   'gemini-2.5-flash',
   'gemini-2.5-flash-lite',
-  'gemini-2.0-flash-001',
-  'gemini-1.5-flash-002',
+  'gemini-flash-latest',
 ];
 
 /**
@@ -163,6 +171,8 @@ export async function callGroq(prompt) {
         temperature: 0.7,
         /* 512 Türkçe uzun yanıtta ortada kesiyordu; promptlar 250–350+ kelime isteyebiliyor */
         max_tokens: 4096,
+        // gpt-oss reasoning modeli: düşük efor → düşünme token'ı azalır, content boş kalmaz
+        reasoning_effort: 'low',
       }),
       signal: controller.signal,
     });
