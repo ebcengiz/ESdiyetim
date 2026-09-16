@@ -63,7 +63,7 @@ ESdiyetim/
     ├── components/
     │   ├── ErrorBoundary.js   # Kök hata sınırı (App.js'de SafeAreaProvider'ın hemen altında)
     │   ├── ui/                # ORTAK UI KİTİ (index.js barrel): AppButton, AppInput, AppCard, IconBadge,
-    │   │                      #   SectionHeader, EmptyState, ErrorState, LoadingState, ScreenContainer,
+    │   │                      #   SectionHeader, EmptyState, ErrorState, LoadingState, ScreenContainer, HeroHeader,
     │   │                      #   BottomSheet, OfflineBanner, ConfirmModal, DatePickerSheet, DateField,
     │   │                      #   DateStepper, SegmentedControl, Chip, ListRow, ProgressBar, ActionCta, Skeleton, Toast
     │   ├── AIAdviceCard, BMIPanel, GuestGateBanner,
@@ -84,7 +84,7 @@ ESdiyetim/
 ### Ekranlar
 `HomeScreen`, `DietPlanScreen`, `WeightAndBMIScreen` (WeightPanel + BMIPanel), `GoalsScreen`, `TipsScreen`, `ProfileScreen`, `LoginScreen`, `RegisterScreen`, `MealCalorieScreen` (fotoğraftan kalori), `FoodLogScreen`, `HealthSourcesInfoScreen`, `PrivacyPolicyScreen`, `PaywallScreen`. (Eski `WeightTrackerScreen` ve `BodyInfoScreen` navigator'da kullanılmadığı için 2026-09-16'da silindi.)
 
-Tüm ekranlar ortak UI kiti üstünde: `ScreenContainer` iskelet, hero başlıklar `header` prop'u ile, formlar `BottomSheet + AppInput + AppButton + DateField`, listeler `EmptyState/LoadingState/ErrorState`. Özellik bazlı alt bileşenler: `components/home/*`, `components/dietPlan/*`, `components/goals/GoalCard`, `components/foodLog/*`, `components/mealCalorie/MealResultCard`, `components/auth/AuthFooter`.
+Tüm ekranlar ortak UI kiti üstünde: `ScreenContainer` iskelet, hero başlıklar `header={<HeroHeader …/>}` ile (kural: yalnızca başlık + birincil kontrol + en fazla tek satır `meta`; rozet/tarih/açıklama cümlesi YOK — header scroll dışında sabit kaldığı için her satır içerik alanından çalar), formlar `BottomSheet + AppInput + AppButton + DateField`, listeler `EmptyState/LoadingState/ErrorState`. Özellik bazlı alt bileşenler: `components/home/*`, `components/dietPlan/*`, `components/goals/GoalCard`, `components/foodLog/*`, `components/mealCalorie/MealResultCard`, `components/auth/AuthFooter`.
 
 ### Tab düzeni (MainNavigator)
 `Home • DietPlan • WeightAndBMI • Goals • Tips • Profile`

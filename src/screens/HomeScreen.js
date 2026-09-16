@@ -6,7 +6,6 @@ import { weightService, dietPlanService, tipsService, homeSummaryService, foodLo
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useAppError } from '../hooks/useAppError';
-import { useResponsive } from '../hooks/useResponsive';
 import { ScreenContainer, SectionHeader, LoadingState } from '../components/ui';
 import GuestGateBanner from '../components/GuestGateBanner';
 import HomeHeroHeader from '../components/home/HomeHeroHeader';
@@ -22,7 +21,6 @@ const toLocalDateString = (date = new Date()) => {
 };
 
 export default function HomeScreen({ navigation }) {
-  const { topPad } = useResponsive();
   const { user, isGuest } = useAuth();
   const { showToast } = useToast();
   const { handleError } = useAppError();
@@ -145,7 +143,6 @@ export default function HomeScreen({ navigation }) {
 
   const hero = (
     <HomeHeroHeader
-      headerTopPad={topPad}
       displayName={displayName}
       todayDateLabel={todayDateLabel}
       user={user}

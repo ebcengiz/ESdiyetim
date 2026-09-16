@@ -1,20 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Linking } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, MAX_FONT_SCALE, whiteAlpha, withAlpha } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { bodyInfoService } from '../services/supabase';
 import { useToast } from '../contexts/ToastContext';
 import { useAppError } from '../hooks/useAppError';
-import { useResponsive } from '../hooks/useResponsive';
 import { useAIConsent } from '../contexts/AIConsentContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { FREE_AI_SEARCH_DAILY_LIMIT, AI_SEARCH_USAGE_KEY, FALLBACK_PRICE_LABELS } from '../services/subscriptionService';
 import { getDailyUsageCount } from '../services/dailyUsageService';
 import { calculateBMI, getBMICategory } from '../utils/bmi';
 import {
-  ScreenContainer, AppCard, AppButton, AppInput, ListRow, ConfirmModal, Skeleton, ProgressBar,
+  ScreenContainer, HeroHeader, AppCard, AppButton, AppInput, ListRow, ConfirmModal, Skeleton, ProgressBar,
 } from '../components/ui';
 
 /** Ad soyad → baş harfler */
@@ -59,7 +57,6 @@ export default function ProfileScreen({ navigation }) {
   const { user, signOut, deleteAccount, updateProfile, leaveGuestMode, isGuest } = useAuth();
   const { showToast } = useToast();
   const { handleError } = useAppError();
-  const { topPad } = useResponsive();
   const { consent: aiConsent, providers: aiProviders, grantConsent, revokeConsent } = useAIConsent();
   const { isSubscribed, dailyPhotoUsed, dailyLimit, openPaywall } = useSubscription();
   const [bodyInfo, setBodyInfo] = useState(null);
@@ -127,29 +124,25 @@ export default function ProfileScreen({ navigation }) {
   const bmiCategory = getBMICategory(bmi);
   const isGuestView = !user && isGuest;
 
+  // Kompakt başlık: avatar (sol) + ad (başlık) + e-posta (meta) + Premium rozeti (sağ)
   const header = (
-    <LinearGradient
-      colors={[COLORS.primary, COLORS.primaryLight]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.header, { paddingTop: topPad }]}
-    >
-      <View style={styles.avatar} accessibilityLabel="Profil avatarı">
-        <Text style={styles.avatarText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{isGuestView ? 'M' : initialsOf(user)}</Text>
-      </View>
-      <Text style={styles.userName} accessibilityRole="header" maxFontSizeMultiplier={MAX_FONT_SCALE}>
-        {isGuestView ? 'Misafir' : user?.user_metadata?.full_name || 'İsim Ekle'}
-      </Text>
-      <Text style={styles.userEmail} maxFontSizeMultiplier={MAX_FONT_SCALE}>
-        {isGuestView ? 'Hesap olmadan geziniyorsunuz' : user?.email}
-      </Text>
-      {isSubscribed && !isGuestView && (
-        <View style={styles.premiumBadge}>
-          <Ionicons name="star" size={12} color={COLORS.warningText} />
-          <Text style={styles.premiumBadgeText}>Premium</Text>
+    <HeroHeader
+      title={isGuestView ? 'Misafir' : user?.user_metadata?.full_name || 'İsim Ekle'}
+      meta={isGuestView ? 'Hesap olmadan geziniyorsunuz' : user?.email}
+      left={
+        <View style={styles.avatar} accessibilityLabel="Profil avatarı">
+          <Text style={styles.avatarText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{isGuestView ? 'M' : initialsOf(user)}</Text>
         </View>
-      )}
-    </LinearGradient>
+      }
+      right={
+        isSubscribed && !isGuestView ? (
+          <View style={styles.premiumBadge}>
+            <Ionicons name="star" size={12} color={COLORS.warningText} />
+            <Text style={styles.premiumBadgeText} maxFontSizeMultiplier={MAX_FONT_SCALE}>Premium</Text>
+          </View>
+        ) : null
+      }
+    />
   );
 
   // ── Misafir görünümü ──────────────────────────────────────────────────────
@@ -336,22 +329,18 @@ export default function ProfileScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  header: { alignItems: 'center', paddingBottom: SIZES.lg, paddingHorizontal: SIZES.containerPadding },
   avatar: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: whiteAlpha(0.25),
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: whiteAlpha(0.6),
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: SIZES.sm + 2,
   },
-  avatarText: { fontSize: SIZES.h2, fontWeight: '800', color: COLORS.textOnPrimary },
-  userName: { fontSize: SIZES.h3, fontWeight: '800', color: COLORS.textOnPrimary, letterSpacing: -0.3, textAlign: 'center' },
-  userEmail: { fontSize: SIZES.small, color: whiteAlpha(0.9), marginTop: 2, textAlign: 'center' },
-  premiumBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COLORS.warningBg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: SIZES.radiusFull, marginTop: SIZES.sm },
+  avatarText: { fontSize: SIZES.h4, fontWeight: '800', color: COLORS.textOnPrimary },
+  premiumBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COLORS.warningBg, paddingHorizontal: 10, paddingVertical: 5, borderRadius: SIZES.radiusFull },
   premiumBadgeText: { fontSize: SIZES.tiny, fontWeight: '800', color: COLORS.warningText },
   guestText: { fontSize: SIZES.bodySmall, color: COLORS.textSecondary, lineHeight: 22, marginBottom: SIZES.md },
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: COLORS.surfaceAlt, borderRadius: SIZES.radiusMedium, padding: SIZES.md, marginBottom: SIZES.sm + 2 },

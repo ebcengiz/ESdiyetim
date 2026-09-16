@@ -3,12 +3,11 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Animated } from 'react-n
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { COLORS, SIZES, SHADOWS, MAX_FONT_SCALE, whiteAlpha, withAlpha } from '../constants/theme';
+import { COLORS, SIZES, SHADOWS, MAX_FONT_SCALE, withAlpha } from '../constants/theme';
 import { aiService } from '../services/aiService';
 import { useAppError } from '../hooks/useAppError';
-import { useResponsive } from '../hooks/useResponsive';
 import AIAdviceCard from '../components/AIAdviceCard';
-import { ScreenContainer, Chip, SectionHeader, ActionCta } from '../components/ui';
+import { ScreenContainer, HeroHeader, Chip, SectionHeader, ActionCta } from '../components/ui';
 
 const A = COLORS.accents;
 const CATEGORIES = [
@@ -36,7 +35,6 @@ function parseAdvice(text) {
 export default function TipsScreen() {
   const navigation = useNavigation();
   const { handleError } = useAppError();
-  const { topPad } = useResponsive();
   const [selected, setSelected] = useState('genel');
   const [adviceCache, setAdviceCache] = useState({}); // kategori → metin
   const [loading, setLoading] = useState(false);
@@ -74,22 +72,9 @@ export default function TipsScreen() {
   const { title, paragraphs } = parseAdvice(adviceCache[selected] || '');
   const others = CATEGORIES.filter((c) => c.id !== selected && adviceCache[c.id]);
 
+  // Kompakt başlık: başlık + kategori şeridi (birincil kontrol). Rozet/açıklama yok.
   const header = (
-    <LinearGradient
-      colors={[COLORS.primary, COLORS.primaryLight]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.hero, { paddingTop: topPad - SIZES.xs }]}
-    >
-      <View style={styles.heroTop}>
-        <View style={styles.heroBadge}>
-          <Ionicons name="sparkles-outline" size={14} color={COLORS.textOnPrimary} />
-          <Text style={styles.heroBadgeText} maxFontSizeMultiplier={MAX_FONT_SCALE}>Yapay zeka destekli</Text>
-        </View>
-      </View>
-      <Text style={styles.heroTitle} accessibilityRole="header" maxFontSizeMultiplier={MAX_FONT_SCALE}>Sağlık Tavsiyeleri</Text>
-      <Text style={styles.heroSub} maxFontSizeMultiplier={MAX_FONT_SCALE}>Kategori seç; kısa, uygulanabilir öneriler al.</Text>
-
+    <HeroHeader title="Sağlık Tavsiyeleri">
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipsScroll}>
         {CATEGORIES.map((cat) => (
           <Chip
@@ -102,7 +87,7 @@ export default function TipsScreen() {
           />
         ))}
       </ScrollView>
-    </LinearGradient>
+    </HeroHeader>
   );
 
   return (
@@ -173,12 +158,6 @@ export default function TipsScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { paddingBottom: SIZES.md, paddingHorizontal: SIZES.containerPadding },
-  heroTop: { flexDirection: 'row', alignItems: 'center', marginBottom: SIZES.sm },
-  heroBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: whiteAlpha(0.2), paddingHorizontal: 10, paddingVertical: 6, borderRadius: SIZES.radiusFull },
-  heroBadgeText: { color: COLORS.textOnPrimary, fontSize: SIZES.tiny, fontWeight: '700' },
-  heroTitle: { fontSize: SIZES.h3, fontWeight: '800', letterSpacing: -0.35, color: COLORS.textOnPrimary },
-  heroSub: { fontSize: SIZES.tiny, color: whiteAlpha(0.92), marginTop: 2, marginBottom: SIZES.md },
   chipsScroll: { marginHorizontal: -SIZES.containerPadding },
   chips: { paddingHorizontal: SIZES.containerPadding, gap: SIZES.sm },
 

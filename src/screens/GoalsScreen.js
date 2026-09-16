@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { View, Text, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, MAX_FONT_SCALE, whiteAlpha } from '../constants/theme';
+import { View, StyleSheet } from 'react-native';
+import { COLORS, SIZES } from '../constants/theme';
 import { goalsService } from '../services/supabase';
 import { aiService } from '../services/aiService';
 import AIAdviceCard from '../components/AIAdviceCard';
@@ -13,12 +11,11 @@ import GoalCard from '../components/goals/GoalCard';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useAppError } from '../hooks/useAppError';
-import { useResponsive } from '../hooks/useResponsive';
 import { useFormModal } from '../hooks/useFormModal';
 import { toDateString } from '../utils/date';
 import { validateWeight } from '../utils/validation';
 import {
-  ScreenContainer, ConfirmModal, BottomSheet, AppInput, AppButton, DateField,
+  ScreenContainer, HeroHeader, ConfirmModal, BottomSheet, AppInput, AppButton, DateField,
   EmptyState, LoadingState, SectionHeader,
 } from '../components/ui';
 
@@ -35,7 +32,6 @@ export default function GoalsScreen() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const { handleError } = useAppError();
-  const { topPad } = useResponsive();
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -184,35 +180,13 @@ export default function GoalsScreen() {
     }
   };
 
+  // Kompakt başlık: sadece başlık + tek satır özet + "yeni hedef" aksiyonu
   const header = (
-    <LinearGradient
-      colors={[COLORS.primary, COLORS.primaryLight]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.hero, { paddingTop: topPad - SIZES.xs }]}
-    >
-      <View style={styles.heroTop}>
-        <View style={styles.heroBadge}>
-          <Ionicons name="trophy-outline" size={14} color={COLORS.textOnPrimary} />
-          <Text style={styles.heroBadgeText} maxFontSizeMultiplier={MAX_FONT_SCALE}>Hedef Takibi</Text>
-        </View>
-        <Text style={styles.heroDate} maxFontSizeMultiplier={MAX_FONT_SCALE}>
-          {new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}
-        </Text>
-      </View>
-      <Text style={styles.heroTitle} accessibilityRole="header" maxFontSizeMultiplier={MAX_FONT_SCALE}>Hedeflerim</Text>
-      <Text style={styles.heroSub} maxFontSizeMultiplier={MAX_FONT_SCALE}>
-        Kilo hedeflerini planla, ilerlemeyi takip et ve duruma göre güncelle.
-      </Text>
-
-      {goals.length > 0 && (
-        <View style={styles.statsRow}>
-          <StatCard label="Toplam" value={stats.total} icon="trophy" />
-          <StatCard label="Aktif" value={stats.activeGoals} icon="flag" />
-          <StatCard label="Tamamlanan" value={stats.completedGoals} icon="checkmark-circle" />
-        </View>
-      )}
-    </LinearGradient>
+    <HeroHeader
+      title="Hedeflerim"
+      meta={user && goals.length > 0 ? `${stats.activeGoals} aktif · ${stats.completedGoals} tamamlanan` : undefined}
+      actions={[{ icon: 'add', label: 'Yeni hedef', onPress: openAddModal }]}
+    />
   );
 
   const advice = primaryAdviceGoal ? goalAdvices[primaryAdviceGoal.id] : null;
@@ -229,7 +203,7 @@ export default function GoalsScreen() {
           </MedicalInfoBanner>
         )}
 
-        <SectionHeader title="Hedefler" subtitle={loading ? 'Yükleniyor…' : `${stats.activeGoals} aktif · ${stats.completedGoals} tamamlanan`} />
+        <SectionHeader title="Hedefler" subtitle={loading ? 'Yükleniyor…' : `${stats.total} hedef`} />
 
         <AppButton title="Yeni Hedef Ekle" icon="add-circle" fullWidth onPress={openAddModal} style={styles.addBtn} />
 
@@ -350,26 +324,7 @@ export default function GoalsScreen() {
   );
 }
 
-const StatCard = ({ label, value, icon }) => (
-  <View style={styles.stat} accessibilityLabel={`${label}: ${value}`}>
-    <Ionicons name={icon} size={20} color={COLORS.textOnPrimary} />
-    <Text style={styles.statValue} maxFontSizeMultiplier={MAX_FONT_SCALE}>{value}</Text>
-    <Text style={styles.statLabel} maxFontSizeMultiplier={MAX_FONT_SCALE}>{label}</Text>
-  </View>
-);
-
 const styles = StyleSheet.create({
-  hero: { paddingBottom: SIZES.md, paddingHorizontal: SIZES.containerPadding },
-  heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SIZES.sm },
-  heroBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: whiteAlpha(0.2), paddingHorizontal: 10, paddingVertical: 6, borderRadius: SIZES.radiusFull },
-  heroBadgeText: { color: COLORS.textOnPrimary, fontSize: SIZES.tiny, fontWeight: '700' },
-  heroDate: { color: whiteAlpha(0.9), fontSize: SIZES.tiny, fontWeight: '600' },
-  heroTitle: { fontSize: SIZES.h3, fontWeight: '800', letterSpacing: -0.35, color: COLORS.textOnPrimary },
-  heroSub: { fontSize: SIZES.tiny, color: whiteAlpha(0.92), marginTop: 2 },
-  statsRow: { flexDirection: 'row', backgroundColor: whiteAlpha(0.16), borderRadius: SIZES.radiusMedium, borderWidth: 1, borderColor: whiteAlpha(0.25), padding: SIZES.sm, marginTop: SIZES.md },
-  stat: { flex: 1, alignItems: 'center', gap: 2 },
-  statValue: { fontSize: SIZES.h4, fontWeight: '800', color: COLORS.textOnPrimary },
-  statLabel: { fontSize: SIZES.tiny, color: whiteAlpha(0.85) },
   addBtn: { marginBottom: SIZES.md },
   adviceWrap: { marginTop: SIZES.sm },
   footer: { flexDirection: 'row', gap: SIZES.sm },

@@ -21,6 +21,25 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-17 — UI/UX Adım 3.11: Tüm hero header'lar sadeleştirildi, ortak `HeroHeader` bileşeni eklendi
+
+**Soru:** Üstteki yeşil hero başlıklar kullanıcı deneyimi açısından daha minimal olmalı mı? İnternet araştırması (Apple HIG / iOS 26 nav bar, Material 3 top app bar, NN/g Liquid Glass eleştirisi, Nick Babich "content over chrome", MyFitnessPal/Lifesum vaka çalışmaları) → **evet**. Bizde ek gerekçe: `ScreenContainer.header` scroll'un DIŞINDA sabit kalır; rozet + tarih + 2 satır açıklama + stat kartları hiç kaybolmuyor, altta yüzer tab bar da var → küçük iPhone'da içerik alanı yarıya iniyordu.
+
+**Kural (yeni):** Header'da yalnızca (a) başlık, (b) ekranın birincil kontrolü, (c) en fazla tek satır anlam taşıyan bilgi (`meta`). Rozet ("Sağlık Takibi", "AI destekli…"), tarih etiketi ve açıklama cümlesi YOK.
+
+**Yapılan:**
+- **`components/ui/HeroHeader.js` (yeni):** yeşil gradyan + tek satır `[onBack|left] başlık(+meta) [actions|right]` + `children` kontrol slotu. Props: `title, meta, actions=[{icon,label,onPress,muted}], onBack, left, right, children, colors, style`. `topPad`'i kendi hesaplar (ekranlar `useResponsive().topPad` çekmez). Barrel'a eklendi.
+- **Home** (`components/home/HomeHeroHeader.js`): HeroHeader üstüne taşındı. "Günlük Sağlık Asistanın" overline'ı ve "Hedefler ›" linki kaldırıldı (metrikte "Hedef" var, tab'da da var). Kalan: "Merhaba, Ad" + tarih (meta) + avatar (sağ) + özet kartı (durum satırı + 3 metrik). `headerTopPad` prop'u gitti.
+- **DietPlan** (`components/dietPlan/DietPlanHeader.js`): rozet + alt başlık gitti; başlık + geçmiş/sil aksiyonları tek satırda; DateStepper; ilerleme kartı → kartsız tek satır (`3 / 5 öğün planlandı · 🔥 kcal` + 4px bar).
+- **Kilo ve VKİ:** rozet, tarih, açıklama gitti → başlık + `meta="Son kayıt: X kg"` + SegmentedControl.
+- **Hedefler:** rozet, tarih, açıklama, 3'lü stat kartı gitti → başlık + `meta="N aktif · M tamamlanan"` + sağda "+" aksiyonu (`openAddModal`). İçerikteki SectionHeader alt yazısı tekrar olmasın diye "N hedef" oldu; `StatCard` bileşeni silindi.
+- **Tavsiyeler:** rozet + açıklama gitti → başlık + kategori chip şeridi.
+- **Profil:** ortalı 84px avatar düzeni → tek satır: 52px avatar (sol) + ad + e-posta (meta) + Premium rozeti (sağ).
+- **Besin Günlüğü (stack):** rozet + açıklama gitti → `onBack` + başlık + DateStepper + kalori/makro kartı (asıl veri, korundu).
+- Ekranlardan `LinearGradient`/`Ionicons`/`whiteAlpha`/`useResponsive` hero importları ve hero stilleri temizlendi. `npx expo export --platform ios` ile bundle doğrulandı.
+
+**Dokunulmayan:** Login/Register/Paywall/MealCalorie başlıkları (zaten kompakt veya farklı kalıp). Collapse-on-scroll eklenmedi — sabit ama kısa header yeterli.
+
 ### 2026-09-17 — UX kararı: Kaydırınca gizlenen tab bar DEĞERLENDİRİLDİ, REDDEDİLDİ (kod değişikliği yok)
 
 **Soru:** Tab bar kullanıcı aşağı kaydırdıkça gizlenip yukarı kaydırınca geri gelse daha kullanışlı olur mu?

@@ -9,22 +9,19 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated, Easing, Platform } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, Animated, Easing, Platform } from 'react-native';
 
-import { COLORS, SIZES, HIT_SLOP, MAX_FONT_SCALE, whiteAlpha } from '../constants/theme';
+import { COLORS, SIZES, MAX_FONT_SCALE, whiteAlpha } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useAppError } from '../hooks/useAppError';
-import { useResponsive } from '../hooks/useResponsive';
 import { foodLogService } from '../services/supabase';
 import GuestGateBanner from '../components/GuestGateBanner';
 import MedicalInfoBanner from '../components/MedicalInfoBanner';
 import MealSection from '../components/foodLog/MealSection';
 import FoodSearchModal from '../components/foodLog/FoodSearchModal';
 import { MacroPill } from '../components/foodLog/MacroWidgets';
-import { ScreenContainer, ConfirmModal, DatePickerSheet, DateStepper } from '../components/ui';
+import { ScreenContainer, HeroHeader, ConfirmModal, DatePickerSheet, DateStepper } from '../components/ui';
 import { MEAL_TYPES, DAILY_GOAL_KCAL, DAILY_GOAL, MACRO_COLORS } from '../constants/foodLogFields';
 import { toLocalDate } from '../utils/foodLogUtils';
 
@@ -32,7 +29,6 @@ export default function FoodLogScreen({ navigation }) {
   const { user, isGuest } = useAuth();
   const { showToast } = useToast();
   const { handleError } = useAppError();
-  const { topPad } = useResponsive();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -118,31 +114,9 @@ export default function FoodLogScreen({ navigation }) {
   // Yeşil zemin üstünde: normal beyaz, hedefe yaklaşınca amber, aşınca coral (yeşil üstüne yeşil görünmüyordu)
   const calorieColor = caloriePct > 0.95 ? COLORS.accents.coral : caloriePct > 0.7 ? COLORS.accents.amber : COLORS.white;
 
+  // Kompakt başlık: geri + başlık, tarih adımlayıcı ve günlük kalori/makro kartı (asıl veri)
   const header = (
-    <LinearGradient
-      colors={[COLORS.gradientStart, COLORS.gradientMiddle]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.header, { paddingTop: topPad - SIZES.xs }]}
-    >
-      <View style={styles.headerTop}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          hitSlop={HIT_SLOP}
-          accessibilityRole="button"
-          accessibilityLabel="Geri"
-          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
-        >
-          <Ionicons name="arrow-back" size={22} color={COLORS.white} />
-        </Pressable>
-        <View style={styles.badge}>
-          <Ionicons name="nutrition-outline" size={13} color={COLORS.white} />
-          <Text style={styles.badgeText} maxFontSizeMultiplier={MAX_FONT_SCALE}>Besin Takibi</Text>
-        </View>
-      </View>
-      <Text style={styles.title} accessibilityRole="header" maxFontSizeMultiplier={MAX_FONT_SCALE}>Besin Günlüğüm</Text>
-      <Text style={styles.sub} maxFontSizeMultiplier={MAX_FONT_SCALE}>Yediklerini takip et, hedefine ulaş.</Text>
-
+    <HeroHeader title="Besin Günlüğüm" onBack={() => navigation.goBack()} colors={[COLORS.gradientStart, COLORS.gradientMiddle]}>
       <DateStepper date={selectedDate} onChange={setSelectedDate} onOpenPicker={() => setShowDatePicker(true)} style={styles.stepper} />
 
       <View style={styles.calorieCard} accessibilityLabel={`Günlük kalori ${Math.round(summary.calories)} / ${DAILY_GOAL_KCAL}`}>
@@ -174,7 +148,7 @@ export default function FoodLogScreen({ navigation }) {
           <MacroPill label="Lif" value={summary.fiber} goal={DAILY_GOAL.fiber} color={MACRO_COLORS.fiber} unit="g" />
         </View>
       </View>
-    </LinearGradient>
+    </HeroHeader>
   );
 
   return (
@@ -236,14 +210,7 @@ export default function FoodLogScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: COLORS.background },
-  header: { paddingBottom: SIZES.lg, paddingHorizontal: SIZES.containerPadding },
-  headerTop: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm, marginBottom: SIZES.sm },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: whiteAlpha(0.18), justifyContent: 'center', alignItems: 'center' },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: whiteAlpha(0.18), borderRadius: SIZES.radiusFull, paddingVertical: 5, paddingHorizontal: 10 },
-  badgeText: { fontSize: SIZES.tiny, color: COLORS.white, fontWeight: '600' },
-  title: { fontSize: SIZES.h2, fontWeight: '800', color: COLORS.white, letterSpacing: -0.5 },
-  sub: { fontSize: SIZES.small, color: whiteAlpha(0.85), marginTop: 3, marginBottom: SIZES.md },
-  stepper: { marginBottom: SIZES.md },
+  stepper: { marginBottom: SIZES.sm + 4 },
   calorieCard: { backgroundColor: whiteAlpha(0.16), borderRadius: SIZES.radiusLarge, padding: SIZES.md, borderWidth: 1, borderColor: whiteAlpha(0.25) },
   calorieRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SIZES.sm },
   calorieLabel: { fontSize: SIZES.small, color: whiteAlpha(0.8), marginBottom: 2 },

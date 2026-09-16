@@ -9,6 +9,7 @@ export { default as EmptyState } from './EmptyState';
 export { default as ErrorState } from './ErrorState';
 export { default as LoadingState } from './LoadingState';
 export { default as ScreenContainer } from './ScreenContainer';
+export { default as HeroHeader } from './HeroHeader';
 export { default as BottomSheet } from './BottomSheet';
 export { default as OfflineBanner } from './OfflineBanner';
 export { default as ConfirmModal } from './ConfirmModal';
