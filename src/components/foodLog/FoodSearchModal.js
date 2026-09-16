@@ -9,12 +9,12 @@ import {
   ActivityIndicator,
   Modal,
   Platform,
-  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, SHADOWS } from '../../constants/theme';
-import { MEAL_TYPES } from '../../constants/foodLogFields';
+import { COLORS, SIZES, SHADOWS, blackAlpha, withAlpha } from '../../constants/theme';
+import { useResponsive } from '../../hooks/useResponsive';
+import { MACRO_COLORS, MEAL_TYPES } from '../../constants/foodLogFields';
 import { getSourceBadgeMeta } from '../../utils/foodLogUtils';
 import { useToast } from '../../contexts/ToastContext';
 import { useAppError } from '../../hooks/useAppError';
@@ -29,8 +29,6 @@ import { hasReachedDailyLimit, incrementDailyUsage } from '../../services/dailyU
 import { FREE_AI_SEARCH_DAILY_LIMIT, AI_SEARCH_USAGE_KEY } from '../../services/subscriptionService';
 import { MacroGridCell, CalcChip } from './MacroWidgets';
 
-const { width } = Dimensions.get('window');
-const MACRO_CELL_WIDTH = (width - SIZES.containerPadding * 2 - SIZES.md * 3) / 4;
 
 /**
  * Yiyecek/içecek arama, AI tam analiz ve günlüğe ekleme sheet'i.
@@ -38,6 +36,8 @@ const MACRO_CELL_WIDTH = (width - SIZES.containerPadding * 2 - SIZES.md * 3) / 4
  * verir ve `onSaved` ile kayıttan sonra günlüğü yeniden yükler.
  */
 export default function FoodSearchModal({ visible, initialMealType, dateStr, onClose, onSaved }) {
+  const { columnWidth } = useResponsive();
+  const macroCellWidth = columnWidth(4);
   const { showToast } = useToast();
   const { handleError } = useAppError();
   const { isSubscribed, openPaywall } = useSubscription();
@@ -294,10 +294,10 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
               activeOpacity={0.8}
             >
               {aiLoading ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={COLORS.white} />
               ) : (
                 <>
-                  <Ionicons name="sparkles" size={16} color="#fff" />
+                  <Ionicons name="sparkles" size={16} color={COLORS.white} />
                   <Text style={styles.aiBtnText}>
                     "{query || '...'}" için AI ile tam analiz yap
                   </Text>
@@ -368,21 +368,21 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
                 {/* Ana makro - 100g/100ml başına */}
                 <Text style={styles.per100Label}>{activeMealType === 'drink' ? '100 ml başına' : '100 gram başına'}</Text>
                 <View style={styles.macroGrid}>
-                  <MacroGridCell cellWidth={MACRO_CELL_WIDTH} label="Kalori" value={selectedFood.calories} unit="kcal" color={COLORS.primary} />
-                  <MacroGridCell cellWidth={MACRO_CELL_WIDTH} label="Protein" value={selectedFood.protein} unit="g" color="#16A34A" />
-                  <MacroGridCell cellWidth={MACRO_CELL_WIDTH} label="Karbonhidrat" value={selectedFood.carbs} unit="g" color="#D97706" />
-                  <MacroGridCell cellWidth={MACRO_CELL_WIDTH} label="Yağ" value={selectedFood.fat} unit="g" color="#DC2626" />
+                  <MacroGridCell cellWidth={macroCellWidth} label="Kalori" value={selectedFood.calories} unit="kcal" color={COLORS.primary} />
+                  <MacroGridCell cellWidth={macroCellWidth} label="Protein" value={selectedFood.protein} unit="g" color={MACRO_COLORS.protein} />
+                  <MacroGridCell cellWidth={macroCellWidth} label="Karbonhidrat" value={selectedFood.carbs} unit="g" color={MACRO_COLORS.carbs} />
+                  <MacroGridCell cellWidth={macroCellWidth} label="Yağ" value={selectedFood.fat} unit="g" color={MACRO_COLORS.fat} />
                   {selectedFood.fiber != null && (
-                    <MacroGridCell cellWidth={MACRO_CELL_WIDTH} label="Lif" value={selectedFood.fiber} unit="g" color="#0F766E" />
+                    <MacroGridCell cellWidth={macroCellWidth} label="Lif" value={selectedFood.fiber} unit="g" color={MACRO_COLORS.fiber} />
                   )}
                   {selectedFood.sugar != null && (
-                    <MacroGridCell cellWidth={MACRO_CELL_WIDTH} label="Şeker" value={selectedFood.sugar} unit="g" color="#7C3AED" />
+                    <MacroGridCell cellWidth={macroCellWidth} label="Şeker" value={selectedFood.sugar} unit="g" color={MACRO_COLORS.sugar} />
                   )}
                   {selectedFood.sodium != null && (
-                    <MacroGridCell cellWidth={MACRO_CELL_WIDTH} label="Sodyum" value={selectedFood.sodium} unit="mg" color="#9CA3AF" />
+                    <MacroGridCell cellWidth={macroCellWidth} label="Sodyum" value={selectedFood.sodium} unit="mg" color={MACRO_COLORS.sodium} />
                   )}
                   {selectedFood.glycemic_index != null && (
-                    <MacroGridCell cellWidth={MACRO_CELL_WIDTH} label="Glisemik İndeks" value={selectedFood.glycemic_index} unit="" color="#6366F1" />
+                    <MacroGridCell cellWidth={macroCellWidth} label="Glisemik İndeks" value={selectedFood.glycemic_index} unit="" color={MACRO_COLORS.gi} />
                   )}
                 </View>
 
@@ -501,7 +501,7 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
                         <Ionicons
                           name={m.icon}
                           size={16}
-                          color={activeMealType === m.key ? '#fff' : COLORS.textSecondary}
+                          color={activeMealType === m.key ? COLORS.white : COLORS.textSecondary}
                         />
                         <Text style={[
                           styles.mealTypeBtnText,
@@ -527,10 +527,10 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
                       style={styles.saveBtnGrad}
                     >
                       {saving ? (
-                        <ActivityIndicator color="#fff" />
+                        <ActivityIndicator color={COLORS.white} />
                       ) : (
                         <>
-                          <Ionicons name="add-circle" size={20} color="#fff" />
+                          <Ionicons name="add-circle" size={20} color={COLORS.white} />
                           <Text style={styles.saveBtnText}>Günlüğe Ekle</Text>
                         </>
                       )}
@@ -574,7 +574,7 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
 
 const styles = StyleSheet.create({
   // ── Modal ──────────────────────────────────────────────────────────────────
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: blackAlpha(0.5) },
   modalSheet: {
     backgroundColor: COLORS.surface,
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
@@ -608,7 +608,7 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radiusMedium, paddingVertical: 11,
     marginBottom: SIZES.md,
   },
-  aiBtnText: { fontSize: SIZES.bodySmall, fontWeight: '700', color: '#fff' },
+  aiBtnText: { fontSize: SIZES.bodySmall, fontWeight: '700', color: COLORS.white },
 
   // Arama yükleniyor
   searchingRow: {
@@ -653,8 +653,8 @@ const styles = StyleSheet.create({
   sourceBadge: {
     borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start',
   },
-  sourceBadgeAI: { backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: COLORS.primary + '40' },
-  sourceBadgeDB: { backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#93C5FD' },
+  sourceBadgeAI: { backgroundColor: COLORS.surfaceAlt, borderWidth: 1, borderColor: withAlpha(COLORS.primary, 0.25) },
+  sourceBadgeDB: { backgroundColor: COLORS.infoBg, borderWidth: 1, borderColor: withAlpha(COLORS.accents.sky, 0.45) },
   sourceBadgeText: { fontSize: SIZES.tiny, fontWeight: '700' },
   per100Label: {
     fontSize: SIZES.small, fontWeight: '600', color: COLORS.textSecondary,
@@ -670,11 +670,11 @@ const styles = StyleSheet.create({
   microTitle: { fontSize: SIZES.small, fontWeight: '700', color: COLORS.text, marginBottom: SIZES.xs },
   microGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SIZES.xs },
   microChip: {
-    backgroundColor: '#F0FDF4', borderRadius: SIZES.radiusSmall,
+    backgroundColor: COLORS.surfaceAlt, borderRadius: SIZES.radiusSmall,
     paddingHorizontal: SIZES.sm, paddingVertical: 5,
     borderWidth: 1, borderColor: COLORS.border,
   },
-  microChipMineral: { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' },
+  microChipMineral: { backgroundColor: COLORS.warningBg, borderColor: withAlpha(COLORS.accents.amber, 0.45) },
   microChipName: { fontSize: 10, color: COLORS.text, fontWeight: '600' },
   microChipVal: { fontSize: 10, color: COLORS.textSecondary },
 
@@ -706,7 +706,7 @@ const styles = StyleSheet.create({
   },
   quickGramBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   quickGramText: { fontSize: SIZES.small, fontWeight: '700', color: COLORS.textSecondary },
-  quickGramTextActive: { color: '#fff' },
+  quickGramTextActive: { color: COLORS.white },
   gramInputRow: { marginBottom: SIZES.sm },
   gramInputWrap: {
     flexDirection: 'row', alignItems: 'center',
@@ -736,7 +736,7 @@ const styles = StyleSheet.create({
   },
   mealTypeBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   mealTypeBtnText: { fontSize: SIZES.small, fontWeight: '600', color: COLORS.textSecondary },
-  mealTypeBtnTextActive: { color: '#fff' },
+  mealTypeBtnTextActive: { color: COLORS.white },
 
   // Kaydet
   saveBtn: { borderRadius: SIZES.radiusMedium, overflow: 'hidden', ...SHADOWS.medium },
@@ -744,7 +744,7 @@ const styles = StyleSheet.create({
     height: 54, flexDirection: 'row',
     alignItems: 'center', justifyContent: 'center', gap: SIZES.sm,
   },
-  saveBtnText: { fontSize: SIZES.h4, fontWeight: '700', color: '#fff' },
+  saveBtnText: { fontSize: SIZES.h4, fontWeight: '700', color: COLORS.white },
 
   // İptal
   cancelBtn: {

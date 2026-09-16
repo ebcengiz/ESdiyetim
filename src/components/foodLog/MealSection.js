@@ -1,78 +1,90 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, SHADOWS } from '../../constants/theme';
+import { COLORS, SIZES, SHADOWS, HIT_SLOP, MAX_FONT_SCALE } from '../../constants/theme';
+import { IconBadge, Skeleton } from '../ui';
 
+/** Öğün bölümü — başlık (toplam kcal + ekle), kayıt satırları (açık sil butonu), boş durum */
 export default function MealSection({ meal, logs, loading, onAdd, onDelete }) {
-  const total = logs.reduce((s, l) => s + (l.calories || 0), 0);
+  const total = logs.reduce((sum, l) => sum + (l.calories || 0), 0);
   return (
-    <View style={mealSec.wrap}>
-      <View style={mealSec.header}>
-        <View style={mealSec.titleRow}>
-          <View style={mealSec.iconBubble}>
-            <Ionicons name={meal.icon} size={18} color={COLORS.primary} />
-          </View>
-          <Text style={mealSec.title}>{meal.label}</Text>
+    <View style={styles.wrap}>
+      <View style={styles.header}>
+        <View style={styles.titleRow}>
+          <IconBadge name={meal.icon} size={32} iconSize={17} shape="rounded" />
+          <Text style={styles.title} maxFontSizeMultiplier={MAX_FONT_SCALE}>{meal.label}</Text>
         </View>
-        <View style={mealSec.headerRight}>
-          {total > 0 && <Text style={mealSec.totalKcal}>{Math.round(total)} kcal</Text>}
-          <TouchableOpacity style={mealSec.addBtn} onPress={onAdd} activeOpacity={0.75}>
-            <Ionicons name="add" size={16} color={COLORS.primary} />
-          </TouchableOpacity>
+        <View style={styles.headerRight}>
+          {total > 0 && <Text style={styles.total} maxFontSizeMultiplier={MAX_FONT_SCALE}>{Math.round(total)} kcal</Text>}
+          <Pressable
+            onPress={onAdd}
+            hitSlop={HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel={`${meal.label} için yiyecek ekle`}
+            style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
+          >
+            <Ionicons name="add" size={18} color={COLORS.primary} />
+          </Pressable>
         </View>
       </View>
 
       {loading && logs.length === 0 && (
-        <View style={mealSec.skeleton} />
+        <View style={styles.skeletonRow}>
+          <Skeleton width="55%" height={14} />
+          <Skeleton width={48} height={14} />
+        </View>
       )}
 
       {logs.map((log) => (
-        <TouchableOpacity
-          key={log.id}
-          style={mealSec.logItem}
-          onLongPress={() => onDelete(log.id)}
-          activeOpacity={0.75}
-          delayLongPress={400}
-        >
-          <View style={mealSec.logLeft}>
-            <Text style={mealSec.logName} numberOfLines={1}>{log.food_name}</Text>
-            <Text style={mealSec.logSub}>{log.amount_grams}{log.meal_type === 'drink' ? 'ml' : 'g'}</Text>
+        <View key={log.id} style={styles.logItem} accessibilityLabel={`${log.food_name}, ${log.amount_grams}${log.meal_type === 'drink' ? ' mililitre' : ' gram'}, ${Math.round(log.calories || 0)} kalori`}>
+          <View style={styles.logLeft}>
+            <Text style={styles.logName} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>{log.food_name}</Text>
+            <Text style={styles.logSub} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+              {log.amount_grams}{log.meal_type === 'drink' ? ' ml' : ' g'}
+            </Text>
           </View>
-          <View style={mealSec.logRight}>
-            <Text style={mealSec.logKcal}>{Math.round(log.calories || 0)}</Text>
-            <Text style={mealSec.logKcalUnit}>kcal</Text>
+          <View style={styles.logRight}>
+            <Text style={styles.logKcal} maxFontSizeMultiplier={MAX_FONT_SCALE}>{Math.round(log.calories || 0)}</Text>
+            <Text style={styles.logKcalUnit} maxFontSizeMultiplier={MAX_FONT_SCALE}>kcal</Text>
           </View>
-          <TouchableOpacity
-            style={mealSec.deleteBtn}
+          <Pressable
             onPress={() => onDelete(log.id)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel={`${log.food_name} kaydını sil`}
+            style={({ pressed }) => [styles.deleteBtn, pressed && styles.pressed]}
           >
-            <Ionicons name="trash-outline" size={14} color={COLORS.textLight} />
-          </TouchableOpacity>
-        </TouchableOpacity>
+            <Ionicons name="trash-outline" size={15} color={COLORS.textLight} />
+          </Pressable>
+        </View>
       ))}
 
       {logs.length === 0 && !loading && (
-        <TouchableOpacity style={mealSec.empty} onPress={onAdd} activeOpacity={0.7}>
+        <Pressable
+          style={({ pressed }) => [styles.empty, pressed && styles.pressed]}
+          onPress={onAdd}
+          accessibilityRole="button"
+          accessibilityLabel={`${meal.label} için yiyecek ekle`}
+        >
           <Ionicons name="add-circle-outline" size={16} color={COLORS.textLight} />
-          <Text style={mealSec.emptyText}>Yiyecek ekle</Text>
-        </TouchableOpacity>
+          <Text style={styles.emptyText} maxFontSizeMultiplier={MAX_FONT_SCALE}>Yiyecek ekle</Text>
+        </Pressable>
       )}
     </View>
   );
 }
 
-const mealSec = StyleSheet.create({
+const styles = StyleSheet.create({
   wrap: {
     backgroundColor: COLORS.surface,
     borderRadius: SIZES.radiusLarge,
-    marginHorizontal: SIZES.containerPadding,
     marginBottom: SIZES.md,
     borderWidth: 1,
     borderColor: COLORS.borderLight,
-    ...SHADOWS.small,
     overflow: 'hidden',
+    ...SHADOWS.small,
   },
+  pressed: { opacity: 0.6 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -83,42 +95,19 @@ const mealSec = StyleSheet.create({
     borderBottomColor: COLORS.divider,
   },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm },
-  iconBubble: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: COLORS.surfaceAlt,
-    justifyContent: 'center', alignItems: 'center',
-  },
   title: { fontSize: SIZES.body, fontWeight: '700', color: COLORS.text },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm },
-  totalKcal: { fontSize: SIZES.small, fontWeight: '700', color: COLORS.primary },
-  addBtn: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: COLORS.surfaceAlt,
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1, borderColor: COLORS.primary + '60',
-  },
-  skeleton: {
-    height: 42, backgroundColor: COLORS.shimmer,
-    borderRadius: 8, margin: SIZES.md,
-  },
-  logItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SIZES.md,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
-  },
+  total: { fontSize: SIZES.small, fontWeight: '700', color: COLORS.primary },
+  addBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.highlight, justifyContent: 'center', alignItems: 'center' },
+  skeletonRow: { flexDirection: 'row', justifyContent: 'space-between', padding: SIZES.md },
+  logItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SIZES.md, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.divider, minHeight: 52 },
   logLeft: { flex: 1 },
   logName: { fontSize: SIZES.bodySmall, fontWeight: '600', color: COLORS.text },
   logSub: { fontSize: SIZES.small, color: COLORS.textSecondary, marginTop: 1 },
   logRight: { flexDirection: 'row', alignItems: 'baseline', gap: 2, marginRight: SIZES.sm },
   logKcal: { fontSize: SIZES.h4, fontWeight: '700', color: COLORS.text },
   logKcalUnit: { fontSize: SIZES.tiny, color: COLORS.textSecondary },
-  deleteBtn: { padding: 4 },
-  empty: {
-    flexDirection: 'row', alignItems: 'center', gap: SIZES.sm,
-    padding: SIZES.md, opacity: 0.6,
-  },
+  deleteBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surfaceAlt },
+  empty: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm, padding: SIZES.md, minHeight: SIZES.minTouch },
   emptyText: { fontSize: SIZES.small, color: COLORS.textLight },
 });
