@@ -290,6 +290,7 @@ function MainTabs() {
         options={{
           title: TAB_ITEMS.Tips.title,
           tabBarLabel: TAB_ITEMS.Tips.label,
+          headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <ModernTabIcon
               icon={TAB_ITEMS.Tips.icon}
