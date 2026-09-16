@@ -1,11 +1,20 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES } from '../../constants/theme';
+import { COLORS, SIZES, HIT_SLOP, MAX_FONT_SCALE, whiteAlpha } from '../../constants/theme';
+import Skeleton from '../ui/Skeleton';
+
+/** Kullanıcı baş harfleri (avatar) */
+function initialsOf(user, isGuest) {
+  if (!user && isGuest) return 'M';
+  const name = user?.user_metadata?.full_name?.trim();
+  if (name) return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+  return user?.email?.[0]?.toUpperCase() || '?';
+}
 
 /**
- * Ana Sayfa üst gradyan bölümü — karşılama, avatar ve günlük özet kartı.
+ * Ana Sayfa üst gradyan bölümü — karşılama, avatar ve günlük özet (3 metrik).
  * Giriş animasyonunu kendi içinde yönetir (mount'ta bir kere fade+slide).
  */
 export default function HomeHeroHeader({
@@ -17,108 +26,83 @@ export default function HomeHeroHeader({
   navigation,
   todayDiet,
   loadingState,
-  latestWeight,
+  metrics, // [{ label, value }] — 3 adet
 }) {
-  const heroEnterAnim = useRef(new Animated.Value(0)).current;
+  const enter = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(heroEnterAnim, {
-      toValue: 1,
-      duration: 420,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [heroEnterAnim]);
+    Animated.timing(enter, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [enter]);
 
-  const heroAnimatedStyle = {
-    opacity: heroEnterAnim,
-    transform: [
-      {
-        translateY: heroEnterAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [14, 0],
-        }),
-      },
-    ],
+  const enterStyle = {
+    opacity: enter,
+    transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
   };
 
   return (
-    <LinearGradient
-      colors={[COLORS.primary, COLORS.primaryLight]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.headerGradient}
-    >
-      <View style={[styles.headerInner, { paddingTop: headerTopPad }]}>
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.headerOverline}>Günlük Sağlık Asistanın</Text>
-            <Text style={styles.appName}>Merhaba, {displayName}</Text>
-            <Text style={styles.userName}>{todayDateLabel}</Text>
+    <LinearGradient colors={[COLORS.primary, COLORS.primaryLight]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+      <View style={[styles.inner, { paddingTop: headerTopPad }]}>
+        <View style={styles.topRow}>
+          <View style={styles.greeting}>
+            <Text style={styles.overline} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+              Günlük Sağlık Asistanın
+            </Text>
+            <Text style={styles.name} numberOfLines={1} accessibilityRole="header" maxFontSizeMultiplier={MAX_FONT_SCALE}>
+              Merhaba, {displayName}
+            </Text>
+            <Text style={styles.date} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+              {todayDateLabel}
+            </Text>
           </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.avatarButton}
-              onPress={() => navigation.navigate('Profile')}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.avatarText}>
-                {!user && isGuest
-                  ? 'M'
-                  : user?.user_metadata?.full_name
-                    ? user.user_metadata.full_name
-                        .trim()
-                        .split(' ')
-                        .map(w => w[0])
-                        .slice(0, 2)
-                        .join('')
-                        .toUpperCase()
-                    : user?.email?.[0]?.toUpperCase() || '?'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <Pressable
+            onPress={() => navigation.navigate('Profile')}
+            hitSlop={HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel="Profil"
+            style={({ pressed }) => [styles.avatar, pressed && styles.avatarPressed]}
+          >
+            <Text style={styles.avatarText}>{initialsOf(user, isGuest)}</Text>
+          </Pressable>
         </View>
-        <Animated.View style={[styles.heroSummaryCard, heroAnimatedStyle]}>
-          <View style={styles.heroSummaryTop}>
-            <View style={styles.heroStatusBadge}>
-              <Ionicons
-                name={todayDiet ? 'checkmark-circle' : 'time-outline'}
-                size={16}
-                color={COLORS.textOnPrimary}
-              />
-              <Text style={styles.heroStatusText}>
-                {todayDiet ? 'Bugünkü plan hazır' : 'Plan bekleniyor'}
+
+        <Animated.View style={[styles.summary, enterStyle]}>
+          <View style={styles.summaryTop}>
+            <View style={styles.statusChip}>
+              <Ionicons name={todayDiet ? 'checkmark-circle' : 'time-outline'} size={16} color={COLORS.textOnPrimary} />
+              <Text style={styles.statusText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+                {todayDiet ? 'Bugünkü plan hazır' : 'Bugün için plan yok'}
               </Text>
             </View>
-            <TouchableOpacity
+            <Pressable
               onPress={() => navigation.navigate('Goals')}
-              style={styles.heroMiniAction}
-              activeOpacity={0.75}
+              hitSlop={HIT_SLOP}
+              accessibilityRole="button"
+              accessibilityLabel="Hedefler"
+              style={({ pressed }) => [styles.miniAction, pressed && { opacity: 0.6 }]}
             >
-              <Text style={styles.heroMiniActionText}>Hedefler</Text>
+              <Text style={styles.miniActionText}>Hedefler</Text>
               <Ionicons name="chevron-forward" size={14} color={COLORS.textOnPrimary} />
-            </TouchableOpacity>
+            </Pressable>
           </View>
-          <View style={styles.heroMetricsRow}>
-            <View style={styles.heroMetricCard}>
-              <Text style={styles.heroMetricLabel}>Son kilo</Text>
-              {loadingState ? (
-                <View style={styles.skeletonHeroLine} />
-              ) : (
-                <Text style={styles.heroMetricValue}>
-                  {latestWeight ? `${latestWeight.weight} kg` : '--'}
-                </Text>
-              )}
-            </View>
-            <View style={styles.heroMetricDivider} />
-            <View style={styles.heroMetricCard}>
-              <Text style={styles.heroMetricLabel}>Kalori analizi</Text>
-              {loadingState ? (
-                <View style={[styles.skeletonHeroLine, { width: '68%' }]} />
-              ) : (
-                <Text style={styles.heroMetricValue}>{user ? 'Aktif' : 'Giriş gerekli'}</Text>
-              )}
-            </View>
+
+          <View style={styles.metricsRow}>
+            {metrics.map((m, i) => (
+              <React.Fragment key={m.label}>
+                {i > 0 && <View style={styles.metricDivider} />}
+                <View style={styles.metric}>
+                  <Text style={styles.metricLabel} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+                    {m.label}
+                  </Text>
+                  {loadingState ? (
+                    <Skeleton width="60%" height={14} style={styles.metricSkeleton} />
+                  ) : (
+                    <Text style={styles.metricValue} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+                      {m.value}
+                    </Text>
+                  )}
+                </View>
+              </React.Fragment>
+            ))}
           </View>
         </Animated.View>
       </View>
@@ -127,89 +111,50 @@ export default function HomeHeroHeader({
 }
 
 const styles = StyleSheet.create({
-  headerGradient: { width: '100%' },
-  headerInner: {
-    paddingBottom: 24,
-    paddingHorizontal: SIZES.containerPadding,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  appName: {
-    fontSize: SIZES.h2,
-    fontWeight: '800',
-    color: COLORS.textOnPrimary,
-    letterSpacing: -0.5,
-    marginTop: 2,
-  },
-  headerOverline: {
-    fontSize: SIZES.tiny,
-    color: COLORS.textOnPrimary,
-    letterSpacing: 0.25,
-    opacity: 0.9,
-  },
-  userName: {
-    fontSize: SIZES.tiny,
-    color: COLORS.textOnPrimary,
-    opacity: 0.92,
-    marginTop: 6,
-  },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm },
-  avatarButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  inner: { paddingBottom: SIZES.lg, paddingHorizontal: SIZES.containerPadding },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: SIZES.md },
+  greeting: { flex: 1 },
+  overline: { fontSize: SIZES.tiny, color: whiteAlpha(0.9), letterSpacing: 0.25 },
+  name: { fontSize: SIZES.h2, fontWeight: '800', color: COLORS.textOnPrimary, letterSpacing: -0.5, marginTop: 2 },
+  date: { fontSize: SIZES.tiny, color: whiteAlpha(0.92), marginTop: 6 },
+  avatar: {
+    width: SIZES.minTouch,
+    height: SIZES.minTouch,
+    borderRadius: SIZES.minTouch / 2,
+    backgroundColor: whiteAlpha(0.25),
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
+    borderColor: whiteAlpha(0.6),
   },
-  avatarText: { fontSize: 16, fontWeight: '700', color: COLORS.textOnPrimary },
-  heroSummaryCard: {
+  avatarPressed: { backgroundColor: whiteAlpha(0.4) },
+  avatarText: { fontSize: SIZES.body, fontWeight: '700', color: COLORS.textOnPrimary },
+  summary: {
     marginTop: SIZES.md,
     borderRadius: SIZES.radiusLarge,
     padding: SIZES.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    backgroundColor: whiteAlpha(0.16),
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: whiteAlpha(0.25),
   },
-  heroSummaryTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SIZES.md,
-    gap: SIZES.sm,
-  },
-  heroStatusBadge: {
+  summaryTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SIZES.md, gap: SIZES.sm },
+  statusChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    borderRadius: 999,
+    backgroundColor: whiteAlpha(0.18),
+    borderRadius: SIZES.radiusFull,
     paddingVertical: 6,
     paddingHorizontal: 10,
+    flexShrink: 1,
   },
-  heroStatusText: { color: COLORS.textOnPrimary, fontSize: SIZES.tiny, fontWeight: '600' },
-  heroMiniAction: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  heroMiniActionText: { color: COLORS.textOnPrimary, fontSize: SIZES.tiny, fontWeight: '700' },
-  heroMetricsRow: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm },
-  heroMetricCard: { flex: 1 },
-  heroMetricLabel: {
-    fontSize: SIZES.tiny,
-    color: COLORS.textOnPrimary,
-    opacity: 0.8,
-    marginBottom: 4,
-  },
-  heroMetricValue: { fontSize: SIZES.h5, fontWeight: '700', color: COLORS.textOnPrimary },
-  skeletonHeroLine: {
-    height: 14,
-    width: '56%',
-    borderRadius: 999,
-    backgroundColor: 'rgba(255, 255, 255, 0.32)',
-    marginTop: 2,
-  },
-  heroMetricDivider: { width: 1, height: 38, backgroundColor: 'rgba(255, 255, 255, 0.3)' },
+  statusText: { color: COLORS.textOnPrimary, fontSize: SIZES.tiny, fontWeight: '600' },
+  miniAction: { flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 32 },
+  miniActionText: { color: COLORS.textOnPrimary, fontSize: SIZES.tiny, fontWeight: '700' },
+  metricsRow: { flexDirection: 'row', alignItems: 'center', gap: SIZES.sm },
+  metric: { flex: 1 },
+  metricLabel: { fontSize: SIZES.tiny, color: whiteAlpha(0.8), marginBottom: 4 },
+  metricValue: { fontSize: SIZES.h5, fontWeight: '700', color: COLORS.textOnPrimary },
+  metricSkeleton: { backgroundColor: whiteAlpha(0.32), marginTop: 2 },
+  metricDivider: { width: 1, height: 38, backgroundColor: whiteAlpha(0.3) },
 });

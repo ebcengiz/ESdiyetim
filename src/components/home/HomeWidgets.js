@@ -1,263 +1,95 @@
-import React, { useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, SHADOWS } from '../../constants/theme';
+import { COLORS, SIZES, SHADOWS, MAX_FONT_SCALE, withAlpha } from '../../constants/theme';
+import IconBadge from '../ui/IconBadge';
 
 // Küçük, tekrar kullanılan sunum bileşenleri — HomeScreen ve alt bölümleri
-// (HomeHeroHeader, HomeStatsRow, HomeSections) arasında paylaşılır.
+// (HomeStatsRow, HomeSections) arasında paylaşılır.
 
 export const MealItem = ({ icon, label, text }) => (
   <View style={styles.mealItem}>
-    <View style={styles.mealIconWrapper}>
-      <Ionicons name={icon} size={20} color={COLORS.primary} />
-    </View>
+    <IconBadge name={icon} size={40} />
     <View style={styles.mealContent}>
-      <Text style={styles.mealLabel}>{label}</Text>
-      <Text style={styles.mealText} numberOfLines={2}>{text}</Text>
+      <Text style={styles.mealLabel} maxFontSizeMultiplier={MAX_FONT_SCALE}>{label}</Text>
+      <Text style={styles.mealText} numberOfLines={2} maxFontSizeMultiplier={MAX_FONT_SCALE}>{text}</Text>
     </View>
   </View>
 );
 
-export const KpiPill = ({ icon, label, value, compact, onPress }) => {
-  const pressAnim = useRef(new Animated.Value(0)).current;
-
-  const animateTo = (toValue) => {
-    Animated.timing(pressAnim, {
-      toValue,
-      duration: 140,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const animatedStyle = {
-    transform: [
-      {
-        scale: pressAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [1, 0.97],
-        }),
-      },
-    ],
-  };
-
-  return (
-    <Animated.View style={animatedStyle}>
-      <TouchableOpacity
-        style={[styles.kpiPill, compact && styles.kpiPillCompact]}
-        activeOpacity={0.9}
-        onPress={onPress}
-        onPressIn={() => animateTo(1)}
-        onPressOut={() => animateTo(0)}
-      >
-        <Ionicons name={icon} size={16} color={COLORS.primary} />
-        <Text style={styles.kpiLabel}>{label}</Text>
-        <Text style={styles.kpiValue} numberOfLines={1}>{value}</Text>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-};
-
-export const SectionHeader = ({ icon, title, subtitle, actionText, onPress }) => (
-  <View style={styles.sectionHeader}>
-    <View style={styles.sectionTitleWrap}>
-      <View style={styles.sectionTitleRow}>
-        <Ionicons name={icon} size={22} color={COLORS.text} />
-        <Text style={styles.sectionTitle}>{title}</Text>
-      </View>
-      {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
-    </View>
-    {actionText && onPress ? (
-      <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
-        <View style={styles.seeAllButton}>
-          <Text style={styles.seeAllText}>{actionText}</Text>
-          <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
-        </View>
-      </TouchableOpacity>
-    ) : null}
-  </View>
-);
-
+/** 2 sütunlu kısayol kartı (genişlik parent'tan, bkz. QuickActionsSection) */
 export const QuickActionButton = ({ icon, label, color, onPress, style }) => (
-  <TouchableOpacity
-    style={[styles.quickActionBtn, style]}
+  <Pressable
+    style={({ pressed }) => [styles.quickAction, pressed && styles.pressed, style]}
     onPress={onPress}
-    activeOpacity={0.7}
+    accessibilityRole="button"
+    accessibilityLabel={label}
   >
-    <View style={styles.quickActionGradient}>
-      <View style={[styles.quickActionIconBubble, { backgroundColor: `${color}1F` }]}>
-        <Ionicons name={icon} size={28} color={color} />
-      </View>
-      <Text style={styles.quickActionLabel}>{label}</Text>
+    <IconBadge name={icon} color={color} size={44} />
+    <View style={styles.quickActionBottom}>
+      <Text style={styles.quickActionLabel} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>{label}</Text>
       <Ionicons name="arrow-forward" size={16} color={COLORS.textLight} />
     </View>
-  </TouchableOpacity>
+  </Pressable>
 );
 
 /** "Fotoğraftan kalori" / "Besin Takibi" gibi tek satırlık CTA kartı — ikisi de aynı desen. */
-export const HomeActionCta = ({ icon, iconBg, iconColor, title, subtitle, user, onPress }) => (
-  <TouchableOpacity
-    style={[styles.calorieCta, !user && styles.calorieCtaGuest]}
+export const HomeActionCta = ({ icon, color = COLORS.primary, title, subtitle, user, onPress }) => (
+  <Pressable
+    style={({ pressed }) => [styles.cta, !user && styles.ctaGuest, pressed && styles.pressed]}
     onPress={onPress}
-    activeOpacity={0.82}
+    accessibilityRole="button"
+    accessibilityLabel={title}
+    accessibilityHint={subtitle}
   >
-    <View style={[styles.calorieCtaIcon, iconBg ? { backgroundColor: iconBg } : null]}>
-      <Ionicons name={icon} size={22} color={iconColor || COLORS.primary} />
+    <IconBadge name={icon} color={color} size={48} />
+    <View style={styles.ctaText}>
+      <Text style={styles.ctaTitle} maxFontSizeMultiplier={MAX_FONT_SCALE}>{title}</Text>
+      <Text style={styles.ctaSub} numberOfLines={2} maxFontSizeMultiplier={MAX_FONT_SCALE}>{subtitle}</Text>
     </View>
-    <View style={styles.calorieCtaText}>
-      <Text style={styles.calorieCtaTitle}>{title}</Text>
-      <Text style={styles.calorieCtaSub}>{subtitle}</Text>
-    </View>
-    <Ionicons
-      name={user ? 'chevron-forward' : 'lock-closed-outline'}
-      size={20}
-      color={COLORS.textLight}
-    />
-  </TouchableOpacity>
+    <Ionicons name={user ? 'chevron-forward' : 'lock-closed-outline'} size={20} color={COLORS.textLight} />
+  </Pressable>
 );
 
 const styles = StyleSheet.create({
+  pressed: { transform: [{ scale: 0.985 }], opacity: 0.96 },
+
   // MealItem
-  mealItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SIZES.sm,
-  },
-  mealIconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.highlight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SIZES.md,
-  },
+  mealItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: SIZES.sm, gap: SIZES.md },
   mealContent: { flex: 1 },
-  mealLabel: {
-    fontSize: SIZES.small,
-    fontWeight: '600',
-    color: COLORS.primary,
-    marginBottom: 2,
-  },
-  mealText: {
-    fontSize: SIZES.bodySmall,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
-  },
+  mealLabel: { fontSize: SIZES.small, fontWeight: '600', color: COLORS.primary, marginBottom: 2 },
+  mealText: { fontSize: SIZES.bodySmall, color: COLORS.textSecondary, lineHeight: 20 },
 
-  // KpiPill
-  kpiPill: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: COLORS.surface,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    ...SHADOWS.small,
-  },
-  kpiPillCompact: { paddingRight: 10 },
-  kpiLabel: { fontSize: SIZES.tiny, color: COLORS.textSecondary },
-  kpiValue: {
-    flex: 1,
-    fontSize: SIZES.small,
-    fontWeight: '700',
-    color: COLORS.text,
-    textAlign: 'right',
-  },
-
-  // SectionHeader
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: SIZES.md,
-    gap: SIZES.sm,
-  },
-  sectionTitleWrap: { flex: 1 },
-  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  sectionTitle: {
-    fontSize: SIZES.h4,
-    fontWeight: '700',
-    letterSpacing: -0.25,
-    color: COLORS.text,
-  },
-  sectionSubtitle: {
-    marginTop: 4,
-    fontSize: SIZES.tiny,
-    color: COLORS.textSecondary,
-  },
-  seeAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    backgroundColor: COLORS.surface,
-  },
-  seeAllText: {
-    fontSize: SIZES.small,
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-
-  // QuickActionButton (genişlik parent'tan hesaplanır, bkz. QuickActionsSection)
-  quickActionBtn: {
+  // QuickActionButton
+  quickAction: {
     height: 112,
     borderRadius: SIZES.radiusLarge,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.surface,
+    padding: SIZES.md,
+    justifyContent: 'space-between',
     ...SHADOWS.small,
   },
-  quickActionGradient: {
-    flex: 1,
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: SIZES.md,
-  },
-  quickActionIconBubble: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickActionLabel: {
-    fontSize: SIZES.bodySmall,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
+  quickActionBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SIZES.xs },
+  quickActionLabel: { flex: 1, fontSize: SIZES.bodySmall, fontWeight: '700', color: COLORS.text },
 
   // HomeActionCta
-  calorieCta: {
+  cta: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.surface,
     borderRadius: SIZES.radiusLarge,
     padding: SIZES.md,
-    marginBottom: SIZES.sectionSpacing,
+    marginBottom: SIZES.md,
     gap: SIZES.md,
     borderWidth: 1,
     borderColor: COLORS.border,
+    minHeight: 80,
     ...SHADOWS.small,
   },
-  calorieCtaGuest: { opacity: 0.92, borderStyle: 'dashed' },
-  calorieCtaIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.highlight,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  calorieCtaText: { flex: 1 },
-  calorieCtaTitle: { fontSize: SIZES.body, fontWeight: '700', color: COLORS.text },
-  calorieCtaSub: { fontSize: SIZES.small, color: COLORS.textSecondary, marginTop: 2 },
+  ctaGuest: { borderStyle: 'dashed', backgroundColor: withAlpha(COLORS.surface, 0.9) },
+  ctaText: { flex: 1 },
+  ctaTitle: { fontSize: SIZES.body, fontWeight: '700', color: COLORS.text },
+  ctaSub: { fontSize: SIZES.small, color: COLORS.textSecondary, marginTop: 2, lineHeight: 18 },
 });

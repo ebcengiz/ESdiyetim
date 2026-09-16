@@ -1,27 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
-  Dimensions,
-  Platform,
-} from 'react-native';
-import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { View, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SIZES } from '../constants/theme';
 import { weightService, dietPlanService, tipsService, homeSummaryService, foodLogService } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useAppError } from '../hooks/useAppError';
+import { useResponsive } from '../hooks/useResponsive';
+import { ScreenContainer, SectionHeader, LoadingState } from '../components/ui';
 import GuestGateBanner from '../components/GuestGateBanner';
 import HomeHeroHeader from '../components/home/HomeHeroHeader';
 import { HomeStatsRow, FoodSummaryCard } from '../components/home/HomeStatsRow';
 import { TodayDietSection, DailyTipSection, QuickActionsSection } from '../components/home/HomeSections';
-import { KpiPill, HomeActionCta } from '../components/home/HomeWidgets';
-
-const { width } = Dimensions.get('window');
-const QUICK_ACTION_WIDTH = (width - SIZES.containerPadding * 2 - SIZES.md) / 2;
+import { HomeActionCta } from '../components/home/HomeWidgets';
 
 const toLocalDateString = (date = new Date()) => {
   const year = date.getFullYear();
@@ -31,9 +22,10 @@ const toLocalDateString = (date = new Date()) => {
 };
 
 export default function HomeScreen({ navigation }) {
-  const insets = useSafeAreaInsets();
+  const { topPad } = useResponsive();
   const { user, isGuest } = useAuth();
   const { showToast } = useToast();
+  const { handleError } = useAppError();
   const [latestWeight, setLatestWeight] = useState(null);
   const [todayDiet, setTodayDiet] = useState(null);
   const [randomTip, setRandomTip] = useState(null);
@@ -46,7 +38,6 @@ export default function HomeScreen({ navigation }) {
   const [todayFoodSummary, setTodayFoodSummary] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingState, setLoadingState] = useState(true);
-  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   // Son yükleme zamanı — focus'ta 30sn içindeyse yeniden fetch etme
   const lastLoadRef = React.useRef(0);
 
@@ -91,11 +82,9 @@ export default function HomeScreen({ navigation }) {
           latest_weight: summary.value.latest_weight ?? null,
         });
       }
-
-      setLastUpdatedAt(new Date());
     } catch (error) {
-      console.error('Veri yükleme hatası:', error);
-      if (user) showToast('Veriler yüklenirken bir hata oluştu.', 'error');
+      // Misafirde sessiz (yalnızca ipucu yükleniyor); kullanıcıda toast + Tekrar dene
+      handleError(error, { context: 'home.load', silent: !user, onRetry: () => loadData(true) });
     } finally {
       setLoadingState(false);
     }
@@ -129,7 +118,6 @@ export default function HomeScreen({ navigation }) {
     navigation.navigate('FoodLog');
   };
 
-  const headerTopPad = Math.max(insets.top, 12) + 16;
   const todayDateLabel = new Date().toLocaleDateString('tr-TR', {
     weekday: 'long',
     day: 'numeric',
@@ -147,157 +135,94 @@ export default function HomeScreen({ navigation }) {
     : dailySummary.completed_goals_count > 0
       ? `${dailySummary.completed_goals_count} tamam`
       : 'Hedef ekle';
-  const lastUpdatedLabel = lastUpdatedAt
-    ? `Son güncelleme: ${lastUpdatedAt.toLocaleTimeString('tr-TR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })}`
-    : 'Son güncelleme: -';
+
+  // Hero özet — tek yerde 3 metrik (eski KPI hap şeridi + hero metrikleri birleştirildi)
+  const heroMetrics = [
+    { label: 'Son kilo', value: latestWeight ? `${latestWeight.weight} kg` : '--' },
+    { label: 'Öğün', value: user ? `${mealsCountDisplay}/3` : '--' },
+    { label: 'Hedef', value: user ? goalsDisplayText : 'Giriş gerekli' },
+  ];
+
+  const hero = (
+    <HomeHeroHeader
+      headerTopPad={topPad}
+      displayName={displayName}
+      todayDateLabel={todayDateLabel}
+      user={user}
+      isGuest={isGuest}
+      navigation={navigation}
+      todayDiet={todayDiet}
+      loadingState={loadingState}
+      metrics={heroMetrics}
+    />
+  );
 
   return (
-    <SafeAreaView style={styles.root} edges={['left', 'right']}>
-      {/*
-        Başlık ScrollView dışında: çekince / yenileyince üstte açılan alan yeşil kalır
-        (ScrollView arka planı + durum çubuğu boşluğu birleşmez).
-      */}
-      <HomeHeroHeader
-        headerTopPad={headerTopPad}
-        displayName={displayName}
-        todayDateLabel={todayDateLabel}
-        user={user}
-        isGuest={isGuest}
-        navigation={navigation}
-        todayDiet={todayDiet}
-        loadingState={loadingState}
-        latestWeight={latestWeight}
-      />
+    // Başlık ScrollView dışında (header prop): çekince/yenileyince üstte açılan alan yeşil kalır.
+    <ScreenContainer
+      tab
+      edges={[]}
+      header={hero}
+      backgroundColor={COLORS.primary}
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      scrollProps={{ style: styles.scroll }}
+      contentContainerStyle={styles.content}
+    >
+      {!user && isGuest ? (
+        <GuestGateBanner
+          navigation={navigation}
+          message="Diyet planı, kilo kaydı, fotoğraftan kalori ve kişisel hedefler hesabınıza bağlıdır. Sağlık ipuçları hesap olmadan kullanılabilir."
+        />
+      ) : null}
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[COLORS.primary]}
-            tintColor={COLORS.primary}
-          />
-        }
-      >
-        <View style={styles.content}>
-          {!user && isGuest ? (
-            <GuestGateBanner
-              navigation={navigation}
-              message="Diyet planı, kilo kaydı, fotoğraftan kalori ve kişisel hedefler hesabınıza bağlıdır. Sağlık ipuçları hesap olmadan kullanılabilir."
-            />
-          ) : null}
-
-          <View style={styles.kpiStrip}>
-            <KpiPill
-              icon="calendar-clear-outline"
-              label="Öğün"
-              value={loadingState ? '...' : `${mealsCountDisplay}/3`}
-              onPress={() => navigation.navigate('DietPlan')}
-            />
-            <KpiPill
-              icon="water-outline"
-              label="Hedef"
-              value={loadingState ? '...' : goalsDisplayText}
-              compact
-              onPress={() => navigation.navigate('Goals')}
-            />
-          </View>
-          <Text style={styles.lastUpdatedText}>{lastUpdatedLabel}</Text>
-
-          <HomeStatsRow
+      <View style={styles.section}>
+        <SectionHeader title="Bugün" subtitle="Kilo, plan ve beslenme özetin" />
+        <HomeStatsRow
+          loadingState={loadingState}
+          latestWeight={latestWeight}
+          todayDiet={todayDiet}
+          navigation={navigation}
+        />
+        {user && (
+          <FoodSummaryCard
             loadingState={loadingState}
-            latestWeight={latestWeight}
-            todayDiet={todayDiet}
-            navigation={navigation}
-          />
-
-          {user && (
-            <FoodSummaryCard
-              loadingState={loadingState}
-              todayFoodSummary={todayFoodSummary}
-              onPress={openFoodLogOrPrompt}
-            />
-          )}
-
-          <HomeActionCta
-            icon="camera"
-            title="Fotoğraftan kalori"
-            subtitle={user ? 'Yemeğin fotoğrafıyla tahmini kcal alın' : 'Kullanmak için giriş yapın — dokunun'}
-            user={user}
-            onPress={openMealCalorieOrPrompt}
-          />
-
-          <HomeActionCta
-            icon="nutrition-outline"
-            iconBg="#E8724A1A"
-            iconColor="#E8724A"
-            title="Besin Takibi"
-            subtitle={user ? 'Günlük kalori ve makro takibini başlat' : 'Kullanmak için giriş yapın — dokunun'}
-            user={user}
+            todayFoodSummary={todayFoodSummary}
             onPress={openFoodLogOrPrompt}
           />
+        )}
+      </View>
 
-          <TodayDietSection todayDiet={todayDiet} navigation={navigation} />
-          <DailyTipSection randomTip={randomTip} loadingState={loadingState} navigation={navigation} />
+      <View style={styles.section}>
+        <SectionHeader title="Araçlar" subtitle="Yapay zeka destekli yardımcılar" />
+        <HomeActionCta
+          icon="camera"
+          title="Fotoğraftan kalori"
+          subtitle={user ? 'Yemeğin fotoğrafıyla tahmini kcal alın' : 'Kullanmak için giriş yapın'}
+          user={user}
+          onPress={openMealCalorieOrPrompt}
+        />
+        <HomeActionCta
+          icon="nutrition-outline"
+          color={COLORS.accents.coral}
+          title="Besin Takibi"
+          subtitle={user ? 'Günlük kalori ve makro takibini başlat' : 'Kullanmak için giriş yapın'}
+          user={user}
+          onPress={openFoodLogOrPrompt}
+        />
+      </View>
 
-          {loadingState ? (
-            <View style={[styles.section, { marginTop: -4 }]}>
-              <View style={styles.skeletonBlockLg} />
-              <View style={styles.skeletonBlockMd} />
-            </View>
-          ) : null}
+      <TodayDietSection todayDiet={todayDiet} navigation={navigation} />
+      <DailyTipSection randomTip={randomTip} loadingState={loadingState} navigation={navigation} />
+      {loadingState ? <LoadingState variant="card" style={styles.section} /> : null}
 
-          <QuickActionsSection
-            navigation={navigation}
-            onOpenFoodLog={openFoodLogOrPrompt}
-            itemWidth={QUICK_ACTION_WIDTH}
-          />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+      <QuickActionsSection navigation={navigation} />
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.primary },
   scroll: { flex: 1, backgroundColor: COLORS.background },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: Platform.OS === 'ios' ? 120 : 110,
-  },
-  content: {
-    paddingHorizontal: SIZES.containerPadding,
-    paddingTop: SIZES.lg,
-  },
-  kpiStrip: {
-    flexDirection: 'row',
-    gap: SIZES.sm,
-    marginBottom: SIZES.md,
-  },
-  lastUpdatedText: {
-    marginTop: -2,
-    marginBottom: SIZES.md,
-    fontSize: SIZES.tiny,
-    color: COLORS.textLight,
-  },
+  content: { paddingTop: SIZES.lg },
   section: { marginBottom: SIZES.sectionSpacing },
-  skeletonBlockLg: {
-    width: '100%',
-    height: 84,
-    borderRadius: SIZES.radiusLarge,
-    backgroundColor: COLORS.shimmer,
-    marginBottom: SIZES.sm,
-  },
-  skeletonBlockMd: {
-    width: '70%',
-    height: 20,
-    borderRadius: 999,
-    backgroundColor: COLORS.shimmer,
-  },
 });
