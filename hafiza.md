@@ -37,7 +37,7 @@
 
 **Ekran görüntüleri:** `~/Desktop/ESdiyet-1.3.3-store/` — 5 adet 1320×2868 (6.9"): Ana Sayfa, Diyet Planı, Kilo, Hedefler, Tavsiyeler + `ASC_NOTLAR.md` (What's New metni, review notu). Debug build + dev toast kapatılarak çekildi (Release simülatör build'i "No space left on device" ile düşmüştü; DerivedData'dan 15 GB temizlendi).
 
-**Kalan (Chrome eklentisi bağlanınca ASC'de):** 1.3.3 sürümü oluştur → build (9) bağla → What's New → 5 ekran görüntüsünü yükle → Demo hesap + notlar → Submit for Review. TestFlight dahili gruba build otomatik düşer; harici için Apple'daki BETA_CONTRACT_MISSING durumu belirleyici.
+**ASC'de yapıldı (Chrome eklentisiyle, 02:39):** 1.3.3 sürümü oluşturuldu → eski 6.5" görseller silindi, 5 yeni görsel yüklendi (slot 6.5" istediği için 1284×2778'e ölçeklendi; 6.9" orijinaller Desktop'ta) → What's New (TR) yazıldı → App Review notlarına ikinci demo hesap + sürüm açıklaması eklendi (1.3.2'den devralınan `enesbugracengiz@gmail.com` demo girişi korundu) → build **(9)** bağlandı → **Submit for Review** → durum **"Waiting for Review"** (Apple: 48 saate kadar). TestFlight: build 9 dahili "ESdiyet Test" grubuna (5 davetli) otomatik düştü; harici grup yok (BETA_CONTRACT_MISSING).
 
 **Yan not (paywall):** Simülatörde (IAP native yok) fiyatlar `FALLBACK_PRICE_LABELS` ile "$4.99 / ₺99,99/ay" karışık görünüyor; production'da StoreKit fiyatı gelir. Review'da sorun çıkarsa fallback etiketini tek para birimine çekmek gerekebilir.
 
