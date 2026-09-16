@@ -21,6 +21,21 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-17 — Tab bar ekranın en altına dock'landı (yüzen bar kaldırıldı)
+
+**İstek:** Tab bar tüm cihazlarda responsive olacak şekilde sayfanın en altına taşınsın.
+
+**Yapılan (tek kaynak `theme.js`):** `LAYOUT.tabBar` → `{ height: 60, minBottomPad: 8 }`; `tabBarMetrics(insetsBottom)` artık `{ height: 60 + max(inset, 8), paddingBottom, bottom: 0, totalSpace }` döner. `MainNavigator.styles.tabBar`: `left/right: 0`, radius/kenar/gölge yok, üstte `StyleSheet.hairlineWidth` `COLORS.border`, blur zemin korundu. `scrollTabScreenBottomPad()` aynı kaldığı için tüm `ScreenContainer tab` ekranlarının alt boşluğu otomatik düştü.
+
+**Yan bulgular ve düzeltmeler:**
+- Ekran bazlı `tabBarLabel: "…"` string'i `screenOptions.tabBarLabel` render fonksiyonunu eziyordu → özel etiket hiç çizilmiyordu; iPhone SE'de "Ana Say…", "Tavsiyel…" kırpılıyordu. Fonksiyon silindi, stil `tabBarLabelStyle` ile veriliyor (10pt / küçük ekranda 9pt, bold).
+- `useResponsive.isSmall` eşiği `< 375` → `<= 375` (SE 3 / 13 mini tam 375pt).
+- Home hero misafir metriği "Giriş gerekli" küçük ekranda kırpılıyordu → `--`.
+
+**Doğrulama:** iPhone 17 Pro Max (home indicator) ve yeni oluşturulan iPhone SE 3 (indicator yok) simülatörlerinde Debug build + `idb` ile: bar en altta, alt pay doğru, Home'un son kartı barın arkasında kalmıyor, tüm etiketler tam.
+
+**Araç notu:** Bu makinede Xcode 27'nin Simulator.app GUI'si yok; simctl headless çalışıyor. Dokunma/yazma için `brew install facebook/fb/idb-companion` + `pip install fb-idb` kuruldu (`idb ui tap/text/swipe`). Türkçe donanım klavyesi `@`/`.`/`+` karakterlerini bozduğu için simülatörde `AppleKeyboards` en_US'e çekildi. Yardımcı script scratchpad'de (`sim.sh`).
+
 ### 2026-09-17 — UI/UX Adım 3.11: Tüm hero header'lar sadeleştirildi, ortak `HeroHeader` bileşeni eklendi
 
 **Soru:** Üstteki yeşil hero başlıklar kullanıcı deneyimi açısından daha minimal olmalı mı? İnternet araştırması (Apple HIG / iOS 26 nav bar, Material 3 top app bar, NN/g Liquid Glass eleştirisi, Nick Babich "content over chrome", MyFitnessPal/Lifesum vaka çalışmaları) → **evet**. Bizde ek gerekçe: `ScreenContainer.header` scroll'un DIŞINDA sabit kalır; rozet + tarih + 2 satır açıklama + stat kartları hiç kaybolmuyor, altta yüzer tab bar da var → küçük iPhone'da içerik alanı yarıya iniyordu.

@@ -138,7 +138,7 @@ export default function HomeScreen({ navigation }) {
   const heroMetrics = [
     { label: 'Son kilo', value: latestWeight ? `${latestWeight.weight} kg` : '--' },
     { label: 'Öğün', value: user ? `${mealsCountDisplay}/3` : '--' },
-    { label: 'Hedef', value: user ? goalsDisplayText : 'Giriş gerekli' },
+    { label: 'Hedef', value: user ? goalsDisplayText : '--' },
   ];
 
   const hero = (

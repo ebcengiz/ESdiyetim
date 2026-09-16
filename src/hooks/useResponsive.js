@@ -14,7 +14,7 @@ export function useResponsive() {
   const insets = useSafeAreaInsets();
 
   return useMemo(() => {
-    const isSmall = width < SIZES.smallScreenWidth;        // SE / mini
+    const isSmall = width <= SIZES.smallScreenWidth;       // SE / mini (375pt dahil)
     const isLarge = width >= 414;                           // Plus / Pro Max
     const isLandscape = width > height;
     const contentWidth = width - SIZES.containerPadding * 2;

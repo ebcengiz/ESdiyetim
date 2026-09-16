@@ -302,28 +302,28 @@ export const LAYOUT = {
   },
   headerHeight: 60,
   bottomSpace: 20,
-  // Yüzen tab bar — TEK kaynak (MainNavigator + ekran alt boşlukları buradan türetilir)
+  // Dock'lu tab bar — TEK kaynak (MainNavigator + ekran alt boşlukları buradan türetilir)
   tabBar: {
-    height: 64,          // ikon + etiket alanı (safe area hariç)
-    floatGap: 12,        // ekranın altından yüzme mesafesi
-    sideMargin: 12,
-    radius: 28,
+    height: 60,          // ikon + etiket alanı (safe area hariç)
+    minBottomPad: 8,     // home indicator olmayan cihazlarda (SE / Android buton bar) alt nefes payı
   },
 };
 
 /**
  * Tab bar'ın gerçek ölçüleri — güvenli alana göre.
- * Home indicator olan cihazlarda bar biraz daha yukarı yüzer; olmayanlarda floatGap kadar.
+ * Bar ekranın en altına yapışıktır; home indicator alanı (insets.bottom) barın içinde
+ * paddingBottom olarak kalır, böylece her cihazda ikonlar aynı yükseklikte durur.
  */
 export function tabBarMetrics(insetsBottom = 0) {
-  const { height, floatGap, sideMargin, radius } = LAYOUT.tabBar;
-  const bottom = Math.max(insetsBottom, floatGap);
-  return { height, bottom, sideMargin, radius, totalSpace: height + bottom };
+  const { height, minBottomPad } = LAYOUT.tabBar;
+  const paddingBottom = Math.max(insetsBottom, minBottomPad);
+  const totalHeight = height + paddingBottom;
+  return { height: totalHeight, paddingBottom, bottom: 0, totalSpace: totalHeight };
 }
 
 /**
- * Yüzen tab bar + güvenli alan: ScrollView contentContainerStyle paddingBottom
- * (içerik tab’ın altında / home indicator arkasında kalmaması için)
+ * Dock'lu tab bar + güvenli alan: ScrollView contentContainerStyle paddingBottom
+ * (içerik tab'ın arkasında kalmaması için)
  */
 export function scrollTabScreenBottomPad(insetsBottom = 0) {
   return tabBarMetrics(insetsBottom).totalSpace + LAYOUT.bottomSpace;

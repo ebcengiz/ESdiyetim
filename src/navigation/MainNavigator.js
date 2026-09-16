@@ -5,7 +5,6 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import {
   Platform,
   View,
-  Text,
   StyleSheet,
   Animated,
   Easing,
@@ -150,7 +149,7 @@ function AuthStack() {
   );
 }
 
-// Yüzen tab bar zemini — iOS'ta cam (blur), Android'de yarı saydam beyaz.
+// Tab bar zemini — iOS'ta cam (blur), Android'de yarı saydam beyaz.
 // NOT: react-navigation bu öğeyi absoluteFill bir sarmalayıcıya koyar; Fabric'te iç içe
 // absoluteFill sıfır boyut alıyor (simülatörde doğrulandı) → burada flex:1 kullan.
 function TabBarBackground() {
@@ -170,17 +169,6 @@ function MainTabs() {
   const { isSmall } = useResponsive();
   const metrics = tabBarMetrics(insets.bottom);
 
-  const renderTabLabel = ({ color, children }) => (
-    <Text
-      allowFontScaling={false}
-      numberOfLines={1}
-      ellipsizeMode="clip"
-      style={[styles.tabBarLabel, isSmall && styles.tabBarLabelSmall, { color }]}
-    >
-      {children}
-    </Text>
-  );
-
   return (
     <Tab.Navigator
       screenOptions={{
@@ -190,16 +178,12 @@ function MainTabs() {
         tabBarShowLabel: true,
         tabBarStyle: [
           styles.tabBar,
-          {
-            height: metrics.height,
-            bottom: metrics.bottom,
-            left: metrics.sideMargin,
-            right: metrics.sideMargin,
-            borderRadius: metrics.radius,
-          },
+          { height: metrics.height, paddingBottom: metrics.paddingBottom, bottom: metrics.bottom },
         ],
         tabBarBackground: TabBarBackground,
-        tabBarLabel: renderTabLabel,
+        // Ekran bazlı tabBarLabel string'leri screenOptions'taki fonksiyonu ezer;
+        // bu yüzden stil tabBarLabelStyle ile veriliyor (küçük ekranda 9pt).
+        tabBarLabelStyle: [styles.tabBarLabel, isSmall && styles.tabBarLabelSmall],
         tabBarAllowFontScaling: false,
         tabBarItemStyle: styles.tabBarItem,
         headerStyle: {
@@ -409,23 +393,20 @@ export default function MainNavigator() {
 }
 
 const styles = StyleSheet.create({
-  // Konum/ölçü değerleri tabBarMetrics() ile runtime'da veriliyor (safe area'ya göre)
+  // Yükseklik / alt boşluk tabBarMetrics() ile runtime'da veriliyor (safe area'ya göre).
+  // Bar ekranın en altına yapışık, tam genişlik; içerik blur'un arkasından akar.
   tabBar: {
     position: "absolute",
-    borderTopWidth: 0,
-    borderWidth: 1,
-    borderColor: whiteAlpha(0.55),
-    overflow: "hidden",
+    left: 0,
+    right: 0,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.border,
     paddingTop: 6,
-    paddingBottom: 6,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     // Blur'ün arkasında hafif beyaz zemin: cam etkisi korunur, okunabilirlik artar
     backgroundColor: whiteAlpha(0.45),
-    elevation: 12,
-    shadowColor: COLORS.black,
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
+    elevation: 0,
+    shadowOpacity: 0,
   },
   flex: { flex: 1 },
   tabBarBgWrap: {
@@ -444,12 +425,11 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 12,
     marginTop: 1,
-    maxWidth: 60,
   },
   tabBarLabelSmall: {
     fontSize: 9,
     lineHeight: 11,
-    maxWidth: 56,
+    letterSpacing: -0.2,
   },
   tabIconWrap: {
     width: 32,

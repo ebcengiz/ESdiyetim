@@ -88,7 +88,7 @@ Tüm ekranlar ortak UI kiti üstünde: `ScreenContainer` iskelet, hero başlıkl
 
 ### Tab düzeni (MainNavigator)
 `Home • DietPlan • WeightAndBMI • Goals • Tips • Profile`
-Tab bar: yüzer (absolute), yuvarlatılmış, iOS'ta `expo-blur` cam zemin. Ölçüler `LAYOUT.tabBar` + `tabBarMetrics(insets.bottom)` ile safe area'ya göre runtime'da hesaplanır (sihirli sayı yok); ekranların alt boşluğu `useResponsive().tabBottomPad` / `scrollTabScreenBottomPad()` aynı kaynaktan türer. Yeni tab eklerken `TAB_ITEMS` sabitine icon + label ekle ve `ModernTabIcon` kullan.
+Tab bar: ekranın en altına dock'lu (absolute, tam genişlik, üstte hairline), iOS'ta `expo-blur` cam zemin; home indicator alanı barın `paddingBottom`'u (`max(insets.bottom, 8)`). Ölçüler `LAYOUT.tabBar` + `tabBarMetrics(insets.bottom)` ile safe area'ya göre runtime'da hesaplanır (sihirli sayı yok); ekranların alt boşluğu `useResponsive().tabBottomPad` / `scrollTabScreenBottomPad()` aynı kaynaktan türer. Etiket stili `tabBarLabelStyle` ile verilir (ekran bazlı `tabBarLabel` string'i screenOptions'taki render fonksiyonunu ezer — fonksiyon kullanma). Yeni tab eklerken `TAB_ITEMS` sabitine icon + label ekle ve `ModernTabIcon` kullan.
 
 ---
 
