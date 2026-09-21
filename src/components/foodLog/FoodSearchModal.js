@@ -19,6 +19,8 @@ import { getSourceBadgeMeta } from '../../utils/foodLogUtils';
 import { useToast } from '../../contexts/ToastContext';
 import { useAppError } from '../../hooks/useAppError';
 import { useSubscription } from '../../contexts/SubscriptionContext';
+import { useAds } from '../../contexts/AdsContext';
+import LimitReachedSheet from '../ads/LimitReachedSheet';
 import { foodLogService } from '../../services/supabase';
 import {
   searchOpenFoodFacts,
@@ -41,8 +43,10 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
   const { showToast } = useToast();
   const { handleError } = useAppError();
   const { isSubscribed, openPaywall } = useSubscription();
+  const { showInterstitialIfEligible } = useAds();
 
   const [activeMealType, setActiveMealType] = useState(initialMealType || 'breakfast');
+  const [limitSheetVisible, setLimitSheetVisible] = useState(false);
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -149,17 +153,22 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
         return;
       }
 
-      // Veritabanında yoksa AI fallback (Gemini -> Groq) — ücretsiz kullanıcılar için günlük yumuşak limit
+      // Veritabanında yoksa AI fallback (Gemini -> Groq) — ücretsiz kullanıcılar için günlük
+      // yumuşak limit (ödüllü reklam bonusu hasReachedDailyLimit içinde hesaba katılır)
       if (!isSubscribed) {
         const reached = await hasReachedDailyLimit(AI_SEARCH_USAGE_KEY, FREE_AI_SEARCH_DAILY_LIMIT);
         if (reached) {
-          showToast(`Günlük ücretsiz AI analiz hakkınızı kullandınız (${FREE_AI_SEARCH_DAILY_LIMIT}/gün). Sınırsız analiz için Premium'a geçin.`, 'warning');
-          openPaywall();
+          setLimitSheetVisible(true);
           return;
         }
       }
 
-      const food = await getFoodNutritionAI(query.trim(), activeMealType === 'drink');
+      // AI isteği önce gider; ücretsiz kullanıcıda geçiş reklamı (günde en fazla 1)
+      // bekleme süresinde gösterilir.
+      const request = getFoodNutritionAI(query.trim(), activeMealType === 'drink');
+      request.catch(() => {}); // reklam sırasında reddedilirse "unhandled" olmasın; aşağıda await ediliyor
+      await showInterstitialIfEligible();
+      const food = await request;
       if (!isSubscribed) await incrementDailyUsage(AI_SEARCH_USAGE_KEY);
       setSelectedFood(food);
       setSearchResults([]);
@@ -568,6 +577,16 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Ücretsiz plan: günlük AI hakkı dolunca ödüllü reklam / Premium seçeneği.
+          Bu Modal'ın içinde render edilir ki iOS'ta üstte sunulabilsin. */}
+      <LimitReachedSheet
+        visible={limitSheetVisible}
+        onClose={() => setLimitSheetVisible(false)}
+        kind="food"
+        limit={FREE_AI_SEARCH_DAILY_LIMIT}
+        onGoPremium={() => { handleClose(); openPaywall(); }}
+      />
     </Modal>
   );
 }

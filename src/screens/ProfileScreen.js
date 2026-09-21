@@ -8,8 +8,9 @@ import { useToast } from '../contexts/ToastContext';
 import { useAppError } from '../hooks/useAppError';
 import { useAIConsent } from '../contexts/AIConsentContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useAds } from '../contexts/AdsContext';
 import { FREE_AI_SEARCH_DAILY_LIMIT, AI_SEARCH_USAGE_KEY, FALLBACK_PRICE_LABELS } from '../services/subscriptionService';
-import { getDailyUsageCount } from '../services/dailyUsageService';
+import { getDailyUsageCount, getDailyBonus } from '../services/dailyUsageService';
 import { calculateBMI, getBMICategory } from '../utils/bmi';
 import {
   ScreenContainer, HeroHeader, AppCard, AppButton, AppInput, ListRow, ConfirmModal, Skeleton, ProgressBar,
@@ -59,8 +60,10 @@ export default function ProfileScreen({ navigation }) {
   const { handleError } = useAppError();
   const { consent: aiConsent, providers: aiProviders, grantConsent, revokeConsent } = useAIConsent();
   const { isSubscribed, dailyPhotoUsed, dailyLimit, openPaywall } = useSubscription();
+  const { adsEnabled, adConsent, trackingStatus, adNetworkName, setPersonalizedAds } = useAds();
   const [bodyInfo, setBodyInfo] = useState(null);
   const [aiSearchUsed, setAiSearchUsed] = useState(0);
+  const [aiSearchBonus, setAiSearchBonus] = useState(0);
   const [loading, setLoading] = useState(true);
   const [editingName, setEditingName] = useState(false);
   const [fullName, setFullName] = useState(user?.user_metadata?.full_name || '');
@@ -74,6 +77,8 @@ export default function ProfileScreen({ navigation }) {
     if (!user) { setLoading(false); return; }
     loadBodyInfo();
     getDailyUsageCount(AI_SEARCH_USAGE_KEY).then(setAiSearchUsed).catch(() => {});
+    // Ödüllü reklamla kazanılan bonus limite eklenir (bkz. dailyUsageService)
+    getDailyBonus(AI_SEARCH_USAGE_KEY).then(setAiSearchBonus).catch(() => {});
   }, [user]);
 
   useEffect(() => {
@@ -211,10 +216,11 @@ export default function ProfileScreen({ navigation }) {
           {!isSubscribed && (
             <Text style={styles.membershipLine} maxFontSizeMultiplier={MAX_FONT_SCALE}>
               Diyet planı, kilo & VKİ takibi, hedefler ve tavsiyeler herkese tamamen ücretsiz.
+              {adsEnabled ? ' Ücretsiz sürüm sınırlı sayıda reklamla desteklenir; Premium reklamları kaldırır.' : ''}
             </Text>
           )}
           <UsageRow icon="camera-outline" label="Fotoğraftan kalori" used={dailyPhotoUsed} limit={dailyLimit} />
-          <UsageRow icon="sparkles-outline" label="AI ile tam analiz" used={aiSearchUsed} limit={isSubscribed ? null : FREE_AI_SEARCH_DAILY_LIMIT} />
+          <UsageRow icon="sparkles-outline" label="AI ile tam analiz" used={aiSearchUsed} limit={isSubscribed ? null : FREE_AI_SEARCH_DAILY_LIMIT + aiSearchBonus} />
           {isSubscribed ? (
             <AppButton
               title="Aboneliği App Store'dan yönet"
@@ -281,8 +287,25 @@ export default function ProfileScreen({ navigation }) {
             subtitle={aiConsent.granted ? `${aiProviders.join(' ve ')} ile paylaşım açık` : 'Kapalı — AI önerileri ve fotoğraf analizi çalışmaz'}
             switchValue={!!aiConsent.granted}
             onSwitch={(value) => (value ? grantConsent() : revokeConsent())}
-            last
+            last={!adsEnabled}
           />
+          {/* KVKK: reklam rızası her an geri çekilebilir. Yalnızca ücretsiz planda (premium'da reklam yok). */}
+          {adsEnabled && (
+            <ListRow
+              icon="megaphone-outline"
+              title="Kişiselleştirilmiş reklamlar"
+              subtitle={
+                adConsent.personalized
+                  ? trackingStatus === 'granted'
+                    ? `${adNetworkName} — reklam kimliği kullanılıyor`
+                    : 'Açık — iOS izni yok, genel reklam gösteriliyor'
+                  : 'Kapalı — yalnızca genel reklamlar'
+              }
+              switchValue={!!adConsent.personalized}
+              onSwitch={(value) => setPersonalizedAds(value)}
+              last
+            />
+          )}
         </AppCard>
 
         {/* Hesap ve veriler — Apple 5.1.1(v): hesap silme uygulama içinde başlatılır */}

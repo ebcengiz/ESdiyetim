@@ -21,7 +21,8 @@ export default function HealthSourcesInfoScreen() {
       <Text style={styles.aiNote} maxFontSizeMultiplier={MAX_FONT_SCALE}>
         Yapay zeka metin ve (isteğe bağlı) görsel analizleri Groq ve/veya Google tarafında işlenir; ayrıntılar
         Profil → Gizlilik politikası ekranındadır. Sağlık verisi reklam veya pazarlama amaçlı üçüncü taraflara
-        satılmaz (App Store İnceleme Kılavuzu 5.1.3 ile uyumlu kullanım).
+        satılmaz ve reklam ağına iletilmez; ücretsiz sürümdeki sınırlı reklamlar sağlık verinizden bağımsızdır
+        (App Store İnceleme Kılavuzu 5.1.3 ile uyumlu kullanım).
       </Text>
       <Text
         style={styles.aiLink}

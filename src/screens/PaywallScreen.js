@@ -119,7 +119,7 @@ export default function PaywallScreen({ navigation }) {
       <Text style={styles.title} accessibilityRole="header" maxFontSizeMultiplier={MAX_FONT_SCALE}>ESdiyet Premium</Text>
       <Text style={styles.subtitle} maxFontSizeMultiplier={MAX_FONT_SCALE}>
         Diyet planı, kilo & VKİ takibi, hedefler ve tavsiyeler zaten ücretsiz. Premium,
-        yapay zeka destekli fotoğraf ve besin analizinde günlük limitleri kaldırır.
+        yapay zeka destekli fotoğraf ve besin analizinde günlük limitleri ve reklamları kaldırır.
       </Text>
 
       <View style={styles.featureList}>

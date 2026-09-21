@@ -50,6 +50,9 @@ export const ERROR_CODES = {
   IAP_FAILED: 'IAP_FAILED',
   IAP_RESTORE_EMPTY: 'IAP_RESTORE_EMPTY',
 
+  // Reklam (AdMob) — yalnızca ücretsiz plan
+  AD_UNAVAILABLE: 'AD_UNAVAILABLE',
+
   // Cihaz / izin
   PERMISSION_CAMERA: 'PERMISSION_CAMERA',
   PERMISSION_GALLERY: 'PERMISSION_GALLERY',
@@ -258,6 +261,13 @@ export const ERROR_MESSAGES = {
     title: 'Abonelik bulunamadı',
     message: 'Bu hesapla ilişkili aktif bir abonelik bulunamadı.',
     severity: 'info',
+    retryable: false,
+  },
+
+  [ERROR_CODES.AD_UNAVAILABLE]: {
+    title: 'Reklam yüklenemedi',
+    message: 'Reklam şu anda yüklenemedi. Biraz sonra tekrar deneyin.',
+    severity: 'warning',
     retryable: false,
   },
 

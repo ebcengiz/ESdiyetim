@@ -10,6 +10,7 @@ import {
   ALL_PRODUCT_IDS,
 } from '../services/subscriptionService';
 import { userCreditsService } from '../services/supabase';
+import { getDailyBonus, addDailyBonus } from '../services/dailyUsageService';
 import { bypassPaywall, isTestEnv } from '../utils/environment';
 
 const SUBSCRIPTION_CACHE_KEY = 'esdiyet_sub_status_v1';
@@ -21,6 +22,9 @@ const DAILY_PHOTO_CACHE_KEY = 'esdiyet_daily_photo_used_v1';
 // premium kullanıcılar günde 5 hakka sahip.
 const FREE_DAILY_LIMIT = 1;
 const PREMIUM_DAILY_LIMIT = 5;
+// Ödüllü reklamla kazanılan ek fotoğraf hakları — dailyUsageService bonus anahtarı
+// (cihaz-yerel, gün bazlı; AdsContext.watchRewardedFor('photo') artırır).
+export const PHOTO_BONUS_USAGE_KEY = 'photo_analysis';
 
 const SubscriptionContext = createContext(null);
 
@@ -28,6 +32,7 @@ export function SubscriptionProvider({ children }) {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [products, setProducts] = useState([]);
   const [dailyPhotoUsed, setDailyPhotoUsed] = useState(0);
+  const [bonusPhotoCredits, setBonusPhotoCredits] = useState(0);
   const [loadingSubscription, setLoadingSubscription] = useState(true);
   const navigationRef = useRef(null);
 
@@ -54,6 +59,8 @@ export function SubscriptionProvider({ children }) {
   // ─── Günlük kredi yükle ─────────────────────────────────────────────────
   const loadDailyCredits = useCallback(async () => {
     const today = new Date().toISOString().split('T')[0];
+    // Reklamla kazanılan bonus (gün değiştiyse servis 0 döner)
+    getDailyBonus(PHOTO_BONUS_USAGE_KEY).then(setBonusPhotoCredits).catch(() => setBonusPhotoCredits(0));
     try {
       const credits = await userCreditsService.getOrInit();
       const used = credits?.daily_photo_used ?? 0;
@@ -114,8 +121,16 @@ export function SubscriptionProvider({ children }) {
   }, []);
 
   // ─── Analiz hakkı ────────────────────────────────────────────────────────
-  const dailyPhotoLimit = isSubscribed ? PREMIUM_DAILY_LIMIT : FREE_DAILY_LIMIT;
+  // Premium'da bonus anlamsız (reklam yok); ücretsizde taban + ödüllü reklam bonusu.
+  const dailyPhotoLimit = isSubscribed ? PREMIUM_DAILY_LIMIT : FREE_DAILY_LIMIT + bonusPhotoCredits;
   const canUsePhotoToday = bypassPaywall || dailyPhotoUsed < dailyPhotoLimit;
+
+  // ─── Ödüllü reklam bonusu (+1 fotoğraf hakkı, bugün için) ────────────────
+  const addBonusPhotoCredit = useCallback(async () => {
+    const next = await addDailyBonus(PHOTO_BONUS_USAGE_KEY);
+    setBonusPhotoCredits(next);
+    return next;
+  }, []);
 
   // ─── Krediyi artır ───────────────────────────────────────────────────────
   const incrementDailyPhotoCredit = useCallback(async () => {
@@ -140,6 +155,11 @@ export function SubscriptionProvider({ children }) {
   // ─── Paywall navigasyonu ─────────────────────────────────────────────────
   const openPaywall = useCallback(() => {
     navigationRef.current?.navigate('Paywall');
+  }, []);
+
+  // Ekran dışından (global modallar) rota açmak için — ör. AdConsentModal → Gizlilik politikası
+  const navigateTo = useCallback((route, params) => {
+    navigationRef.current?.navigate(route, params);
   }, []);
 
   // ─── Abonelik yenile (satın alma sonrası) ────────────────────────────────
@@ -167,10 +187,14 @@ export function SubscriptionProvider({ children }) {
         canUsePhotoToday,
         dailyPhotoUsed,
         dailyLimit: dailyPhotoLimit,
+        freeDailyLimit: FREE_DAILY_LIMIT,
+        bonusPhotoCredits,
+        addBonusPhotoCredit,
         products,
         loadingSubscription,
         incrementDailyPhotoCredit,
         openPaywall,
+        navigateTo,
         refreshSubscription,
         activateTestSubscription,
         // navigationRef dışarıdan set edilir

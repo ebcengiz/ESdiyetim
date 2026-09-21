@@ -32,7 +32,16 @@ const SECTIONS = [
   {
     title: 'Verilerin Kullanımı',
     body:
-      'Veriler yalnızca uygulama işlevleri, kişiselleştirilmiş takip ve hesap doğrulama için kullanılır. Reklam, çapraz uygulama takibi veya veri broker satışı yapılmaz.',
+      'Veriler yalnızca uygulama işlevleri, kişiselleştirilmiş takip ve hesap doğrulama için kullanılır. Sağlık, öğün ve fotoğraf verileriniz reklam amacıyla kullanılmaz, reklam ağlarıyla paylaşılmaz ve veri brokerlarına satılmaz.',
+  },
+  {
+    title: 'Reklamlar (yalnızca ücretsiz plan)',
+    body:
+      'Ücretsiz sürüm, yapay zeka maliyetlerini karşılamak için Google AdMob (Google Ireland Ltd. / Google LLC) reklamlarıyla desteklenir; Premium abonelikte reklam gösterilmez. Reklamlar yalnızca yapay zeka analizi sırasında (günde en fazla 1 geçiş reklamı) ve günlük hakkınız dolduğunda isteğe bağlı ödüllü reklam olarak görünür.\n\n' +
+      'İlk reklamdan önce tercihiniz sorulur:\n' +
+      '• Kişiselleştirilmiş reklamlar — açık rızanızla ve iOS “Uygulama Takibi” izniyle reklam kimliğiniz (IDFA) kullanılır. Bu rıza hizmet şartı değildir; vermezseniz uygulama aynen çalışır.\n' +
+      '• Sadece genel reklamlar — reklam kimliği kullanılmaz; yalnızca IP adresi (yaklaşık konum), cihaz modeli, işletim sistemi, dil ve reklam etkileşimi (görüntüleme/tıklama) işlenir.\n\n' +
+      'Reklam ağına kilo, VKİ, öğün, hedef, fotoğraf gibi sağlık verileri hiçbir zaman iletilmez. Reklam verileri Google’ın Türkiye dışındaki sunucularında işlenebilir; Google’ın gizlilik politikası ve reklam ayarları (adssettings.google.com) geçerlidir. Tercihinizi Profil → Kişiselleştirilmiş reklamlar bölümünden her an değiştirebilir, iOS Ayarlar → Gizlilik → Takip üzerinden izni geri alabilirsiniz.',
   },
   {
     title: 'Veri Güvenliği',
@@ -47,7 +56,12 @@ const SECTIONS = [
   {
     title: 'Üçüncü Taraf Hizmetler',
     body:
-      'Supabase (veritabanı ve kimlik doğrulama), Groq (metin ve isteğe bağlı görsel analiz), Google Gemini (yedek görsel analiz). Bu sağlayıcıların kendi gizlilik politikaları geçerlidir.',
+      'Supabase (veritabanı ve kimlik doğrulama), Groq (metin ve isteğe bağlı görsel analiz), Google Gemini (yedek görsel analiz), Google AdMob (yalnızca ücretsiz planda reklam). Bu sağlayıcıların kendi gizlilik politikaları geçerlidir.',
+  },
+  {
+    title: 'KVKK Kapsamında Haklarınız',
+    body:
+      '6698 sayılı Kişisel Verilerin Korunması Kanunu’nun 11. maddesi uyarınca verilerinizin işlenip işlenmediğini öğrenme, bilgi talep etme, düzeltilmesini veya silinmesini isteme, işlemeye itiraz etme ve rızanızı geri çekme hakkına sahipsiniz. Talepleriniz için aşağıdaki iletişim adresini kullanabilirsiniz; hesap ve veri silme uygulama içinden anında yapılabilir.',
   },
   {
     title: 'Tıbbi Sorumluluk Reddi',
@@ -63,7 +77,7 @@ const SECTIONS = [
 export default function PrivacyPolicyScreen() {
   return (
     <ScreenContainer edges={[]}>
-      <Text style={styles.updated} maxFontSizeMultiplier={MAX_FONT_SCALE}>Son güncelleme: Nisan 2026</Text>
+      <Text style={styles.updated} maxFontSizeMultiplier={MAX_FONT_SCALE}>Son güncelleme: Eylül 2026</Text>
       {SECTIONS.map(({ title, body }) => (
         <View key={title} style={styles.block}>
           <Text style={styles.sectionTitle} accessibilityRole="header" maxFontSizeMultiplier={MAX_FONT_SCALE}>{title}</Text>

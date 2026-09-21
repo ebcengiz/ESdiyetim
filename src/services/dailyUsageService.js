@@ -28,10 +28,31 @@ export async function getDailyUsageCount(key) {
   return state.count;
 }
 
-/** Sayaç bugün için limiti aştıysa true döner. */
+/**
+ * Sayaç bugün için limiti aştıysa true döner. Ödüllü reklamla kazanılan
+ * günlük bonus haklar (bkz. addDailyBonus) limite otomatik eklenir.
+ */
 export async function hasReachedDailyLimit(key, limit) {
-  const count = await getDailyUsageCount(key);
-  return count >= limit;
+  const [count, bonus] = await Promise.all([getDailyUsageCount(key), getDailyBonus(key)]);
+  return count >= limit + bonus;
+}
+
+// ─── Ödüllü reklam bonusu ───────────────────────────────────────────────────
+// Ücretsiz kullanıcı günlük hakkı dolunca ödüllü reklam izleyerek aynı gün için
+// ek hak kazanır. Bonus da kullanım sayacı gibi cihaz-yerel ve gün bazlıdır;
+// gün değişince sıfırlanır. Ayrı anahtar (`<key>:bonus`) tutulur ki kullanım
+// sayacı ile karışmasın.
+const BONUS_SUFFIX = ':bonus';
+
+/** Bugün için kazanılmış bonus hak sayısı. */
+export async function getDailyBonus(key) {
+  const state = await readState(key + BONUS_SUFFIX);
+  return state.count;
+}
+
+/** Bonus +1 artırır ve yeni bonus toplamını döner. */
+export async function addDailyBonus(key) {
+  return incrementDailyUsage(key + BONUS_SUFFIX);
 }
 
 /** Sayaç +1 artırır ve yeni değeri döner. */

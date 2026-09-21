@@ -7,7 +7,8 @@
  * - `bypassPaywall`: Paywall'u tamamen atlamak için. TestFlight ve Expo denemelerinde
  *   (dev/Expo Go) test edenlerin satın alma yapmadan tüm özellikleri deneyebilmesi için
  *   otomatik olarak true — ayrıca EXPO_PUBLIC_BYPASS_PAYWALL=true ile production build'de
- *   de manuel açılabilir.
+ *   de manuel açılabilir. Test ortamında **ücretsiz limit + ödüllü reklam** akışını
+ *   denemek için `.env`'de EXPO_PUBLIC_BYPASS_PAYWALL=false yazılarak kapatılabilir.
  *
  * Not: App Store production build'de __DEV__ false'tur ve EXPO_PUBLIC_IS_TESTFLIGHT
  * ayarlanmadıysa `isTestEnv`/`bypassPaywall` false olur → StoreKit gerçek akış çalışır,
@@ -22,4 +23,6 @@ export const isDev = typeof __DEV__ !== 'undefined' && __DEV__ === true;
 export const isTestEnv = isDev || isTestFlight;
 
 // TestFlight/Expo denemelerinde tamamen ücretsiz; production'da manuel bayrakla açılabilir.
-export const bypassPaywall = isTestEnv || process.env.EXPO_PUBLIC_BYPASS_PAYWALL === 'true';
+// Test ortamında açıkça 'false' verilirse limitler ve reklam akışı gerçek gibi çalışır.
+const bypassFlag = process.env.EXPO_PUBLIC_BYPASS_PAYWALL;
+export const bypassPaywall = bypassFlag === 'true' || (isTestEnv && bypassFlag !== 'false');

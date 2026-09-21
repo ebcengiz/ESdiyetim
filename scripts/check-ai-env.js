@@ -42,4 +42,26 @@ if (!anySet) {
 }
 
 console.log('Tamam — en az bir AI anahtarı tanımlı.\n');
+
+// ─── AdMob (opsiyonel; yoksa dev/TestFlight'ta Google test reklamları çalışır) ──
+const adKeys = [
+  ['EXPO_PUBLIC_ADMOB_IOS_APP_ID', 'AdMob iOS App ID (ca-app-pub-…~…) — build zamanı, Info.plist'],
+  ['EXPO_PUBLIC_ADMOB_INTERSTITIAL_ID', 'AdMob geçiş reklamı ad unit (ca-app-pub-…/…)'],
+  ['EXPO_PUBLIC_ADMOB_REWARDED_ID', 'AdMob ödüllü reklam ad unit (ca-app-pub-…/…)'],
+];
+console.log('ESdiyet — AdMob ortam kontrolü (production build için gerekli)\n');
+let adMissing = 0;
+for (const [name, label] of adKeys) {
+  const set = !!(process.env[name] && String(process.env[name]).trim());
+  if (!set) adMissing += 1;
+  console.log(`  ${set ? '✓' : '○'} ${label}`);
+  console.log(`      ${name}: ${mask(name)}\n`);
+}
+if (adMissing) {
+  console.log(
+    'Not: Eksik AdMob değişkenleri dev/TestFlight build\'ini etkilemez (TestIds kullanılır).\n' +
+      'Production build\'den önce üçünü de doldurun — aksi hâlde ücretsiz kullanıcıya reklam çıkmaz.\n' +
+      'Rehber: REKLAM_ENTEGRASYON_REHBERI.md\n'
+  );
+}
 process.exit(0);

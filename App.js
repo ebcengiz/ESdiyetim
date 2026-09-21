@@ -5,6 +5,7 @@ import { AuthProvider } from './src/contexts/AuthContext';
 import { ToastProvider } from './src/contexts/ToastContext';
 import { SubscriptionProvider } from './src/contexts/SubscriptionContext';
 import { AIConsentProvider } from './src/contexts/AIConsentContext';
+import { AdsProvider } from './src/contexts/AdsContext';
 import MainNavigator from './src/navigation/MainNavigator';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import OfflineBanner from './src/components/ui/OfflineBanner';
@@ -25,11 +26,13 @@ export default function App() {
         <AuthProvider>
           <AIConsentProvider>
             <SubscriptionProvider>
-              <ToastProvider>
-                <MainNavigator />
-                <OfflineBanner />
-                <StatusBar style="auto" />
-              </ToastProvider>
+              <AdsProvider>
+                <ToastProvider>
+                  <MainNavigator />
+                  <OfflineBanner />
+                  <StatusBar style="auto" />
+                </ToastProvider>
+              </AdsProvider>
             </SubscriptionProvider>
           </AIConsentProvider>
         </AuthProvider>

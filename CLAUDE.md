@@ -24,6 +24,7 @@ Bu dosya, `ESdiyet` (diyet & sağlık takip) React Native / Expo uygulaması üz
 | Navigasyon | `@react-navigation/native` v7 + bottom-tabs + native-stack |
 | Auth / DB | **Supabase** (`@supabase/supabase-js` 2.58) + AsyncStorage (session persist) |
 | Satın Alma | `expo-iap` (paywall + abonelik) — **Expo Go'da native modül yok, sadece dev build/TestFlight/production'da çalışır** |
+| Reklam | `react-native-google-mobile-ads` 16.5 (AdMob; yalnızca ücretsiz plan) + `expo-tracking-transparency` (ATT). Expo Go'da yok → `services/adsService.js` try/require ile no-op. Rehber: `REKLAM_ENTEGRASYON_REHBERI.md` |
 | Görüntü | `expo-image-picker` (kamera + galeri, kalori tahmini) |
 | UI | `expo-linear-gradient`, `@expo/vector-icons` (Ionicons, explicit dependency), `expo-blur` (explicit dependency), özel `ModernIcon` |
 | Ağ durumu | `@react-native-community/netinfo` (`services/errors/connectivity.js` sarmalayıcısı) |
@@ -58,7 +59,7 @@ ESdiyetim/
 └── src/
     ├── constants/theme.js     # TEK tasarım kaynağı (COLORS, SIZES, TYPOGRAPHY, tabBarMetrics, withAlpha)
     ├── constants/errorMessages.js  # Kullanıcıya gösterilen hata metinlerinin TEK kaynağı
-    ├── contexts/              # AuthContext, SubscriptionContext, ToastContext, AIConsentContext
+    ├── contexts/              # AuthContext, SubscriptionContext, AdsContext, ToastContext, AIConsentContext
     ├── hooks/                 # useAppError, useResponsive, useShake, useDataFetch, useFormModal
     ├── components/
     │   ├── ErrorBoundary.js   # Kök hata sınırı (App.js'de SafeAreaProvider'ın hemen altında)
@@ -66,13 +67,17 @@ ESdiyetim/
     │   │                      #   SectionHeader, EmptyState, ErrorState, LoadingState, ScreenContainer, HeroHeader,
     │   │                      #   BottomSheet, OfflineBanner, ConfirmModal, DatePickerSheet, DateField,
     │   │                      #   DateStepper, SegmentedControl, Chip, ListRow, ProgressBar, ActionCta, Skeleton, Toast
-    │   ├── AIAdviceCard, BMIPanel, GuestGateBanner,
+    │   ├── ads/LimitReachedSheet   # Günlük AI hakkı dolunca: ödüllü reklam (yüklüyse) + Premium CTA
+    │   ├── AIAdviceCard, AIConsentModal, AdConsentModal, BMIPanel, GuestGateBanner,
     │   ├── HealthSourcesCard, MedicalInfoBanner, ModernIcon,
     │   └── PremiumGate, WeightPanel
     ├── navigation/MainNavigator.js   # Auth / App stack + Tab navigator
     ├── screens/               # 15 ekran — aşağıda
     ├── services/
     │   ├── supabase.js        # supabase client + dietPlanService, weightService vb.
+    │   ├── adsService.js      # AdMob sarmalayıcı (interstitial/rewarded, TestIds, try/require)
+    │   ├── adConsentService.js  # Reklam rızası (KVKK) + ATT sarmalayıcı
+    │   ├── dailyUsageService.js # Cihaz-yerel günlük sayaçlar + ödüllü reklam bonusu
     │   ├── aiService.js       # Orchestrator + prompt builder'lar
     │   ├── ai/providers.js    # Gemini/Groq/Cohere/HF provider zinciri
     │   ├── errors/            # AppError, normalizeError, logError, connectivity, globalHandlers
@@ -94,9 +99,10 @@ Tab bar: ekranın en altına dock'lu (absolute, tam genişlik, üstte hairline),
 
 ## 4. Mimari Prensipler
 
-1. **Provider sırası değiştirilmez:** `SafeAreaProvider → AuthProvider → SubscriptionProvider → ToastProvider → MainNavigator`. Subscription Auth'a, Toast hepsine bağımlı.
+1. **Provider sırası değiştirilmez:** `SafeAreaProvider → AuthProvider → AIConsentProvider → SubscriptionProvider → AdsProvider → ToastProvider → MainNavigator`. Subscription Auth'a, Ads Subscription'a (`isSubscribed`), Toast hepsine bağımlı.
 2. **Auth & Guest Mode:** `useAuth()` → `user`, `loading`, `isGuest`. `showMainApp = !!user || isGuest`. Guest kullanıcılar için `GuestGateBanner` + `PremiumGate` kullan.
 3. **Premium Gate:** Ücretli özellikler (AI kalori, sınırsız tavsiye vb.) `SubscriptionContext` ile kontrol edilir. Paywall modal `presentation: "modal"`.
+   - **Reklam politikası tek yerde:** `AdsContext` (`adsEnabled = native modül var && !isSubscribed`). Günde ≤1 geçiş reklamı (AI isteği gönderildikten sonra, yükleme süresinde: `showInterstitialIfEligible()`), limit dolunca ödüllü reklam (`LimitReachedSheet` → `watchRewardedFor('photo'|'food')`, özellik başına günde ≤2). Premium'da ve guest gate arkasında reklam yok; banner yok. Ekranlara doğrudan `react-native-google-mobile-ads` import etme.
 4. **Tasarım Sistemi:** Hiçbir renk/boyut **hardcode edilmez**. Her zaman `COLORS`, `SIZES`, `NavigationTheme` import et (`src/constants/theme.js`). Palet: emerald yeşil (#16A34A) + beyaz yüzeyler.
    - `'#fff'` yerine `COLORS.white`; `'rgba(255,255,255,0.2)'` yerine `whiteAlpha(0.2)`; `COLORS.primary + '22'` yerine `withAlpha(COLORS.primary, 0.13)`. Kategori vurguları `COLORS.accents.*`, durum zeminleri `COLORS.successBg/warningBg/errorBg/infoBg`.
    - **Ortak UI kiti zorunlu:** buton = `AppButton` (TouchableOpacity+LinearGradient kopyası yazma), form alanı = `AppInput`, kart = `AppCard`, ikon rozeti = `IconBadge`, boş/hata/yükleme = `EmptyState`/`ErrorState`/`LoadingState`, alt sayfa = `BottomSheet`, ekran iskeleti = `ScreenContainer` (safe area + tab alt boşluğu + klavye + pull-to-refresh). `import { AppButton, ... } from '../components/ui'`.
@@ -174,6 +180,7 @@ npx eas build --platform android
 8. **UIScene plugin:** `plugins/with-ios-uiscene-lifecycle.js` Xcode 27 / iOS 27 SDK'nın zorunlu kıldığı scene yaşam döngüsünü SDK 57 şablonuna ekler (Info.plist `UIApplicationSceneManifest` + `AppDelegate.swift` sonuna `SceneDelegate`). Silme; `ios/` altındaki üretilen dosyaları elle düzenleme (prebuild'de kaybolur). Expo SDK 58+'a geçince (şablon kendi SceneDelegate'ini üretiyor) bu plugin kaldırılmalı.
 9. **`@react-native-community/netinfo` import kuralı:** Native modül yoksa paket **import anında throw eder**. Bu yüzden yalnızca `services/errors/connectivity.js` içinde, modül kapsamında `try { require(...) }` ile yüklenir — başka yerde `import NetInfo from ...` yazma. (Metro, runtime'da yapılan `require` hatalarını throw etmek yerine `ErrorUtils.reportFatalError` ile raporlar; try/catch yakalayamaz — require'ın ilk bundle yüklemesinde olması şart.)
 10. **`expo-iap` / Expo Go kısıtı:** Native modül Expo Go binary'sine gömülü değil — `initConnection`/listener çağrıları Expo Go'da her zaman "Cannot find native module" ile başarısız olur (`src/services/subscriptionService.js` bunu try/catch ile sessizce yönetir, çökme yok). Gerçek satın alma akışı yalnızca development build / TestFlight / production'da test edilebilir.
+11. **Reklam (AdMob) kuralları:** (a) `react-native-google-mobile-ads` ve `expo-tracking-transparency` yalnızca `services/adsService.js` / `services/adConsentService.js` içinde, modül kapsamında `try { require }` ile yüklenir (madde 9 ile aynı sebep). (b) Reklam isteğine **asla** `keywords`/`contentUrl`/`customTargeting` eklenmez — sağlık verisi reklam ağına gitmez (KVKK m.6, App Store 5.1.3, gizlilik metnindeki taahhüt). (c) Dev/TestFlight'ta `TestIds`, production'da `.env` ID'leri; gerçek ID ile test tıklaması AdMob hesabını askıya aldırır. (d) `app.json` `NSPrivacyTracking: true` + reklam veri tipleri ve ASC App Privacy beyanı senkron tutulur; ATT metni `app.config.js`'de. (e) Rıza metni değişirse `AD_CONSENT_VERSION` artırılır. (f) Test ortamında limit/ödül akışı için `.env` `EXPO_PUBLIC_BYPASS_PAYWALL=false`.
 
 ---
 
@@ -206,6 +213,7 @@ Proje içi dokümanlar:
 - `AUTH_SISTEM_KURULUM.md` — auth akışı
 - `GROQ_KURULUM.md` — AI env
 - `APP_STORE_HEALTH_AI_NOTLARI.md` — App Store health policy notları
+- `REKLAM_ENTEGRASYON_REHBERI.md` — AdMob stratejisi, ATT/App Privacy beyanları, KVKK listesi, test matrisi
 - `IOS_APP_STORE_YAYINLAMA_REHBERI.md` — yayın süreci
 - `PRIVACY.md` — gizlilik politikası
 - `hafiza.md` — proje geçmişi / yapılanlar / yapılacaklar günlüğü (her görev sonrası güncellenir)

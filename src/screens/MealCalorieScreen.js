@@ -16,6 +16,8 @@ import { useResponsive } from '../hooks/useResponsive';
 import { AppError, ERROR_CODES } from '../services/errors';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useAIConsent } from '../contexts/AIConsentContext';
+import { useAds } from '../contexts/AdsContext';
+import LimitReachedSheet from '../components/ads/LimitReachedSheet';
 import { bypassPaywall } from '../utils/environment';
 import { ScreenContainer, AppButton, BottomSheet, IconBadge, LoadingState, EmptyState } from '../components/ui';
 
@@ -49,8 +51,9 @@ export default function MealCalorieScreen({ navigation }) {
   const { showToast } = useToast();
   const { handleError } = useAppError();
   const { columnWidth } = useResponsive();
-  const { isSubscribed, canUsePhotoToday, dailyLimit, dailyPhotoUsed, openPaywall, incrementDailyPhotoCredit } = useSubscription();
+  const { isSubscribed, canUsePhotoToday, dailyLimit, freeDailyLimit, dailyPhotoUsed, incrementDailyPhotoCredit } = useSubscription();
   const { requestConsentPrompt } = useAIConsent();
+  const { showInterstitialIfEligible } = useAds();
 
   const [imageUri, setImageUri] = useState(null);
   const [base64, setBase64] = useState(null);
@@ -58,6 +61,7 @@ export default function MealCalorieScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [disclaimerVisible, setDisclaimerVisible] = useState(false);
+  const [limitSheetVisible, setLimitSheetVisible] = useState(false);
   const [displayedCalories, setDisplayedCalories] = useState(0);
 
   const previewAnim = useRef(new Animated.Value(0)).current;
@@ -113,8 +117,8 @@ export default function MealCalorieScreen({ navigation }) {
 
     if (!bypassPaywall && !canUsePhotoToday) {
       if (!isSubscribed) {
-        showToast(`Günlük ücretsiz analiz hakkınızı kullandınız (${dailyLimit}/gün). Daha fazlası için Premium'a geçin.`, 'warning');
-        openPaywall();
+        // Ücretsiz: ödüllü reklam (+1 hak) ya da Premium seçeneği sunan sheet
+        setLimitSheetVisible(true);
       } else {
         showToast(`Günlük ${dailyLimit} analiz hakkınızı kullandınız. Yarın tekrar deneyebilirsiniz.`, 'warning');
       }
@@ -124,7 +128,12 @@ export default function MealCalorieScreen({ navigation }) {
     setLoading(true);
     setResult(null);
     try {
-      const data = await aiService.getMealCaloriesFromImage({ base64, mimeType });
+      // AI isteği önce gider; ücretsiz kullanıcıda geçiş reklamı (günde en fazla 1)
+      // bekleme süresinde gösterilir — sonuç okunurken kesinti olmaz.
+      const request = aiService.getMealCaloriesFromImage({ base64, mimeType });
+      request.catch(() => {}); // reklam sırasında reddedilirse "unhandled" uyarısı olmasın; aşağıda await ediliyor
+      await showInterstitialIfEligible();
+      const data = await request;
       setResult(data);
       if (!bypassPaywall) await incrementDailyPhotoCredit();
     } catch (e) {
@@ -262,6 +271,14 @@ export default function MealCalorieScreen({ navigation }) {
           Devam ederek bu bilgilendirmeyi okuduğunuzu ve anladığınızı kabul etmiş olursunuz.
         </Text>
       </BottomSheet>
+
+      {/* Ücretsiz plan: günlük hak dolunca ödüllü reklam / Premium seçeneği */}
+      <LimitReachedSheet
+        visible={limitSheetVisible}
+        onClose={() => setLimitSheetVisible(false)}
+        kind="photo"
+        limit={freeDailyLimit}
+      />
     </>
   );
 }
