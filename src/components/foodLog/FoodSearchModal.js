@@ -21,6 +21,7 @@ import { useAppError } from '../../hooks/useAppError';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useAds } from '../../contexts/AdsContext';
 import LimitReachedSheet from '../ads/LimitReachedSheet';
+import AdConsentModal from '../AdConsentModal';
 import { foodLogService } from '../../services/supabase';
 import {
   searchOpenFoodFacts,
@@ -43,7 +44,14 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
   const { showToast } = useToast();
   const { handleError } = useAppError();
   const { isSubscribed, openPaywall } = useSubscription();
-  const { showInterstitialIfEligible } = useAds();
+  const { showInterstitialIfEligible, registerConsentHost, consentPrompt } = useAds();
+
+  // Bu bileşen bir RN Modal: global AdConsentModal üstümüzde açılamaz (iOS), o yüzden
+  // açıkken kendimizi host olarak kaydedip sheet'i aşağıda kendi ağacımızda render ediyoruz.
+  useEffect(() => {
+    if (!visible) return undefined;
+    return registerConsentHost();
+  }, [visible, registerConsentHost]);
 
   const [activeMealType, setActiveMealType] = useState(initialMealType || 'breakfast');
   const [limitSheetVisible, setLimitSheetVisible] = useState(false);
@@ -586,6 +594,12 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
         kind="food"
         limit={FREE_AI_SEARCH_DAILY_LIMIT}
         onGoPremium={() => { handleClose(); openPaywall(); }}
+      />
+      {/* Reklam rızası (KVKK) — bkz. yukarıdaki registerConsentHost notu. Gizlilik
+          politikası linki için önce bu modal kapanmalı ki navigasyon görünsün. */}
+      <AdConsentModal
+        {...consentPrompt}
+        onOpenPrivacy={() => { handleClose(); consentPrompt.onOpenPrivacy(); }}
       />
     </Modal>
   );

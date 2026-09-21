@@ -52,6 +52,10 @@ export function AdsProvider({ children }) {
   const [trackingStatus, setTrackingStatus] = useState('unavailable');
   const [promptVisible, setPromptVisible] = useState(false);
   const [rewardedReady, setRewardedReady] = useState(false);
+  // iOS'ta bir RN Modal (ör. FoodSearchModal) açıkken buradaki global sheet onun
+  // üstünde sunulamaz. Böyle ekranlar registerConsentHost() ile kendini kaydeder ve
+  // sheet'i kendi Modal ağacında render eder; kayıtlı host varken global kopya gizlenir.
+  const [localHosts, setLocalHosts] = useState(0);
   const consentRef = useRef(consent);
   consentRef.current = consent;
 
@@ -121,6 +125,12 @@ export function AdsProvider({ children }) {
   }, []);
 
   const requestAdConsentPrompt = useCallback(() => setPromptVisible(true), []);
+
+  /** RN Modal içindeki ekranlar için: mount'ta çağır, dönen fonksiyonu unmount'ta çalıştır. */
+  const registerConsentHost = useCallback(() => {
+    setLocalHosts((n) => n + 1);
+    return () => setLocalHosts((n) => Math.max(0, n - 1));
+  }, []);
 
   const openPrivacyFromPrompt = useCallback(() => {
     // Sheet bir Modal; altındaki navigasyon görünmez → önce kapat, karar verilmediği
@@ -201,11 +211,19 @@ export function AdsProvider({ children }) {
         showInterstitialIfEligible,
         getRewardedAvailability,
         watchRewardedFor,
+        registerConsentHost,
+        // Yerel host'ların AdConsentModal'a aynen geçireceği prop'lar
+        consentPrompt: {
+          visible: promptVisible && adsEnabled,
+          onPersonalized: choosePersonalized,
+          onGeneral: chooseGeneral,
+          onOpenPrivacy: openPrivacyFromPrompt,
+        },
       }}
     >
       {children}
       <AdConsentModal
-        visible={promptVisible && adsEnabled}
+        visible={promptVisible && adsEnabled && localHosts === 0}
         onPersonalized={choosePersonalized}
         onGeneral={chooseGeneral}
         onOpenPrivacy={openPrivacyFromPrompt}
