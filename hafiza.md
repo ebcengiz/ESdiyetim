@@ -21,6 +21,14 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-22 (gece, ~23:00) — Sahipsiz `eas submit` bekleme döngüleri durduruldu + ASC'den submission durumu teyit edildi
+
+Kullanıcı "çalışan tüm sunucuları durdur" dedi. Metro/Expo/Xcode tarafında aktif bir dev server yoktu, ama başka bir Claude Code sekmesinden kalma **iki adet arka plan bekleme döngüsü** bulundu (`until grep -Eq "Submitted|Error|failed" .../behxi260n.output`, PID 80910 ve 83195, ~21:53/21:59'da başlamış). İzledikleri dosya, **bir önceki girdide zaten "takılı kaldığı ve terk edildiği" not edilen** eski `eas submit --id … --wait` çağrısına (`abd0dcf1-a658-4c27-a9c8-536a582db7ff`) aitti — yani Xcode archive + doğrudan ASC yükleme yoluna geçildikten sonra unutulmuş, sonuçsuz bir CLI süreciydi (log "- Submitting" adımında yarım kalmış, `exited with code 0` yazıyordu ama başarı mesajı yoktu). Kullanıcı onayıyla ikisi de `kill` edildi; bu yalnızca **local izlemeyi** durdurur, gerçek submission zaten önceki girdideki Xcode/ASC manuel akışıyla tamamlanmıştı.
+
+Gerçek durumu teyit etmek için: önce `eas-cli` ile submission sorgulanmaya çalışıldı (bu sürümde `submission:list`/`submission:view` komutu yok, sadece `eas submit`), sonra Expo dashboard denendi (Chrome'da oturum açık değildi, login ekranına düştü — kimlik bilgisi girilmedi). **App Store Connect'e Claude-in-Chrome ile girildi** (oturum zaten açıktı) → Distribution → iOS App Version 1.4.0: **durum "Waiting for Review", bağlı Build: 13 (1.4.0)** — bir önceki girdideki "22:29'da Resubmit edildi" bilgisiyle birebir tutarlı, yeni bir sorun yok. Otomatik yayın ayarı ("Automatically release this version") hâlâ seçili.
+
+**Sonraki adımlar değişmedi** (bkz. bir önceki girdi): App Review sonucu bekleniyor (~48 saate kadar); onaylanınca AdMob "Verify app" + reklam akışının TestFlight'ta gözle doğrulanması + Privacy Policy URL'nin gerçek sayfaya çevrilmesi.
+
 ### 2026-09-22 (gece, ~22:31) — Kullanıcı TestFlight build 13'te reklamı doğrulamaya çalıştı: hâlâ görünmüyor (teşhis doğrulandı, henüz aksiyon alınmadı)
 
 Kullanıcı TestFlight'tan build 13'ü yükleyip fotoğraftan kalori analizini günlük limite kadar denedi: `LimitReachedSheet` doğru açıldı ("Günlük hakkınız doldu") ama **yalnızca "Premium'a geç" butonu vardı, "Reklam izle" butonu yoktu** — kod tasarımı gereği bu, ödüllü reklamın **hiç yüklenmediği** anlamına geliyor (buton bilinçli olarak yalnızca reklam gerçekten hazırsa gösteriliyor).
