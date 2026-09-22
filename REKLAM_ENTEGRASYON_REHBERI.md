@@ -123,6 +123,19 @@ npx expo install react-native-google-mobile-ads@^16.5.0 expo-tracking-transparen
 
 ## 4. Apple — App Review'da ret yememek için
 
+### 4.0 Bilinen ret: ITMS-91064 "Invalid tracking information" (çözüldü, build 13)
+Build 12, Apple tarafından şu e-postayla reddedildi:
+> ITMS-91064: Invalid tracking information — NSPrivacyTracking must be true if NSPrivacyTrackingDomains isn't empty.
+
+**Kök neden:** `app.json → ios.privacyManifests`'te `NSPrivacyTracking: true` + `NSPrivacyTrackingDomains: []` (boş) birlikte geçersiz. AdMob/UMP SDK'larının kendi `PrivacyInfo.xcprivacy` dosyaları da izleme alan adı beyan etmiyor ve uygulama kodu doğrudan bir izleme alan adına bağlanmıyor (SDK içeride hallediyor) — listelenecek gerçek bir alan adı yok.
+
+**Çözüm:** `NSPrivacyTracking: false` yapıldı (domain listesi zaten boş kalıyor, Expo plugin'i otomatik `NSPrivacyTrackingDomains: []` üretiyor — bu kombinasyon geçerli). **Bu değişiklik ATT akışını veya ASC App Privacy'deki "Used for tracking purposes" beyanlarını etkilemez** — üç ayrı sistem:
+1. `PrivacyInfo.xcprivacy`'nin üst seviye `NSPrivacyTracking` anahtarı → yalnızca Apple'ın ITMS statik paket-tutarlılık kontrolü.
+2. `NSUserTrackingUsageDescription` + runtime `requestTrackingPermissionsAsync()` → gerçek ATT sistem izni/prompt'u.
+3. ASC → App Privacy → her veri tipi için "Used for tracking purposes" → App Store ürün sayfasındaki insan-okur beyan (Nutrition Label).
+
+Eğer ileride uygulama kodu gerçekten bir izleme alan adına doğrudan bağlanırsa (örn. kendi ölçüm sunucunuz), o zaman `NSPrivacyTracking: true` + gerçek alan adları listelenmeli.
+
 ### 4.1 ATT (App Tracking Transparency) — Guideline 5.1.2
 - **Ne zaman zorunlu?** Reklam kimliği (IDFA) ile kişiselleştirilmiş reklam = "tracking". Kullanıcı *Kişiselleştirilmiş* seçtiğinde `requestTrackingPermissionsAsync()` çağrılır; *Sadece genel* seçerse ATT hiç açılmaz ve istekler `requestNonPersonalizedAdsOnly: true` gider.
 - **Yasaklar (koda uyuldu):** ATT reddine bağlı hiçbir özellik kapatılmaz; izin karşılığı ödül/teşvik yok (ödül yalnızca *reklam izleme* karşılığıdır, izin karşılığı değil); kendi pre-prompt'umuz (AdConsentModal) sistem diyaloğunu taklit etmez ve kullanıcıyı yanıltmaz.
