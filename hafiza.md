@@ -21,6 +21,16 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-22 (gece, ~22:31) — Kullanıcı TestFlight build 13'te reklamı doğrulamaya çalıştı: hâlâ görünmüyor (teşhis doğrulandı, henüz aksiyon alınmadı)
+
+Kullanıcı TestFlight'tan build 13'ü yükleyip fotoğraftan kalori analizini günlük limite kadar denedi: `LimitReachedSheet` doğru açıldı ("Günlük hakkınız doldu") ama **yalnızca "Premium'a geç" butonu vardı, "Reklam izle" butonu yoktu** — kod tasarımı gereği bu, ödüllü reklamın **hiç yüklenmediği** anlamına geliyor (buton bilinçli olarak yalnızca reklam gerçekten hazırsa gösteriliyor).
+
+AdMob paneli anlık tekrar kontrol edildi: **hâlâ "İnceleme gerekli" / 0 istek / 0 gösterim / 0 kazanç** (bir önceki girdideki teşhisle birebir tutarlı — 1.4.0 hâlâ "Waiting for Review", mağazada canlı olan hâlâ 1.3.3, Marketing URL kataloğa yansımadığı için AdMob doğrulayamıyor → Sınırlı reklam sunumu → gerçek ad unit'lerde no-fill). Kod tarafında yeni bir hata bulunmadı; kök neden ve çözüm yolu önceki girdiyle aynı.
+
+**Kullanıcıya sunulan, henüz onaylanmayan/uygulanmayan öneri:** `eas.json`'daki hazır `preview` profiliyle (`EXPO_PUBLIC_IS_TESTFLIGHT: "true"` → `isTestEnv=true` → `adsService` Google'ın garantili-dolum `TestIds`'ini kullanır) **ayrı bir TestFlight test build'i** alıp reklam akışının (rıza → geçiş → ödüllü) uçtan uca çalıştığını bugün doğrulatmak. Kullanıcı henüz "evet" demedi — sıradaki oturumda onay gelirse: `eas build --platform ios --profile preview` (veya EAS kuyruğu yine takılırsa Xcode archive + `preview`'e denk `EXPO_PUBLIC_IS_TESTFLIGHT=true` ortam değişkeniyle yerel build), TestFlight'a **ayrı bir build numarasıyla** yükle (1.4.0 üretim adayını/App Review'daki 13'ü bozma), ESdiyet Test grubuna dağıt.
+
+Aynı oturumda ayrıca: kullanıcı isteğiyle bu projeyle ilgili çalışan Metro/Xcode/simülatör süreçleri durduruldu (proje adına aktif sunucu kalmamıştı, birkaç sahipsiz `sleep` artığı temizlendi).
+
 ### 2026-09-22 (akşam) — EAS submission kuyruğu takıldı → Xcode archive ile doğrudan ASC'ye yüklendi; 1.4.0 (13) yeniden incelemeye gönderildi
 
 **EAS submission kuyruk sorunu:** ITMS-91064 düzeltmesiyle alınan build **13** (`df284531-…`, commit `ff51a3b`) `eas build --auto-submit` ve ardından elle `eas submit --id … --wait` ile iki kez kuyruğa alındı (`ec04d2a4`, `abd0dcf1`) ama **ikisi de ~30+ dakika `IN_QUEUE` durumunda takılı kaldı** (Expo GraphQL API'den `submissions.byId` ile doğrulandı — `status: IN_QUEUE`, `updatedAt` hiç ilerlemiyor, `error: null`). Expo status sayfası "All Systems Operational" diyordu — bilinen bir kesinti değil, EAS submit worker kuyruğunda geçici bir tıkanıklık.
