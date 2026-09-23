@@ -21,6 +21,12 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-23 (akşam, ~21:30) — AdMob + ASC canlı kontrol: Apple incelemesi normal sürede, engel yok
+- **ASC (iris API):** 1.4.0 `WAITING_FOR_REVIEW` (build 13), gönderim 22 Eyl 22:29 TR → ~23 saat. App Review sayfasında Apple'dan mesaj/bilgi talebi **yok**. Demo hesap (kullanıcı adı+şifre) ve iletişim bilgisi dolu, Review Notes 2136 karakter. Supabase auth/rest 200 (reviewer girişi çalışır). Geçmiş: 1.3.3 ~15 saatte onaylanmıştı. Apple sistem durumunda App Review kesintisi yok.
+- **Sözleşmeler:** Free + Paid Apps "Active", bitiş **5 Ekim 2026** (Developer Program yenilemesi). Yenilenmezse uygulama mağazadan kalkar — incelemeyi şu an engellemiyor.
+- **AdMob:** değişiklik yok — hesap "henüz onaylanmadı", uygulama "İnceleme gerekli / Sınırlı reklam sunumu", 7 günde 0 istek. Canlı katalog hâlâ 1.3.3 / `sellerUrl: null`; app-ads.txt doğru.
+- **Karar:** Support'a şimdilik yazılmadı; 24 Eyl 22:30'a (48 saat) kadar bekle, sonra App Review durum sorgusu.
+
 ### 2026-09-22 (gece, ~23:00) — Sahipsiz `eas submit` bekleme döngüleri durduruldu + ASC'den submission durumu teyit edildi
 
 Kullanıcı "çalışan tüm sunucuları durdur" dedi. Metro/Expo/Xcode tarafında aktif bir dev server yoktu, ama başka bir Claude Code sekmesinden kalma **iki adet arka plan bekleme döngüsü** bulundu (`until grep -Eq "Submitted|Error|failed" .../behxi260n.output`, PID 80910 ve 83195, ~21:53/21:59'da başlamış). İzledikleri dosya, **bir önceki girdide zaten "takılı kaldığı ve terk edildiği" not edilen** eski `eas submit --id … --wait` çağrısına (`abd0dcf1-a658-4c27-a9c8-536a582db7ff`) aitti — yani Xcode archive + doğrudan ASC yükleme yoluna geçildikten sonra unutulmuş, sonuçsuz bir CLI süreciydi (log "- Submitting" adımında yarım kalmış, `exited with code 0` yazıyordu ama başarı mesajı yoktu). Kullanıcı onayıyla ikisi de `kill` edildi; bu yalnızca **local izlemeyi** durdurur, gerçek submission zaten önceki girdideki Xcode/ASC manuel akışıyla tamamlanmıştı.
