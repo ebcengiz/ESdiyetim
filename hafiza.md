@@ -29,6 +29,12 @@ Gerçek durumu teyit etmek için: önce `eas-cli` ile submission sorgulanmaya ç
 
 **Sonraki adımlar değişmedi** (bkz. bir önceki girdi): App Review sonucu bekleniyor (~48 saate kadar); onaylanınca AdMob "Verify app" + reklam akışının TestFlight'ta gözle doğrulanması + Privacy Policy URL'nin gerçek sayfaya çevrilmesi.
 
+### 2026-09-23 — AdMob + ASC tekrar kontrol (Chrome): reklam hâlâ yok, kök neden değişmedi + yeni bulgu
+- **AdMob ana sayfa:** Uygulama "İnceleme gerekli / Sınırlı reklam sunumu"nun yanında **hesabın kendisi de "Hesabınız henüz onaylanmadı / doğrulanıyor"** (24 saat – 2 hafta). Ödeme profili tamam. Son 7 gün: **0 istek / 0 gösterim**. app-ads.txt sekmesi: "app-ads.txt uygulanmış reklam isteği yok". `ebcturkiye.com/app-ads.txt` canlı ve doğru (`pub-2213399330903197`).
+- **ASC:** 1.4.0 hâlâ **Waiting for Review** (build 13); canlı katalog 1.3.3, `sellerUrl: null`. TestFlight: build 11/12/13 "Ready to Submit", ESdiyet Test grubunda.
+- **Sonuç:** Build 13 production profiliyle derlendi → gerçek ad unit ID'leri → onaysız hesap + doğrulanmamış uygulama → reklam dolumu yok → `LimitReachedSheet`'te "Reklam izle" butonu gizli (tasarım gereği). Kod hatası değil.
+- **Yeni kod bulgusu (düzeltilmedi, kullanıcıya soruldu):** Reklam rızası hiç verilmemişse (`consent.decided=false`) SDK hiç init edilmiyor ve `LimitReachedSheet` rıza sheet'ini açmıyor → rıza vermemiş kullanıcı ödüllü reklamı hiç göremez (rıza yalnızca `showInterstitialIfEligible` içinde soruluyor). 0 istek sayısı bununla da açıklanabilir.
+
 ### 2026-09-22 (gece, ~22:31) — Kullanıcı TestFlight build 13'te reklamı doğrulamaya çalıştı: hâlâ görünmüyor (teşhis doğrulandı, henüz aksiyon alınmadı)
 
 Kullanıcı TestFlight'tan build 13'ü yükleyip fotoğraftan kalori analizini günlük limite kadar denedi: `LimitReachedSheet` doğru açıldı ("Günlük hakkınız doldu") ama **yalnızca "Premium'a geç" butonu vardı, "Reklam izle" butonu yoktu** — kod tasarımı gereği bu, ödüllü reklamın **hiç yüklenmediği** anlamına geliyor (buton bilinçli olarak yalnızca reklam gerçekten hazırsa gösteriliyor).
