@@ -21,6 +21,11 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-25 (~02:10) — Gerçek cihazda (iPhone 15, kabloyla) 1.4.1 (14) TestFlight build'i doğrulandı
+- Telefonda TestFlight'tan kurulu 1.4.1 (14) `xcrun devicectl device process launch` ile başlatıldı, loglar `idevicesyslog` ile okundu (`log collect --device` root istiyor; `brew install libimobiledevice` kuruldu). Not: `idevicesyslog -p ESdiyet` filtresi uygulama loglarını kaçırıyor → filtresiz akıp grep'le.
+- **Sonuç:** açılışta etkileşimsiz gerçek reklam isteği gidiyor (`<Google> To get test ads on this device…`). Yanıt: interstitial + rewarded → **`[googleMobileAds/no-fill] Account not approved yet`**. Kod düzeltmesi çalışıyor; kalan tek engel AdMob hesap onayı.
+- **Test cihazı kimliği (AdMob):** `8d5de19de43e76cac3c7e8f0bb1d601c` (Enes'in iPhone 15). AdMob → Ayarlar → Test cihazları'na eklenirse production build'de bu telefona güvenli test reklamı gelir (kullanıcı onayı bekliyor).
+
 ### 2026-09-25 — 1.4.1 (14): AdMob SDK açılışta genel modda başlıyor (0 istek sorunu)
 - **Kök neden:** 1.4.0'da `AdsContext` SDK init + preload'u reklam rızası kararına bağlıyordu; sheet yalnızca `showInterstitialIfEligible` içinde açıldığından çoğu kullanıcı hiç istek üretmiyordu (AdMob 7 günde 0 istek).
 - **Değişiklik:** `AdsContext` → init/preload giriş yapmış ücretsiz kullanıcıda açılışta (`consentLoaded && user && !loadingSubscription` — abonelik yüklenmeden Premium'a istek gitmesin), karar yoksa `requestNonPersonalizedAdsOnly`. Ödüllü reklam artık rıza kararı beklemiyor. Rıza sheet'i yalnızca kişiselleştirme için, ilk geçiş reklamı fırsatında (o seferlik reklamsız) — davranış aynı. Metinler: `PRIVACY.md`, `PrivacyPolicyScreen`, `AdConsentModal`/`adsService`/`app.config.js` yorumları, `REKLAM_ENTEGRASYON_REHBERI.md`, CLAUDE.md §4.3. Hukuki dayanak değişmedi (genel reklam zaten "varsayılan, KVKK m.5/2-f").
