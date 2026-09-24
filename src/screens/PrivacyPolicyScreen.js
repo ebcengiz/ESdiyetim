@@ -38,7 +38,7 @@ const SECTIONS = [
     title: 'Reklamlar (yalnızca ücretsiz plan)',
     body:
       'Ücretsiz sürüm, yapay zeka maliyetlerini karşılamak için Google AdMob (Google Ireland Ltd. / Google LLC) reklamlarıyla desteklenir; Premium abonelikte reklam gösterilmez. Reklamlar yalnızca yapay zeka analizi sırasında (günde en fazla 1 geçiş reklamı) ve günlük hakkınız dolduğunda isteğe bağlı ödüllü reklam olarak görünür.\n\n' +
-      'İlk reklamdan önce tercihiniz sorulur:\n' +
+      'Kişiselleştirme tercihiniz uygulama içinde sorulur; seçim yapılana kadar yalnızca genel reklam gösterilir:\n' +
       '• Kişiselleştirilmiş reklamlar — açık rızanızla ve iOS “Uygulama Takibi” izniyle reklam kimliğiniz (IDFA) kullanılır. Bu rıza hizmet şartı değildir; vermezseniz uygulama aynen çalışır.\n' +
       '• Sadece genel reklamlar — reklam kimliği kullanılmaz; yalnızca IP adresi (yaklaşık konum), cihaz modeli, işletim sistemi, dil ve reklam etkileşimi (görüntüleme/tıklama) işlenir.\n\n' +
       'Reklam ağına kilo, VKİ, öğün, hedef, fotoğraf gibi sağlık verileri hiçbir zaman iletilmez. Reklam verileri Google’ın Türkiye dışındaki sunucularında işlenebilir; Google’ın gizlilik politikası ve reklam ayarları (adssettings.google.com) geçerlidir. Tercihinizi Profil → Kişiselleştirilmiş reklamlar bölümünden her an değiştirebilir, iOS Ayarlar → Gizlilik → Takip üzerinden izni geri alabilirsiniz.',

@@ -14,7 +14,7 @@
 | Format 1 | **Ödüllü (rewarded)**: günlük AI hakkı dolunca "Reklam izle → +1 analiz". Özellik başına günde en fazla 2 ödül. Buton yalnızca reklam **yüklüyse** görünür. |
 | Format 2 | **Geçiş (interstitial)**: günde **en fazla 1**, AI analizi **yüklenirken** (kullanıcı zaten bekliyor; sonucu okurken kesinti yok). |
 | Banner | **Yok** (düşük gelir, sabit yer kaplar, "reklamsız" ayrıştırıcısını zayıflatır). |
-| Rıza | İlk reklamdan önce KVKK uyumlu sheet: *Kişiselleştirilmiş* (→ iOS ATT izni) / *Sadece genel* (varsayılan). Profil'den geri alınabilir. |
+| Rıza | SDK açılışta genel modda başlar; ilk geçiş reklamı fırsatında KVKK uyumlu sheet: *Kişiselleştirilmiş* (→ iOS ATT izni) / *Sadece genel* (varsayılan). Profil'den geri alınabilir. |
 | Sağlık verisi | Reklam ağına **asla** gitmez (kod düzeyinde: `keywords`/`contentUrl` yok). |
 | Apple | ATT metni, `NSPrivacyTracking: true` + veri tipleri, ASC App Privacy beyanı, Review Notes. |
 

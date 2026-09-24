@@ -45,7 +45,7 @@ ESdiyet'in ücretsiz sürümü, yapay zeka maliyetlerini karşılamak için **Go
 
 **Ne zaman gösterilir?** Reklamlar yalnızca (1) yapay zeka analizi yüklenirken, günde en fazla **1 geçiş reklamı** ve (2) günlük ücretsiz analiz hakkınız dolduğunda, ek hak kazanmak için **isteğe bağlı** izlediğiniz ödüllü reklam olarak görünür. Banner reklam yoktur.
 
-**Tercihiniz (açık rıza):** İlk reklamdan önce uygulama içinde size sorulur; karar tarihiyle birlikte cihazınızda saklanır.
+**Tercihiniz (açık rıza):** Kişiselleştirme tercihiniz uygulama içinde size sorulur; karar tarihiyle birlikte cihazınızda saklanır. Seçim yapılana kadar yalnızca **genel reklam** gösterilir (reklam kimliği kullanılmaz).
 
 | Seçenek | İşlenen veri | Hukuki dayanak |
 |---|---|---|

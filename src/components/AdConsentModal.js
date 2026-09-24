@@ -5,8 +5,8 @@ import { COLORS, SIZES, MAX_FONT_SCALE } from '../constants/theme';
 import { BottomSheet, AppButton, IconBadge } from './ui';
 
 /**
- * KVKK aydınlatma + açık rıza: ücretsiz plandaki kullanıcıya ilk reklamdan önce
- * bir kez gösterilir. İki seçenek de reklam gösterir; fark yalnızca
+ * KVKK aydınlatma + açık rıza (kişiselleştirme için): ücretsiz plandaki kullanıcıya
+ * ilk geçiş reklamı fırsatında bir kez gösterilir; karar yokken reklamlar genel moddadır. İki seçenek de reklam gösterir; fark yalnızca
  * kişiselleştirme (reklam kimliği / ATT). Backdrop ile kapanmaz; kapatma
  * "Sadece genel reklamlar" ile eşdeğerdir (varsayılan = daha az veri).
  * Apple 5.1.2: ATT sistem izni ancak kullanıcı "kişiselleştirilmiş" seçerse istenir.

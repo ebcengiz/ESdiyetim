@@ -21,6 +21,25 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-25 — 1.4.1 (14): AdMob SDK açılışta genel modda başlıyor (0 istek sorunu)
+- **Kök neden:** 1.4.0'da `AdsContext` SDK init + preload'u reklam rızası kararına bağlıyordu; sheet yalnızca `showInterstitialIfEligible` içinde açıldığından çoğu kullanıcı hiç istek üretmiyordu (AdMob 7 günde 0 istek).
+- **Değişiklik:** `AdsContext` → init/preload giriş yapmış ücretsiz kullanıcıda açılışta (`consentLoaded && user && !loadingSubscription` — abonelik yüklenmeden Premium'a istek gitmesin), karar yoksa `requestNonPersonalizedAdsOnly`. Ödüllü reklam artık rıza kararı beklemiyor. Rıza sheet'i yalnızca kişiselleştirme için, ilk geçiş reklamı fırsatında (o seferlik reklamsız) — davranış aynı. Metinler: `PRIVACY.md`, `PrivacyPolicyScreen`, `AdConsentModal`/`adsService`/`app.config.js` yorumları, `REKLAM_ENTEGRASYON_REHBERI.md`, CLAUDE.md §4.3. Hukuki dayanak değişmedi (genel reklam zaten "varsayılan, KVKK m.5/2-f").
+- **Doğrulama:** `expo export` OK. Simülatör (Debug, TestIds, temiz kurulum, rıza yok): değişiklikten önce giriş ekranında bile 6 `mads/gma` isteği + test reklamları yüklendi; `user` koşulu eklendikten sonra giriş ekranında 0 istek. Giriş yapmış akış elle test edilmedi (demo şifre girilmedi) — TestFlight'ta doğrulanmalı.
+- **Sürüm:** `app.json` 1.4.1 / build 14, `expo prebuild --clean` (Info.plist 1.4.1/14, gerçek GAD App ID). Release arşivi scratchpad'de alındı; ASC yüklemesi + 1.4.1 sürümü oluşturma kullanıcı onayı bekliyor.
+
+### 2026-09-25 — Reklam neden görünmüyor: canlı kontrol + güncel araştırma (kod değişikliği yok)
+- **Değişen:** 1.4.0 App Store'da **24 Eyl 05:55 UTC yayınlandı** (ASC "Ready for Distribution"); iTunes lookup `sellerUrl: https://ebcturkiye.com/iletisim`, App Store sayfasında "Developer Website" linki var. app-ads.txt 200/text-plain, içerik birebir, robots engeli yok, www/http → 301 doğru.
+- **AdMob:** hâlâ "İnceleme gerekli / Sınırlı reklam sunumu", hesap "henüz onaylanmadı" (2/4 adım), son 7 gün **0 istek**, politika sorunu yok. Kullanıcı onayıyla Verify app → "Güncellemeleri kontrol edin" basıldı → sonuç değişmedi (eski tarama). AdMob kendi uyarısı: alan URL değişikliğini algılamak **7 güne kadar** sürer → ~1 Ekim'e kadar tekrar dene. Hesap onayı resmi süre 24 saat–2 hafta; yeni hesapta 30 güne kadar sınırlı sunum normal.
+- **Yayındaki binary doğrulandı** (`/private/tmp/ESdiyet-1.4.0-13.xcarchive`): gerçek `GADApplicationIdentifier` + iki gerçek ad unit JS bundle'da → yapılandırma hatası yok.
+- **Kod bulgusu (düzeltilmedi, kullanıcı kararı bekliyor):** SDK `initialize` + preload yalnızca reklam rızası kararından sonra; rıza sheet'i yalnızca `showInterstitialIfEligible` (foto analizi / DB'de bulunmayan AI besin araması) içinde açılıyor, ilk seferde reklam da gösterilmiyor; `LimitReachedSheet` rıza sormuyor, `MealFoodPickerSection` reklam tetiklemiyor → çoğu ücretsiz kullanıcı hiç istek üretmiyor. Öneri: açılışta genel (non-personalized) reklamla init + preload, rıza sheet'i yalnızca kişiselleştirme için.
+- **Hatırlatma:** Apple Developer Program **5 Ekim 2026**'da bitiyor — yenilenmezse uygulama mağazadan kalkar.
+
+### 2026-09-25 — Detaylı proje analizi (kod değişikliği yok)
+- **Kritik:** AI anahtarları (`EXPO_PUBLIC_GEMINI/GROQ_API_KEY`) client bundle'da → IPA'dan çıkarılıp ortak ücretsiz kota tüketilebilir. Öneri: Supabase Edge Function proxy (ücretsiz, anahtar sunucuda, kullanıcı başı limit sunucuda).
+- **Yüksek:** Günlük limitler (fotoğraf `user_credits`, AI arama, reklam bonusu) tamamen istemci tarafında; `user_credits` UPDATE policy'si kullanıcının sayacı sıfırlamasına izin veriyor. Tarihler `toISOString()` ile UTC → TR'de gün 03:00'te dönüyor (`dailyUsageService`, `SubscriptionContext`, `userCreditsService`).
+- **Orta:** `TipsScreen` pull-to-refresh aynı prompt'u 6 saatlik AI önbelleğinden döndürüyor (yenileme etkisiz). Repo SQL'i canlı şemayı tam yansıtmıyor (`food_logs`, `body_info` CREATE yok; `delete_own_account` RPC `food_logs`'u silmiyor). Fotoğraf yeniden boyutlandırılmadan base64 gönderiliyor. 8 Expo paketi patch geride. Test/lint/CI yok.
+- Olumlu: hata yönetimi katmanı, reklam/rıza mimarisi, tema/UI kiti disiplini tutarlı (hardcoded renk 0, `e.message` sızıntısı 0).
+
 ### 2026-09-23 (akşam, ~21:30) — AdMob + ASC canlı kontrol: Apple incelemesi normal sürede, engel yok
 - **ASC (iris API):** 1.4.0 `WAITING_FOR_REVIEW` (build 13), gönderim 22 Eyl 22:29 TR → ~23 saat. App Review sayfasında Apple'dan mesaj/bilgi talebi **yok**. Demo hesap (kullanıcı adı+şifre) ve iletişim bilgisi dolu, Review Notes 2136 karakter. Supabase auth/rest 200 (reviewer girişi çalışır). Geçmiş: 1.3.3 ~15 saatte onaylanmıştı. Apple sistem durumunda App Review kesintisi yok.
 - **Sözleşmeler:** Free + Paid Apps "Active", bitiş **5 Ekim 2026** (Developer Program yenilemesi). Yenilenmezse uygulama mağazadan kalkar — incelemeyi şu an engellemiyor.

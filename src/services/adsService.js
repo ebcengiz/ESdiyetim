@@ -64,8 +64,10 @@ export function subscribeAdState(fn) {
 }
 
 /**
- * SDK'yı bir kez başlatır. Google, rıza alınmadan initialize çağrılmamasını
- * önerir (SDK reklam ön-yükleyebilir) — AdsContext bunu rıza kararından sonra çağırır.
+ * SDK'yı bir kez başlatır. AdsContext bunu ücretsiz planda açılışta çağırır:
+ * kişiselleştirme kararı yoksa genel (non-personalized) modda. Google'ın "rızadan
+ * önce initialize etme" önerisi UMP/GDPR bölgeleri içindir; uygulama yalnızca
+ * Türkiye'de ve genel reklamın dayanağı meşru menfaat (PRIVACY.md, KVKK m.5/2-f).
  */
 export async function initAds({ nonPersonalizedAds = true, maxAdContentRating } = {}) {
   nonPersonalized = !!nonPersonalizedAds;

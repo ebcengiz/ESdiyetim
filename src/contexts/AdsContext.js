@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { useAuth } from './AuthContext';
 import { useSubscription, PHOTO_BONUS_USAGE_KEY } from './SubscriptionContext';
 import {
   isAdsAvailable,
@@ -27,8 +28,11 @@ import AdConsentModal from '../components/AdConsentModal';
 /**
  * Reklam politikası (tek yer):
  *   • Reklam yalnızca ücretsiz planda (isSubscribed=false) ve native modül varsa.
- *   • İlk reklamdan önce KVKK rıza sheet'i; karar verilmeden reklam gösterilmez
- *     ama akış da bloklanmaz (o seferlik reklamsız devam).
+ *   • SDK uygulama açılışında GENEL (kişiselleştirilmemiş) reklamla başlar ve
+ *     reklamları önceden yükler — PRIVACY.md: genel reklam varsayılan, KVKK m.5/2-f.
+ *     Rıza sheet'i yalnızca KİŞİSELLEŞTİRME içindir (açık rıza + ATT). Karar
+ *     verilmemişse ilk geçiş reklamı fırsatında sheet sorulur (o seferlik reklamsız);
+ *     ödüllü reklam karar beklemeden genel modda izlenebilir.
  *   • Geçiş reklamı: günde en fazla INTERSTITIAL_PER_DAY, AI analizi yüklenirken.
  *   • Ödüllü reklam: günlük hak dolunca, özellik başına günde en fazla REWARDS_PER_DAY.
  */
@@ -47,9 +51,13 @@ const EMPTY_CONSENT = { decided: false, personalized: false, date: null };
 const AdsContext = createContext(null);
 
 export function AdsProvider({ children }) {
-  const { isSubscribed, addBonusPhotoCredit, navigateTo } = useSubscription();
+  const { user } = useAuth();
+  const { isSubscribed, loadingSubscription, addBonusPhotoCredit, navigateTo } = useSubscription();
   const [consent, setConsent] = useState(EMPTY_CONSENT);
   const [trackingStatus, setTrackingStatus] = useState('unavailable');
+  // Kayıtlı rıza/ATT okunmadan init edilmesin — yoksa kişiselleştirilmiş kullanıcıda
+  // önce genel modda yüklenen reklamlar hemen atılıp yeniden istenir.
+  const [consentLoaded, setConsentLoaded] = useState(false);
   const [promptVisible, setPromptVisible] = useState(false);
   const [rewardedReady, setRewardedReady] = useState(false);
   // iOS'ta bir RN Modal (ör. FoodSearchModal) açıkken buradaki global sheet onun
@@ -69,13 +77,19 @@ export function AdsProvider({ children }) {
       if (cancelled) return;
       setConsent(c);
       setTrackingStatus(att);
+      setConsentLoaded(true);
     })();
     return () => { cancelled = true; };
   }, []);
 
-  // ─── SDK init + ön yükleme (yalnızca ücretsiz + karar verilmiş) ──────────
+  // ─── SDK init + ön yükleme (ücretsiz planda açılışta; karar beklenmez) ────
+  // 1.4.0'da init rıza kararına bağlıydı → sheet'i hiç görmeyen kullanıcı hiç
+  // reklam isteği üretmiyordu (AdMob'da 7 günde 0 istek). Karar yoksa genel mod.
+  // Giriş ekranı / misafirde reklam gösterilmez → boşa istek atma (hasUser).
+  // Abonelik durumu yüklenmeden isSubscribed=false görünür → Premium'a istek gitmesin.
+  const hasUser = !!user;
   useEffect(() => {
-    if (!adsEnabled || !consent.decided) return undefined;
+    if (!adsEnabled || loadingSubscription || !consentLoaded || !hasUser) return undefined;
     let cancelled = false;
     (async () => {
       const nonPersonalized = !(consent.personalized && trackingStatus === 'granted');
@@ -87,7 +101,7 @@ export function AdsProvider({ children }) {
       preloadRewarded();
     })();
     return () => { cancelled = true; };
-  }, [adsEnabled, consent.decided, consent.personalized, trackingStatus]);
+  }, [adsEnabled, loadingSubscription, consentLoaded, hasUser, consent.personalized, trackingStatus]);
 
   // Reklam yüklenme durumunu UI'a yansıt
   useEffect(() => {
@@ -165,7 +179,7 @@ export function AdsProvider({ children }) {
   // ─── Ödüllü reklam ───────────────────────────────────────────────────────
   /** LimitReachedSheet "Reklam izle" butonunu göstermeden önce: yüklü mü + günlük ödül cap'i dolmadı mı. */
   const getRewardedAvailability = useCallback(async (kind) => {
-    if (!adsEnabled || !consentRef.current.decided) return false;
+    if (!adsEnabled) return false;
     if (!isRewardedLoaded()) { preloadRewarded(); return false; }
     return !(await hasReachedDailyLimit(REWARD_CAP_PREFIX + kind, REWARDS_PER_DAY));
   }, [adsEnabled]);
@@ -177,7 +191,7 @@ export function AdsProvider({ children }) {
    * @returns {Promise<boolean>} ödül verildi mi
    */
   const watchRewardedFor = useCallback(async (kind) => {
-    if (!adsEnabled || !consentRef.current.decided) return false;
+    if (!adsEnabled) return false;
     const bonusKey = REWARD_BONUS_KEY[kind];
     if (!bonusKey) throw new Error(`Bilinmeyen ödül türü: ${kind}`);
     if (await hasReachedDailyLimit(REWARD_CAP_PREFIX + kind, REWARDS_PER_DAY)) {

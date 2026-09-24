@@ -57,7 +57,7 @@ module.exports = {
         {
           iosAppId: admobIosAppId,
           androidAppId: admobAndroidAppId,
-          // Rıza alınmadan ölçüm başlamasın (AdsContext initAds'i rıza sonrası çağırır)
+          // Ölçüm SDK init'ine kadar ertelensin (AdsContext initAds'i ücretsiz planda açılışta çağırır)
           delayAppMeasurementInit: true,
           userTrackingUsageDescription: USER_TRACKING_DESCRIPTION,
           skAdNetworkItems: SK_AD_NETWORK_ITEMS,
