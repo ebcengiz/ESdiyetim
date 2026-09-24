@@ -185,7 +185,7 @@ BEGIN
 
   -- Önce kullanıcıya bağlı satırlar (FK NO ACTION / RESTRICT olabilir).
   -- to_regclass: tablo bu projede yoksa atla (eski kurulumlar).
-  FOREACH t IN ARRAY ARRAY['diet_plans', 'weight_records', 'body_info', 'goals', 'food_logs', 'user_credits'] LOOP
+  FOREACH t IN ARRAY ARRAY['diet_plans', 'weight_records', 'body_info', 'goals', 'food_logs', 'user_credits', 'subscriptions'] LOOP
     IF to_regclass('public.' || t) IS NOT NULL THEN
       EXECUTE format('DELETE FROM public.%I WHERE user_id = $1', t) USING uid;
     END IF;

@@ -24,6 +24,7 @@ npx supabase link --project-ref qyfagnhmhovhlpbllioq
 npx supabase db push                       # supabase/migrations (ai_usage + ai_usage_consume gerekli)
 npx supabase secrets set GEMINI_API_KEY=... GROQ_API_KEY=...
 npx supabase functions deploy ai-proxy --no-verify-jwt
+npx supabase functions deploy verify-subscription --no-verify-jwt   # Premium tavanı için
 ```
 
 CLI yerine Dashboard da kullanılabilir: **SQL Editor** → `supabase/migrations/20260925120000_server_side_limits.sql`
@@ -38,8 +39,8 @@ CLI yerine Dashboard da kullanılabilir: **SQL Editor** → `supabase/migrations
 
 ## Günlük tavan
 
-`supabase/functions/ai-proxy/index.ts` → `CAPS`. Giriş yapmış kullanıcı: metin 80, görsel 5/gün;
-misafir (IP özeti): metin 20, görsel 0. Tavan dolunca uygulama "Günlük hak doldu" mesajını gösterir.
+`supabase/functions/ai-proxy/index.ts` → `CAPS`. Premium (sunucuda doğrulanmış abonelik): metin 80 / görsel 5;
+ücretsiz: metin 80 / görsel 3; misafir (IP özeti): metin 20 / görsel 0. Tavan dolunca uygulama "Günlük hak doldu" mesajını gösterir.
 
 ## Model güncellemesi
 

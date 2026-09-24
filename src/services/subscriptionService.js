@@ -23,7 +23,8 @@ import {
   purchaseUpdatedListener,
 } from 'expo-iap';
 import { isTestEnv } from '../utils/environment';
-import { AppError, ERROR_CODES } from './errors';
+import { AppError, ERROR_CODES, logError } from './errors';
+import { supabase } from './supabase';
 
 export const PRODUCT_IDS = {
   monthly:   'com.esdiyet.app.premium.monthly',
@@ -112,7 +113,12 @@ export async function loadProducts() {
 // ─── Satın al ───────────────────────────────────────────────────────────────
 // TestFlight ve simülatörde gerçek satın alma akışı devre dışı — sadece bilgi döner.
 
-export async function purchaseSubscription(productId) {
+/**
+ * @param {string} productId
+ * @param {{ appAccountToken?: string }} [options] appAccountToken = Supabase user.id (UUID):
+ *   Apple bunu imzalı işleme gömer; verify-subscription aboneliği yalnızca bu hesaba bağlar.
+ */
+export async function purchaseSubscription(productId, { appAccountToken } = {}) {
   if (isTestEnv) {
     return {
       success: false,
@@ -124,7 +130,7 @@ export async function purchaseSubscription(productId) {
   try {
     const request =
       Platform.OS === 'ios'
-        ? { ios: { sku: productId } }
+        ? { ios: { sku: productId, ...(appAccountToken ? { appAccountToken } : {}) } }
         : { android: { skus: [productId] } };
 
     await requestPurchase({ request, type: 'subs' });
@@ -185,5 +191,29 @@ export function setupPurchaseListeners(onSuccess, onError) {
   } catch (e) {
     console.warn('IAP setupPurchaseListeners:', e?.message);
     return () => {};
+  }
+}
+
+// ─── Sunucu doğrulaması ─────────────────────────────────────────────────────
+/**
+ * Aktif abonelik işlemlerini (StoreKit 2 JWS = purchaseToken) verify-subscription Edge
+ * Function'ına gönderir; sunucu Apple imzasını doğrulayıp public.subscriptions'a yazar.
+ * ai-proxy'nin Premium tavanı buna bakar. Best-effort: hata UI akışını bozmaz, null döner.
+ * Yalnızca iOS (Android yayında değil; Play doğrulaması servis hesabı ister).
+ */
+export async function syncSubscriptionWithServer(purchases) {
+  if (Platform.OS !== 'ios') return null;
+  const transactions = (purchases || [])
+    .filter(isActivePurchase)
+    .map((p) => p?.purchaseToken)
+    .filter((t) => typeof t === 'string' && t.split('.').length === 3);
+  if (!transactions.length) return null;
+  try {
+    const { data, error } = await supabase.functions.invoke('verify-subscription', { body: { transactions } });
+    if (error) throw error;
+    return data;
+  } catch (e) {
+    logError('subscription.serverSync', e);
+    return null;
   }
 }

@@ -10,6 +10,7 @@ import {
   FALLBACK_PRICE_LABELS,
 } from '../services/subscriptionService';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useAppError } from '../hooks/useAppError';
 import { useResponsive } from '../hooks/useResponsive';
@@ -27,6 +28,7 @@ export default function PaywallScreen({ navigation }) {
   const { showToast } = useToast();
   const { handleError } = useAppError();
   const { refreshSubscription, products, activateTestSubscription } = useSubscription();
+  const { user } = useAuth();
 
   const [selectedPlan, setSelectedPlan] = useState(PLAN_META[2].id); // yearly default
   const [purchasing, setPurchasing] = useState(false);
@@ -45,7 +47,8 @@ export default function PaywallScreen({ navigation }) {
     if (purchasing) return;
     setPurchasing(true);
     try {
-      const result = await purchaseSubscription(selectedPlan);
+      // appAccountToken: abonelik sunucuda yalnızca bu hesaba bağlanır (verify-subscription)
+      const result = await purchaseSubscription(selectedPlan, { appAccountToken: user?.id });
       if (result?.testBlocked) {
         // Test/Simulator: Apple StoreKit sheet açılamaz. Kullanıcının premium
         // ekranları önizleyebilmesi için aboneliği lokal olarak aktif ediyoruz.

@@ -8,7 +8,8 @@
 //   supabase secrets set GEMINI_API_KEY=... GROQ_API_KEY=...   (isteğe bağlı: COHERE_API_KEY, HUGGINGFACE_API_KEY)
 //   supabase functions deploy ai-proxy --no-verify-jwt
 // (JWT kod içinde doğrulanıyor; oturumsuz misafir isteği IP özetiyle sınırlanır.)
-// Önkoşul: supabase/migrations/20260925120000_server_side_limits.sql (ai_usage_consume).
+// Önkoşul: supabase/migrations/20260925120000_server_side_limits.sql (ai_usage_consume) +
+//          20260925130000_subscriptions.sql (has_active_subscription; Premium tavanı).
 //
 // İstek:  POST { kind: 'text', prompt }  |  { kind: 'vision', prompt, mime, b64 }
 // Yanıt:  200 { text, provider }  |  4xx/5xx { error: <ERROR_CODE> }
@@ -17,14 +18,17 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 // ─── Günlük tavanlar (Türkiye günü) ─────────────────────────────────────────
-// Ücretsiz/Premium ayrımı StoreKit'te olduğu için burada doğrulanamıyor; bu değerler
-// kötüye kullanıma karşı MUTLAK tavandır (Premium'un meşru kullanımını kesmeyecek kadar
-// yüksek, anahtar sızıntısının zararını sınırlayacak kadar düşük).
-//   vision: Premium günlük fotoğraf hakkı = 5 (SubscriptionContext.PREMIUM_DAILY_LIMIT)
+// Premium = public.subscriptions'ta sunucuda doğrulanmış (StoreKit JWS, verify-subscription)
+// geçerli abonelik. İstemcideki sınırlarla aynı tutulmalı (SubscriptionContext / AdsContext):
+//   vision free:    FREE_DAILY_LIMIT (1) + ödüllü reklam bonusu REWARDS_PER_DAY (2) = 3
+//   vision premium: PREMIUM_DAILY_LIMIT = 5
+// Ödüllü reklam sunucuda doğrulanamadığından (AdMob SSV yok) ücretsiz tavan bonusu varsayar.
 const CAPS = {
-  user: { text: 80, vision: 5 },
+  premium: { text: 80, vision: 5 },
+  free: { text: 80, vision: 3 },
   guest: { text: 20, vision: 0 },
 } as const;
+type Tier = keyof typeof CAPS;
 
 const MAX_PROMPT_CHARS = 12_000;
 const MAX_IMAGE_B64_CHARS = 6_000_000; // ~4.5 MB ham görsel
@@ -253,16 +257,25 @@ async function sha256(text: string) {
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function resolveSubject(req: Request, supabaseUrl: string, anonKey: string) {
+async function resolveSubject(
+  req: Request,
+  supabaseUrl: string,
+  anonKey: string,
+  admin: ReturnType<typeof createClient>,
+): Promise<{ subject: string; tier: Tier }> {
   const authHeader = req.headers.get("Authorization") ?? "";
   if (authHeader.startsWith("Bearer ")) {
     const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
     const { data } = await userClient.auth.getUser();
-    if (data?.user) return { subject: `user:${data.user.id}`, tier: "user" as const };
+    if (data?.user) {
+      const { data: premium, error } = await admin.rpc("has_active_subscription", { p_user_id: data.user.id });
+      if (error) console.warn("ai-proxy: has_active_subscription", error.message);
+      return { subject: `user:${data.user.id}`, tier: premium === true ? "premium" : "free" };
+    }
   }
   // Misafir (anon anahtarı) → ham IP saklamadan özetle sınırla
   const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
-  return { subject: `ip:${await sha256(`esdiyet:${ip}`)}`, tier: "guest" as const };
+  return { subject: `ip:${await sha256(`esdiyet:${ip}`)}`, tier: "guest" };
 }
 
 // ─── Handler ────────────────────────────────────────────────────────────────
@@ -294,7 +307,7 @@ Deno.serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const { subject, tier } = await resolveSubject(req, supabaseUrl, anonKey);
+  const { subject, tier } = await resolveSubject(req, supabaseUrl, anonKey, admin);
   const cap = CAPS[tier][kind];
   const { data: used, error: capErr } = await admin.rpc("ai_usage_consume", {
     p_subject: subject, p_kind: kind, p_cap: cap, p_delta: 1,

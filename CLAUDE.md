@@ -55,6 +55,8 @@ ESdiyetim/
 │   │                          #   food_logs+body_info şema anlık görüntüsü, ai_usage + user_credits koruması)
 │   ├── functions/delete-account   # Supabase Edge Function: hesap silme
 │   ├── functions/ai-proxy     # Supabase Edge Function: AI sağlayıcı proxy'si + günlük tavan
+│   ├── functions/verify-subscription  # StoreKit 2 JWS doğrulama → public.subscriptions
+│   ├── functions/_shared/appleJws.ts  # Bağımlılıksız Apple JWS/x5c doğrulayıcı (WebCrypto)
 │   └── sql / snippets
 ├── supabase-schema.sql        # Ana şema (diet_plans, weight_records, health_tips)
 ├── supabase-auth-migration.sql
@@ -127,7 +129,8 @@ Tab bar: ekranın en altına dock'lu (absolute, tam genişlik, üstte hairline),
 
 - `aiService.js` orchestrator. `services/ai/providers.js` yalnızca **`ai-proxy` Edge Function'ını** çağırır; provider chain (Gemini → Groq → Cohere → Hugging Face) `supabase/functions/ai-proxy/index.ts` içinde.
 - **AI anahtarları istemcide YOK.** Supabase secrets: `GEMINI_API_KEY`, `GROQ_API_KEY` (opsiyonel `COHERE_API_KEY`, `HUGGINGFACE_API_KEY`). `.env`'deki aynı adlı (ön eksiz) değerler yalnızca `supabase secrets set` için yerel kopya. `EXPO_PUBLIC_*_API_KEY` yazmak yasak — `npm run env:check` bunu hata sayar.
-- **Sunucu tavanı:** `ai-proxy` her isteği `ai_usage_consume()` ile sayar (Türkiye günü). Giriş yapmış: metin 80, görsel 5/gün; misafir (IP özeti): metin 20, görsel 0. Aşımda `429 { error: 'AI_DAILY_LIMIT' }`. Sağlayıcılar başarısız olursa hak iade edilir. Ücretsiz/Premium ayrımı StoreKit'te olduğundan istemcide kalır; sunucu değerleri **mutlak** tavandır (Premium sınırıyla uyumlu tut).
+- **Sunucu tavanı:** `ai-proxy` her isteği `ai_usage_consume()` ile sayar (Türkiye günü). Premium: metin 80 / görsel 5; ücretsiz: metin 80 / görsel 3 (1 + 2 ödüllü reklam); misafir (IP özeti): metin 20 / görsel 0. Aşımda `429 { error: 'AI_DAILY_LIMIT' }`. Sağlayıcılar başarısız olursa hak iade edilir. İstemcideki `FREE_DAILY_LIMIT`/`PREMIUM_DAILY_LIMIT`/`REWARDS_PER_DAY` değişirse `CAPS`'i de güncelle.
+- **Premium sunucuda doğrulanır:** istemci StoreKit 2 işlem JWS'ini (`purchase.purchaseToken`) `verify-subscription`'a gönderir (`syncSubscriptionWithServer`: açılış, satın alma, geri yükleme). Fonksiyon `_shared/appleJws.ts` ile x5c zincirini Apple Root CA G3'e (SHA-256 pin) kadar doğrular, bundle/ürün/`appAccountToken` (= `user.id`, satın almada gönderilir) kontrol eder, `public.subscriptions`'a yazar. `ai-proxy` Premium'u `has_active_subscription()` ile okur. Bir `original_transaction_id` aynı anda tek hesaba bağlıdır. Android henüz doğrulanmıyor (yayında değil).
 - Proxy ayrıca her isteğe sunucu tarafı sistem kuralı ekler (yalnızca beslenme/sağlık, teşhis yok).
 - Prompt builder'lar Türkçe, tıbbi teşhis yasağı **zorunlu**: *"Tıbbi teşhis veya kişisel tedavi/beslenme planı verme; yalnızca genel bilgilendirme ve güvenli motivasyon."* — bu kısıt her yeni prompt'ta korunmalı (App Store health policy).
 - Hata loglaması: ağ/kota hataları `console.warn`, diğerleri `console.error`. Bu ayrım `services/errors/normalizeError.js → logError()` içinde kod bazlı yapılıyor — bozma (Metro log gürültüsü).
@@ -166,6 +169,7 @@ npm run fix:ios        # iOS Xcode build sorunları (pod reset vb.)
 npx eas build --platform ios      # Production build
 npx eas build --platform android
 npx supabase functions deploy ai-proxy --no-verify-jwt   # AI proxy (secrets: GEMINI_API_KEY, GROQ_API_KEY)
+npx supabase functions deploy verify-subscription --no-verify-jwt   # StoreKit abonelik doğrulama
 npx supabase db push                                     # supabase/migrations (ya da SQL Editor'de elle)
 ```
 

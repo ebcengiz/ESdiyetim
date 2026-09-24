@@ -2,7 +2,7 @@
   "expo": {
     "name": "ESdiyet",
     "slug": "esdiyet",
-    "version": "1.4.1",
+    "version": "1.4.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -40,7 +40,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.esdiyet.app",
-      "buildNumber": "14",
+      "buildNumber": "15",
       "infoPlist": {
         "NSCameraUsageDescription": "Profil ve kalori tahmini için kamera kullanılır.",
         "NSPhotoLibraryUsageDescription": "Profil ve kalori tahmini için galeriden fotoğraf seçilir.",

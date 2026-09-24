@@ -5,7 +5,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 // Kullanıcı verisi tutan tablolar (supabase/sql/delete_own_account.sql ile aynı liste)
-const USER_TABLES = ["diet_plans", "weight_records", "body_info", "goals", "food_logs", "user_credits"];
+const USER_TABLES = ["diet_plans", "weight_records", "body_info", "goals", "food_logs", "user_credits", "subscriptions"];
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

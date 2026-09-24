@@ -7,6 +7,7 @@ import {
   restorePurchases,
   setupPurchaseListeners,
   isActivePurchase,
+  syncSubscriptionWithServer,
   ALL_PRODUCT_IDS,
 } from '../services/subscriptionService';
 import { userCreditsService } from '../services/supabase';
@@ -45,6 +46,8 @@ export function SubscriptionProvider({ children }) {
   // Satın alma listener'ı init effect'inde bir kez kurulur; güncel userId'li
   // loadDailyCredits'e ref üzerinden ulaşır (stale closure olmasın).
   const loadDailyCreditsRef = useRef(async () => {});
+  // Son StoreKit sonucu — giriş yapılınca sunucuya (verify-subscription) gönderilir.
+  const lastPurchasesRef = useRef([]);
 
   // ─── Abonelik durumunu yükle ─────────────────────────────────────────────
   const loadSubscriptionStatus = useCallback(async () => {
@@ -63,6 +66,7 @@ export function SubscriptionProvider({ children }) {
       const active = purchases.some(isActivePurchase);
       setIsSubscribed(active);
       await AsyncStorage.setItem(SUBSCRIPTION_CACHE_KEY, String(active));
+      lastPurchasesRef.current = purchases;
     } catch (e) {
       logError('subscription.status', e);
     }
@@ -96,6 +100,13 @@ export function SubscriptionProvider({ children }) {
 
   loadDailyCreditsRef.current = loadDailyCredits;
 
+  // Abonelik sunucuda doğrulansın (ai-proxy Premium tavanı): StoreKit durumu yüklendikten
+  // sonra ve kullanıcı değişince. Oturum yoksa sunucu kimliği bağlayamaz → atla.
+  useEffect(() => {
+    if (!userId || isTestEnv || loadingSubscription || !isSubscribed) return;
+    syncSubscriptionWithServer(lastPurchasesRef.current);
+  }, [userId, loadingSubscription, isSubscribed]);
+
   // Krediler kullanıcıya bağlı: giriş / çıkış / hesap değişiminde yeniden yükle
   // (eskiden yalnızca açılışta yükleniyordu → girişten sonra sayaç güncellenmiyordu).
   useEffect(() => {
@@ -117,6 +128,8 @@ export function SubscriptionProvider({ children }) {
           if (ALL_PRODUCT_IDS.includes(purchase?.productId)) {
             setIsSubscribed(true);
             await AsyncStorage.setItem(SUBSCRIPTION_CACHE_KEY, 'true');
+            lastPurchasesRef.current = [purchase];
+            syncSubscriptionWithServer([purchase]);
             await loadDailyCreditsRef.current();
           }
         },
@@ -186,8 +199,9 @@ export function SubscriptionProvider({ children }) {
   // ─── Abonelik yenile (satın alma sonrası) ────────────────────────────────
   const refreshSubscription = useCallback(async () => {
     await loadSubscriptionStatus();
+    if (userId && !isTestEnv) await syncSubscriptionWithServer(lastPurchasesRef.current);
     await loadDailyCredits();
-  }, [loadSubscriptionStatus, loadDailyCredits]);
+  }, [loadSubscriptionStatus, loadDailyCredits, userId]);
 
   // ─── Test/Simulator için sahte aktivasyon ────────────────────────────────
   // TestFlight ve simülatörde StoreKit açılamadığı için premium ekranları
