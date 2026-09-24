@@ -2,8 +2,7 @@
 --
 -- Bu iki tablo canlı veritabanında dashboard'dan elle oluşturulmuştu; repodaki SQL'de
 -- CREATE ifadeleri yoktu (yeni bir Supabase projesi repodan kurulamıyordu).
--- Kolonlar uygulama kodundan çıkarıldı (src/services/supabase.js → foodLogService,
--- bodyInfoService; FoodSearchModal / BMIPanel insert gövdeleri).
+-- Kolonlar/varsayılanlar 2026-09-25'te canlı veritabanından (information_schema) okundu.
 --
 -- Canlı veritabanında tablolar zaten var → CREATE TABLE IF NOT EXISTS no-op olur,
 -- policy'ler de yalnızca yoksa eklenir. Yani bu dosya canlıda güvenle çalıştırılabilir.
@@ -12,10 +11,10 @@
 CREATE TABLE IF NOT EXISTS public.food_logs (
   id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id        UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  date           DATE        NOT NULL,
+  date           DATE        NOT NULL DEFAULT CURRENT_DATE,
   meal_type      TEXT        NOT NULL,
   food_name      TEXT        NOT NULL,
-  amount_grams   NUMERIC,
+  amount_grams   NUMERIC     DEFAULT 100,
   calories       NUMERIC,
   protein        NUMERIC,
   carbs          NUMERIC,
@@ -38,8 +37,10 @@ CREATE TABLE IF NOT EXISTS public.body_info (
   height     NUMERIC,
   weight     NUMERIC,
   age        INTEGER,
-  gender     TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  gender         TEXT,
+  activity_level TEXT,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc', now()),
+  updated_at TIMESTAMPTZ DEFAULT timezone('utc', now())
 );
 
 CREATE INDEX IF NOT EXISTS body_info_user_id_idx ON public.body_info (user_id);
