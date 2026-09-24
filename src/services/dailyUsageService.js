@@ -3,11 +3,13 @@
 // (ör. ücretsiz kullanıcıların günde birkaç kez deneyebildiği AI özellikleri).
 // Güvenlik sınırı değildir — sadece kullanım nazikçe sınırlandırılır.
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { toDateString } from '../utils/date';
 
 const PREFIX = 'esdiyet_daily_usage_v1:';
 
+// YEREL takvim günü — toISOString UTC olduğu için TR'de sayaçlar 03:00'te sıfırlanıyordu.
 function todayStr() {
-  return new Date().toISOString().split('T')[0];
+  return toDateString(new Date());
 }
 
 async function readState(key) {

@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   TextInput,
   ActivityIndicator,
   Modal,
@@ -31,6 +30,7 @@ import {
 import { hasReachedDailyLimit, incrementDailyUsage } from '../../services/dailyUsageService';
 import { FREE_AI_SEARCH_DAILY_LIMIT, AI_SEARCH_USAGE_KEY } from '../../services/subscriptionService';
 import { MacroGridCell, CalcChip } from './MacroWidgets';
+import { PressableOpacity } from '../ui';
 
 
 /**
@@ -232,7 +232,7 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
       handleClose();
       onSaved?.();
     } catch (e) {
-      showToast('Kaydetme başarısız.', 'error');
+      handleError(e, { context: 'foodLog.save', onRetry: handleSave });
     } finally {
       setSaving(false);
     }
@@ -287,7 +287,7 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
                 onSubmitEditing={handleAISearch}
               />
               {query.length > 0 && (
-                <TouchableOpacity onPress={() => {
+                <PressableOpacity onPress={() => {
                   searchRequestIdRef.current += 1;
                   if (searchDebounceRef.current) {
                     clearTimeout(searchDebounceRef.current);
@@ -299,12 +299,12 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
                   setSearching(false);
                 }}>
                   <Ionicons name="close-circle" size={18} color={COLORS.textLight} />
-                </TouchableOpacity>
+                </PressableOpacity>
               )}
             </View>
 
             {/* AI analiz butonu */}
-            <TouchableOpacity
+            <PressableOpacity
               style={styles.aiBtn}
               onPress={handleAISearch}
               disabled={aiLoading || !query.trim()}
@@ -320,7 +320,7 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
                   </Text>
                 </>
               )}
-            </TouchableOpacity>
+            </PressableOpacity>
 
             {/* Arama durumu */}
             {searching && (
@@ -337,7 +337,7 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
                   Ürün Veritabanı ({searchResults.length} sonuç)
                 </Text>
                 {searchResults.map((item, idx) => (
-                  <TouchableOpacity
+                  <PressableOpacity
                     key={`${item.id}_${idx}`}
                     style={styles.resultItem}
                     onPress={() => selectFood(item)}
@@ -353,7 +353,7 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
                       <Text style={styles.resultKcal}>{item.calories}</Text>
                       <Text style={styles.resultKcalUnit}>{activeMealType === 'drink' ? 'kcal/100ml' : 'kcal/100g'}</Text>
                     </View>
-                  </TouchableOpacity>
+                  </PressableOpacity>
                 ))}
               </View>
             )}
@@ -462,7 +462,7 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
                       ? ['100', '200', '250', '330', '500']
                       : ['50', '100', '150', '200', '250']
                     ).map((g) => (
-                      <TouchableOpacity
+                      <PressableOpacity
                         key={g}
                         style={[styles.quickGramBtn, grams === g && styles.quickGramBtnActive]}
                         onPress={() => setGrams(g)}
@@ -470,7 +470,7 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
                         <Text style={[styles.quickGramText, grams === g && styles.quickGramTextActive]}>
                           {activeMealType === 'drink' ? `${g}ml` : `${g}g`}
                         </Text>
-                      </TouchableOpacity>
+                      </PressableOpacity>
                     ))}
                   </View>
 
@@ -506,7 +506,7 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
                   <Text style={styles.addSectionTitle}>Öğün</Text>
                   <View style={styles.mealTypeRow}>
                     {MEAL_TYPES.map((m) => (
-                      <TouchableOpacity
+                      <PressableOpacity
                         key={m.key}
                         style={[
                           styles.mealTypeBtn,
@@ -526,12 +526,12 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
                         ]}>
                           {m.label}
                         </Text>
-                      </TouchableOpacity>
+                      </PressableOpacity>
                     ))}
                   </View>
 
                   {/* Kaydet */}
-                  <TouchableOpacity
+                  <PressableOpacity
                     style={[styles.saveBtn, saving && { opacity: 0.7 }]}
                     onPress={handleSave}
                     disabled={saving}
@@ -552,7 +552,7 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
                         </>
                       )}
                     </LinearGradient>
-                  </TouchableOpacity>
+                  </PressableOpacity>
                 </View>
               </View>
             )}
@@ -580,9 +580,9 @@ export default function FoodSearchModal({ visible, initialMealType, dateStr, onC
           </ScrollView>
 
           {/* İptal butonu */}
-          <TouchableOpacity style={styles.cancelBtn} onPress={handleClose}>
+          <PressableOpacity style={styles.cancelBtn} onPress={handleClose}>
             <Text style={styles.cancelBtnText}>İptal</Text>
-          </TouchableOpacity>
+          </PressableOpacity>
         </View>
       </View>
 

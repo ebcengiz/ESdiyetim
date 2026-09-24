@@ -1,6 +1,6 @@
 // AI Servis Orchestrator
-// Metin: providers.callTextWithProviderChain → Gemini → Groq → Cohere → Hugging Face
-// Görsel: providers.callMealCalorieVisionChain → Gemini Vision → Groq Vision
+// Metin: providers.callTextWithProviderChain → Edge Function ai-proxy (Gemini → Groq → Cohere → Hugging Face)
+// Görsel: providers.callMealCalorieVisionChain → ai-proxy (Gemini Vision → Groq Vision)
 
 import { callTextWithProviderChain, callMealCalorieVisionChain } from './ai/providers';
 import { AIConsentRequiredError } from './aiConsentService';
@@ -8,11 +8,16 @@ import { getCached, setCached, cacheKeyForPrompt } from './aiCacheService';
 import { enqueueAIRequest } from './aiRequestQueue';
 import { AppError, ERROR_CODES, normalizeError, logError } from './errors';
 
-/** Önbellekli + kuyruklu metin çağrısı: aynı prompt için tekrar ağa çıkmaz, eşzamanlı istekleri sıraya alır. */
-async function call(prompt) {
+/**
+ * Önbellekli + kuyruklu metin çağrısı: aynı prompt için tekrar ağa çıkmaz, eşzamanlı istekleri sıraya alır.
+ * `skipCache`: kullanıcı açıkça yenilediğinde (pull-to-refresh) önbelleği atla — yeni yanıt önbelleğe yazılır.
+ */
+async function call(prompt, { skipCache = false } = {}) {
   const cacheKey = cacheKeyForPrompt(prompt);
-  const cached = await getCached(cacheKey);
-  if (cached) return { ...cached, fromCache: true };
+  if (!skipCache) {
+    const cached = await getCached(cacheKey);
+    if (cached) return { ...cached, fromCache: true };
+  }
 
   const result = await enqueueAIRequest(() => callTextWithProviderChain(prompt));
   setCached(cacheKey, result);
@@ -208,9 +213,9 @@ export const aiService = {
     }
   },
 
-  async getHealthTip(category = 'genel') {
+  async getHealthTip(category = 'genel', { force = false } = {}) {
     try {
-      const { text: advice, provider } = await call(buildHealthTipPrompt(category));
+      const { text: advice, provider } = await call(buildHealthTipPrompt(category), { skipCache: force });
       return { success: true, advice, category, provider };
     } catch (error) {
       return fallbackResult('Sağlık tavsiyesi', error, { advice: FALLBACK_HEALTH_TIPS[category] || FALLBACK_HEALTH_TIPS.genel, category });
@@ -259,7 +264,6 @@ export const aiService = {
     if (!base64 || typeof base64 !== 'string') throw new AppError(ERROR_CODES.AI_IMAGE_INVALID, { detail: 'base64 boş/geçersiz' });
     const cleanMime = mimeType?.includes('/') ? mimeType : 'image/jpeg';
     const cleanB64 = base64.replace(/^data:image\/\w+;base64,/, '');
-    const dataUrl = `data:${cleanMime};base64,${cleanB64}`;
     const prompt = `Bu fotoğraftaki yemeği veya yemekleri incele. Tıbbi teşhis değil; sadece genel tahmindir.
 
 Yanıtını SADECE geçerli bir JSON nesnesi olarak ver, başka metin veya markdown kullanma. Şema:
@@ -273,14 +277,8 @@ Yanıtını SADECE geçerli bir JSON nesnesi olarak ver, başka metin veya markd
 
 Kurallar: items en fazla 8 eleman; emin değilsen confidence düşük yap.`;
 
-    return enqueueAIRequest(() => callMealCalorieVisionChain({ cleanMime, cleanB64, dataUrl, prompt }));
+    return enqueueAIRequest(() => callMealCalorieVisionChain({ cleanMime, cleanB64, prompt }));
   },
-
-  // ─── Deprecated provider wrappers (geriye uyumluluk) ──────────────────────
-  async getHuggingFaceAdvice(prompt) { const { callHuggingFace } = await import('./ai/providers'); return callHuggingFace(prompt); },
-  async getGroqAdvice(prompt) { const { callGroq } = await import('./ai/providers'); return callGroq(prompt); },
-  async getCohereAdvice(prompt) { const { callCohere } = await import('./ai/providers'); return callCohere(prompt); },
-  async getGeminiAdvice(prompt) { const { callGemini } = await import('./ai/providers'); return callGemini(prompt); },
 
   // ─── Yardımcı & fallback fonksiyonlar ─────────────────────────────────────
   parseBMIBulletLines(text) {

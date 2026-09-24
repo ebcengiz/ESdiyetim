@@ -23,6 +23,7 @@ import {
   purchaseUpdatedListener,
 } from 'expo-iap';
 import { isTestEnv } from '../utils/environment';
+import { AppError, ERROR_CODES } from './errors';
 
 export const PRODUCT_IDS = {
   monthly:   'com.esdiyet.app.premium.monthly',
@@ -137,13 +138,16 @@ export async function purchaseSubscription(productId) {
 
 // ─── Restore purchases ───────────────────────────────────────────────────────
 
+// Hata YUTULMAZ: "mağazaya ulaşılamadı" ile "abonelik yok" ayrı durumlar. Eskiden hata
+// [] dönüyordu → açılışta geçici StoreKit/ağ hatası ödeme yapan kullanıcıyı ücretsize
+// düşürüp cache'e false yazıyordu. Çağıran taraf (SubscriptionContext / Paywall) karar verir.
+// iOS: getAvailablePurchases varsayılan onlyIncludeActiveItemsIOS=true → yalnızca aktif abonelikler.
 export async function restorePurchases() {
   try {
     const purchases = await getAvailablePurchases();
     return purchases || [];
   } catch (e) {
-    console.warn('IAP restorePurchases:', e?.message);
-    return [];
+    throw new AppError(ERROR_CODES.IAP_UNAVAILABLE, { detail: `IAP restorePurchases: ${e?.message || e}`, cause: e });
   }
 }
 

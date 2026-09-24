@@ -8,13 +8,10 @@
  * yeterli; production build'de gerçek ID `.env`'de olmalı — bkz. REKLAM_ENTEGRASYON_REHBERI.md).
  */
 try {
-  // eslint-disable-next-line import/no-extraneous-dependencies, @typescript-eslint/no-var-requires
   require('dotenv').config();
 } catch (_) {
   // dotenv yoksa Expo yine de kendi .env yüklemesini dener
 }
-
-const base = require('./app.json');
 
 // Google'ın herkese açık test App ID'leri (https://developers.google.com/admob/ios/test-ads)
 const ADMOB_TEST_IOS_APP_ID = 'ca-app-pub-3940256099942544~1458002511';
@@ -46,24 +43,22 @@ const SK_AD_NETWORK_ITEMS = [
   '97r2b46745.skadnetwork', '3qcr597p9d.skadnetwork',
 ];
 
-module.exports = {
-  ...base,
-  expo: {
-    ...base.expo,
-    plugins: [
-      ...base.expo.plugins,
-      [
-        'react-native-google-mobile-ads',
-        {
-          iosAppId: admobIosAppId,
-          androidAppId: admobAndroidAppId,
-          // Ölçüm SDK init'ine kadar ertelensin (AdsContext initAds'i ücretsiz planda açılışta çağırır)
-          delayAppMeasurementInit: true,
-          userTrackingUsageDescription: USER_TRACKING_DESCRIPTION,
-          skAdNetworkItems: SK_AD_NETWORK_ITEMS,
-        },
-      ],
-      ['expo-tracking-transparency', { userTrackingPermission: USER_TRACKING_DESCRIPTION }],
+// Expo, app.json'u okuyup `config` olarak verir; burada yalnızca .env'e bağlı plugin'ler eklenir.
+module.exports = ({ config }) => ({
+  ...config,
+  plugins: [
+    ...(config.plugins || []),
+    [
+      'react-native-google-mobile-ads',
+      {
+        iosAppId: admobIosAppId,
+        androidAppId: admobAndroidAppId,
+        // Ölçüm SDK init'ine kadar ertelensin (AdsContext initAds'i ücretsiz planda açılışta çağırır)
+        delayAppMeasurementInit: true,
+        userTrackingUsageDescription: USER_TRACKING_DESCRIPTION,
+        skAdNetworkItems: SK_AD_NETWORK_ITEMS,
+      },
     ],
-  },
-};
+    ['expo-tracking-transparency', { userTrackingPermission: USER_TRACKING_DESCRIPTION }],
+  ],
+});

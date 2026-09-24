@@ -60,7 +60,6 @@ export function installGlobalErrorHandlers() {
       return;
     }
     // Hermes dışı (nadir): polyfill'in izleyicisi
-    // eslint-disable-next-line global-require
     const tracking = require('promise/setimmediate/rejection-tracking');
     tracking.enable({ allRejections: true, onUnhandled });
   } catch {

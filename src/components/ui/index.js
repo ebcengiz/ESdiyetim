@@ -23,3 +23,4 @@ export { default as SegmentedControl } from './SegmentedControl';
 export { default as DateField } from './DateField';
 export { default as Chip } from './Chip';
 export { default as ListRow } from './ListRow';
+export { default as PressableOpacity } from './PressableOpacity';

@@ -15,7 +15,6 @@
 // (metro-runtime/src/polyfills/require.js → guardedLoadModule/inGuard).
 let NetInfo = null;
 try {
-  // eslint-disable-next-line global-require
   const mod = require('@react-native-community/netinfo');
   NetInfo = mod?.default || mod;
 } catch (e) {

@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TextInput,
-  TouchableOpacity,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
@@ -19,6 +18,7 @@ import { hasReachedDailyLimit, incrementDailyUsage } from '../../services/dailyU
 import { FREE_AI_SEARCH_DAILY_LIMIT, AI_SEARCH_USAGE_KEY } from '../../services/subscriptionService';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { useAppError } from '../../hooks/useAppError';
+import { PressableOpacity } from '../ui';
 
 /** Besin günlüğü ile aynı kaynak: OFF/USDA araması + AI + gram/ml → satıra yazılır (kendi state'i var) */
 export default function MealFoodPickerSection({ field, formValue, onAppend, onRemoveLine, showToast }) {
@@ -120,9 +120,9 @@ export default function MealFoodPickerSection({ field, formValue, onAppend, onRe
         <View key={idx} style={mp.foodLineRow}>
           <Ionicons name="checkmark-circle" size={15} color={COLORS.primaryLight} />
           <Text style={mp.foodLineText} numberOfLines={1}>{line.replace(/^•\s*/, '')}</Text>
-          <TouchableOpacity onPress={() => onRemoveLine(idx)} hitSlop={8}>
+          <PressableOpacity onPress={() => onRemoveLine(idx)} hitSlop={8}>
             <Ionicons name="close-circle" size={18} color={COLORS.textLight} />
-          </TouchableOpacity>
+          </PressableOpacity>
         </View>
       ))}
 
@@ -140,7 +140,7 @@ export default function MealFoodPickerSection({ field, formValue, onAppend, onRe
             onSubmitEditing={handleAISearch}
           />
         </View>
-        <TouchableOpacity
+        <PressableOpacity
           style={[mp.aiBtn, (!pickQuery.trim() || pickAiLoading) && { opacity: 0.55 }]}
           onPress={handleAISearch}
           disabled={pickAiLoading || !pickQuery.trim()}
@@ -153,7 +153,7 @@ export default function MealFoodPickerSection({ field, formValue, onAppend, onRe
               <Text style={mp.aiBtnText}>AI ile tam analiz (Türkçe)</Text>
             </>
           )}
-        </TouchableOpacity>
+        </PressableOpacity>
         {pickSearching ? (
           <View style={mp.searchingRow}>
             <ActivityIndicator size="small" color={COLORS.primary} />
@@ -163,7 +163,7 @@ export default function MealFoodPickerSection({ field, formValue, onAppend, onRe
         {!pickFood && pickResults.length > 0 ? (
           <ScrollView style={mp.resultsScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
             {pickResults.map((item, idx) => (
-              <TouchableOpacity
+              <PressableOpacity
                 key={`${item.id}_${idx}`}
                 style={mp.resultItem}
                 onPress={() => { setPickFood(item); setPickResults([]); }}
@@ -174,7 +174,7 @@ export default function MealFoodPickerSection({ field, formValue, onAppend, onRe
                   {item.brand ? <Text style={mp.resultBrand} numberOfLines={1}>{item.brand}</Text> : null}
                 </View>
                 <Text style={mp.resultKcal}>{item.calories} /100{item.isDrink ? 'ml' : 'g'}</Text>
-              </TouchableOpacity>
+              </PressableOpacity>
             ))}
           </ScrollView>
         ) : null}
@@ -182,9 +182,9 @@ export default function MealFoodPickerSection({ field, formValue, onAppend, onRe
           <View style={mp.selectedCard}>
             <View style={mp.selectedHeader}>
               <Text style={mp.selectedName} numberOfLines={2}>{pickFood.name}</Text>
-              <TouchableOpacity onPress={() => setPickFood(null)} hitSlop={12}>
+              <PressableOpacity onPress={() => setPickFood(null)} hitSlop={12}>
                 <Ionicons name="close-circle" size={22} color={COLORS.textLight} />
-              </TouchableOpacity>
+              </PressableOpacity>
             </View>
             <View style={mp.gramRow}>
               <Text style={mp.gramLabel}>{pickFood.isDrink ? 'Miktar (ml)' : 'Miktar (g)'}</Text>
@@ -197,10 +197,10 @@ export default function MealFoodPickerSection({ field, formValue, onAppend, onRe
               />
             </View>
             {preview != null ? <Text style={mp.estKcal}>Tahmini: {preview} kcal</Text> : null}
-            <TouchableOpacity style={mp.addBtn} onPress={handleAppend} activeOpacity={0.85}>
+            <PressableOpacity style={mp.addBtn} onPress={handleAppend} activeOpacity={0.85}>
               <Ionicons name="add-circle-outline" size={18} color={COLORS.white} />
               <Text style={mp.addBtnText}>Ekle</Text>
-            </TouchableOpacity>
+            </PressableOpacity>
           </View>
         ) : null}
       </View>

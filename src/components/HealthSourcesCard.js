@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
+import { PressableOpacity } from './ui';
 
 const VARIANTS = {
   meal: {
@@ -161,7 +161,7 @@ export default function HealthSourcesCard({ variant = 'general', style }) {
       </View>
       <Text style={styles.intro}>{cfg.intro}</Text>
       {cfg.links.map(({ label, url }, idx) => (
-        <TouchableOpacity
+        <PressableOpacity
           key={url}
           style={[styles.row, idx === 0 && styles.rowFirst]}
           onPress={() => Linking.openURL(url)}
@@ -169,7 +169,7 @@ export default function HealthSourcesCard({ variant = 'general', style }) {
         >
           <Text style={styles.linkText}>{label}</Text>
           <Ionicons name="open-outline" size={14} color={COLORS.info} style={styles.linkIcon} />
-        </TouchableOpacity>
+        </PressableOpacity>
       ))}
     </View>
   );

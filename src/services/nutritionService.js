@@ -23,13 +23,6 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-function toKebab(str) {
-  return String(str || '')
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '_');
-}
 
 // ─── 1 & 2: Open Food Facts (TR + World) ─────────────────────────────────────
 

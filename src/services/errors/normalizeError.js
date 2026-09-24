@@ -121,6 +121,21 @@ export function normalizeError(err, { context = '', fallbackCode = ERROR_CODES.U
   return new AppError(code, { cause: err, detail, meta: { status, rawCode: err?.code || null } });
 }
 
+/** Postgres unique ihlali (23505) — servislerde "bu kayıt zaten var" dalı için. */
+export function isUniqueViolation(err) {
+  return fromPostgrest(err, rawMessage(err)) === ERROR_CODES.DB_DUPLICATE;
+}
+
+/** ON CONFLICT hedefiyle eşleşen unique kısıt yok (42P10) — eski şemalarda upsert yerine insert'e düşmek için. */
+export function isMissingConflictTarget(err) {
+  return String(err?.code || '') === '42P10' || /no unique or exclusion constraint/i.test(rawMessage(err));
+}
+
+/** PostgREST: RPC fonksiyonu veritabanında yok (migration henüz uygulanmamış). */
+export function isMissingRpc(err) {
+  return String(err?.code || '') === 'PGRST202';
+}
+
 /** Kısa yol: sadece kullanıcı mesajı */
 export function getUserMessage(err, fallbackCode) {
   return normalizeError(err, { fallbackCode }).userMessage;

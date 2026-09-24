@@ -44,3 +44,14 @@ export function setCached(key, value, ttlMs = DEFAULT_TTL_MS) {
     /* önbellek best-effort, hatayı yut */
   });
 }
+
+/** Tüm AI önbelleğini sil — çıkış / hesap silmede (yanıtlar kişisel sağlık verisi içerebilir). */
+export async function clearAICache() {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const ours = keys.filter((k) => k.startsWith(CACHE_PREFIX));
+    if (ours.length) await AsyncStorage.multiRemove(ours);
+  } catch {
+    /* best-effort */
+  }
+}

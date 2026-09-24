@@ -1,7 +1,8 @@
 import "react-native-url-polyfill/auto";
 import { createClient } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { AppError, ERROR_CODES } from "./errors";
+import { AppError, ERROR_CODES, isUniqueViolation, isMissingConflictTarget, isMissingRpc } from "./errors";
+import { toDateString } from "../utils/date";
 
 // Supabase yapılandırması
 // Değerler .env dosyasından okunur (bkz. EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY)
@@ -155,7 +156,7 @@ export const weightService = {
       .from("weight_records")
       .select("*")
       .eq("user_id", user.id)
-      .gte("date", thirtyDaysAgo.toISOString().split("T")[0])
+      .gte("date", toDateString(thirtyDaysAgo))
       .order("date", { ascending: true });
 
     if (error) throw error;
@@ -182,7 +183,7 @@ export const weightService = {
     error = upsertRes.error;
 
     // Eski şemalarda onConflict (user_id,date) yoksa insert fallback
-    if (error && String(error.message || "").toLowerCase().includes("no unique")) {
+    if (error && isMissingConflictTarget(error)) {
       const insertRes = await supabase
         .from("weight_records")
         .insert([{ ...weightRecord, user_id: user.id }])
@@ -194,7 +195,7 @@ export const weightService = {
 
     if (error) {
       // Duplicate key hatası için özel mesaj
-      if (error.code === '23505' || error.message.includes('duplicate') || error.message.includes('unique')) {
+      if (isUniqueViolation(error)) {
         throw new AppError(ERROR_CODES.DB_DUPLICATE_DATE, {
           userMessage: 'Bu tarih için zaten bir kilo kaydı bulunuyor. Farklı bir tarih seçin veya mevcut kaydı düzenleyin.',
           detail: `weight_records upsert: ${error.code} ${error.message}`,
@@ -583,10 +584,10 @@ export const foodLogService = {
 
 // ─── Günlük Fotoğraf Analiz Kredisi ─────────────────────────────────────────
 export const userCreditsService = {
-  // Kredileri getir (gün sıfırlama dahil)
+  // Kredileri getir (gün değiştiyse sayaç 0 kabul edilir)
   async getOrInit() {
     const user = await requireUser();
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = toDateString(new Date()); // YEREL gün (TR) — sunucu tr_today() ile aynı
 
     const { data, error } = await supabase
       .from('user_credits')
@@ -607,33 +608,32 @@ export const userCreditsService = {
       return created;
     }
 
-    // Yeni gün → sayacı sıfırla
+    // Yeni gün → sayaç fiilen 0. Sıfırlamayı buradan YAZMIYORUZ: sunucu tetikleyicisi
+    // (user_credits_guard) gelecek tarihe yazmayı reddeder; cihaz saati/saat dilimi TR'den
+    // ileri olan kullanıcıda bu okuma hataya dönerdi. Sıfırlama increment_photo_credit() içinde.
     if (data.last_reset_date < today) {
-      const { data: reset, error: resetErr } = await supabase
-        .from('user_credits')
-        .update({ daily_photo_used: 0, last_reset_date: today })
-        .eq('user_id', user.id)
-        .select()
-        .single();
-      if (resetErr) throw resetErr;
-      return reset;
+      return { ...data, daily_photo_used: 0 };
     }
 
     return data;
   },
 
-  // Sayacı +1 artır (max 3)
+  // Sayacı +1 artır — atomik RPC (sunucu Türkiye gününü kullanır, gün değiştiyse sıfırlar).
+  // RPC henüz yoksa (20260925120000 migration uygulanmadıysa) eski UPDATE yoluna düşer.
   async increment() {
     const user = await requireUser();
+    const { data, error } = await supabase.rpc('increment_photo_credit');
+    if (!error) return Number(data) || 0;
+    if (!isMissingRpc(error)) throw error;
+
     const credits = await userCreditsService.getOrInit();
     const newCount = Math.min((credits.daily_photo_used || 0) + 1, 99);
-
-    const { error } = await supabase
+    const { error: updErr } = await supabase
       .from('user_credits')
-      .update({ daily_photo_used: newCount })
+      .update({ daily_photo_used: newCount, last_reset_date: toDateString(new Date()) })
       .eq('user_id', user.id);
 
-    if (error) throw error;
+    if (updErr) throw updErr;
     return newCount;
   },
 };

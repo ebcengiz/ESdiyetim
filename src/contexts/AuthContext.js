@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useContext } from "react";
 import { supabase } from "../services/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppError, ERROR_CODES, logError } from "../services/errors";
+import { clearUserLocalData } from "../services/localDataService";
 
 const GUEST_MODE_KEY = "ESDIYET_GUEST_MODE_V1";
 const INVALID_REFRESH_TOKEN_REGEX = /invalid refresh token|refresh token not found/i;
@@ -15,6 +16,7 @@ export const AuthProvider = ({ children }) => {
   const [isGuest, setIsGuest] = useState(false);
 
   const clearLocalAuthState = async () => {
+    const previousUserId = user?.id;
     try {
       // Lokal temizleme: server tarafında token iptaline bağımlı kalmayız.
       await supabase.auth.signOut({ scope: "local" });
@@ -24,6 +26,7 @@ export const AuthProvider = ({ children }) => {
 
     await AsyncStorage.removeItem("userSession");
     await AsyncStorage.removeItem(GUEST_MODE_KEY);
+    await clearUserLocalData(previousUserId);
     setSession(null);
     setUser(null);
     setIsGuest(false);
@@ -130,12 +133,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signOut = async () => {
+    const previousUserId = user?.id;
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
 
       await AsyncStorage.removeItem("userSession");
       await AsyncStorage.removeItem(GUEST_MODE_KEY);
+      await clearUserLocalData(previousUserId);
       setIsGuest(false);
 
       return { error: null };

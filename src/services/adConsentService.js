@@ -25,7 +25,6 @@ export const AD_NETWORK_NAME = 'Google AdMob';
 // require hatasını Metro try/catch'e vermez).
 let TrackingTransparency = null;
 try {
-  // eslint-disable-next-line global-require
   TrackingTransparency = require('expo-tracking-transparency');
 } catch (e) {
   console.warn('expo-tracking-transparency modülü yok (build yenilenmeli):', String(e?.message || e).split('\n')[0]);

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { View, StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 import { COLORS, SIZES } from '../constants/theme';
 import { dietPlanService } from '../services/supabase';
 import { aiService } from '../services/aiService';
@@ -127,7 +127,6 @@ export default function DietPlanScreen() {
   const filledCount = MEAL_FIELDS.filter(
     (f) => todayPlan?.[f.key]?.trim()
   ).length;
-  const progressPct = filledCount / MEAL_FIELDS.length;
 
   // ── Veri yükleme ──────────────────────────────────────────────────────────
 

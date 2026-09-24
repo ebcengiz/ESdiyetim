@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Modal, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Modal, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, SHADOWS, blackAlpha } from '../../constants/theme';
 import { MEAL_FIELDS, MONTHS_TR } from '../../constants/dietPlanFields';
 import { toDateStr } from '../../utils/dietPlanUtils';
+import { PressableOpacity } from '../ui';
 
 /**
  * Geçmiş diyet planları sheet'i — arama, yıl/ay filtresi ve plan listesi.
@@ -44,9 +45,9 @@ export default function DietPlanHistorySheet({
               <Text style={modalStyles.title}>Geçmiş Planlar</Text>
               <Text style={modalStyles.subtitle}>{allPlans.length} plan kayıtlı</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={modalStyles.closeBtn}>
+            <PressableOpacity onPress={onClose} style={modalStyles.closeBtn}>
               <Ionicons name="close" size={20} color={COLORS.textSecondary} />
-            </TouchableOpacity>
+            </PressableOpacity>
           </View>
 
           {/* Arama */}
@@ -60,40 +61,40 @@ export default function DietPlanHistorySheet({
               onChangeText={onSearchQueryChange}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => onSearchQueryChange('')}>
+              <PressableOpacity onPress={() => onSearchQueryChange('')}>
                 <Ionicons name="close-circle" size={16} color={COLORS.textLight} />
-              </TouchableOpacity>
+              </PressableOpacity>
             )}
           </View>
 
           {/* Yıl filtresi */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={hist.filterRow} contentContainerStyle={{ gap: 8, paddingHorizontal: SIZES.containerPadding }}>
-            <TouchableOpacity
+            <PressableOpacity
               style={[hist.filterChip, filterYear === null && hist.filterChipActive]}
               onPress={() => { onFilterYearChange(null); onFilterMonthChange(null); }}
             >
               <Text style={[hist.filterChipText, filterYear === null && hist.filterChipTextActive]}>Tümü</Text>
-            </TouchableOpacity>
+            </PressableOpacity>
             {availableYears.map((y) => (
-              <TouchableOpacity
+              <PressableOpacity
                 key={y}
                 style={[hist.filterChip, filterYear === y && hist.filterChipActive]}
                 onPress={() => { onFilterYearChange(y); onFilterMonthChange(null); }}
               >
                 <Text style={[hist.filterChipText, filterYear === y && hist.filterChipTextActive]}>{y}</Text>
-              </TouchableOpacity>
+              </PressableOpacity>
             ))}
           </ScrollView>
 
           {/* Ay filtresi (yıl seçiliyse) */}
           {filterYear !== null && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={hist.filterRow} contentContainerStyle={{ gap: 8, paddingHorizontal: SIZES.containerPadding }}>
-              <TouchableOpacity
+              <PressableOpacity
                 style={[hist.filterChip, filterMonth === null && hist.filterChipActive]}
                 onPress={() => onFilterMonthChange(null)}
               >
                 <Text style={[hist.filterChipText, filterMonth === null && hist.filterChipTextActive]}>Tüm Aylar</Text>
-              </TouchableOpacity>
+              </PressableOpacity>
               {MONTHS_TR.map((name, idx) => {
                 const hasPlans = allPlans.some((p) => {
                   const d = new Date(p.date);
@@ -101,13 +102,13 @@ export default function DietPlanHistorySheet({
                 });
                 if (!hasPlans) return null;
                 return (
-                  <TouchableOpacity
+                  <PressableOpacity
                     key={idx}
                     style={[hist.filterChip, filterMonth === idx && hist.filterChipActive]}
                     onPress={() => onFilterMonthChange(idx)}
                   >
                     <Text style={[hist.filterChipText, filterMonth === idx && hist.filterChipTextActive]}>{name}</Text>
-                  </TouchableOpacity>
+                  </PressableOpacity>
                 );
               })}
             </ScrollView>
@@ -135,7 +136,7 @@ export default function DietPlanHistorySheet({
                 const meals = MEAL_FIELDS.filter((f) => plan[f.key]?.trim());
                 const isSelected = toDateStr(d) === toDateStr(selectedDate);
                 return (
-                  <TouchableOpacity
+                  <PressableOpacity
                     key={plan.id}
                     style={[hist.card, isSelected && hist.cardSelected]}
                     onPress={() => onSelectPlanDate(d)}
@@ -177,7 +178,7 @@ export default function DietPlanHistorySheet({
                         {[plan.breakfast, plan.lunch, plan.dinner].filter(Boolean).join('  •  ')}
                       </Text>
                     ) : null}
-                  </TouchableOpacity>
+                  </PressableOpacity>
                 );
               })}
             </ScrollView>

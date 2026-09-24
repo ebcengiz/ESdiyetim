@@ -27,7 +27,7 @@ const SECTIONS = [
   {
     title: 'Yemek fotoğrafı ve yapay zeka',
     body:
-      'İsteğe bağlı yemek fotoğrafı, tahmini kalori için Groq ve/veya Google Gemini API’lerine analiz amaçlı iletilir. Yemek görüntüsü ESdiyet sunucularında kalıcı saklanmaz. Tahminler yaklaşık ve bilgilendirme amaçlıdır; tıbbi ölçüm değildir.',
+      'İsteğe bağlı yemek fotoğrafı, tahmini kalori için Groq ve/veya Google Gemini API’lerine analiz amaçlı iletilir. İstekler ESdiyet’in Supabase üzerindeki aracı fonksiyonundan geçer; yemek görüntüsü ve metin içeriği saklanmaz, kötüye kullanımı önlemek için yalnızca günlük istek sayısı tutulur. Tahminler yaklaşık ve bilgilendirme amaçlıdır; tıbbi ölçüm değildir.',
   },
   {
     title: 'Verilerin Kullanımı',
@@ -56,7 +56,7 @@ const SECTIONS = [
   {
     title: 'Üçüncü Taraf Hizmetler',
     body:
-      'Supabase (veritabanı ve kimlik doğrulama), Groq (metin ve isteğe bağlı görsel analiz), Google Gemini (yedek görsel analiz), Google AdMob (yalnızca ücretsiz planda reklam). Bu sağlayıcıların kendi gizlilik politikaları geçerlidir.',
+      'Supabase (veritabanı, kimlik doğrulama ve yapay zeka aracı fonksiyonu), Groq (metin ve isteğe bağlı görsel analiz), Google Gemini (yedek görsel analiz), Google AdMob (yalnızca ücretsiz planda reklam). Bu sağlayıcıların kendi gizlilik politikaları geçerlidir.',
   },
   {
     title: 'KVKK Kapsamında Haklarınız',

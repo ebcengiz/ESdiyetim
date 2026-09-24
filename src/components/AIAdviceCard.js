@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  TouchableOpacity,
   Animated,
   Easing,
   useWindowDimensions,
@@ -13,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
+import { PressableOpacity } from './ui';
 
 const MIN_TOUCH = 44;
 const SMOOTH_EASING = Easing.bezier(0.42, 0, 0.58, 1);
@@ -171,7 +171,7 @@ export default function AIAdviceCard({
 
   return (
     <View style={[styles.wrap, { borderLeftColor: accent }, style]}>
-      <TouchableOpacity
+      <PressableOpacity
         onPress={toggle}
         activeOpacity={0.92}
         accessibilityRole="button"
@@ -246,7 +246,7 @@ export default function AIAdviceCard({
 
           {expanded ? <View style={[styles.headerDivider, { marginHorizontal: -layout.padH }]} /> : null}
         </View>
-      </TouchableOpacity>
+      </PressableOpacity>
 
       <Animated.View style={[styles.bodyClip, { maxHeight: bodyMaxHeight }]}>
         <View style={[styles.body, { paddingHorizontal: layout.padH }]}>

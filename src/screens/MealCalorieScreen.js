@@ -19,6 +19,7 @@ import { useAIConsent } from '../contexts/AIConsentContext';
 import { useAds } from '../contexts/AdsContext';
 import LimitReachedSheet from '../components/ads/LimitReachedSheet';
 import { bypassPaywall } from '../utils/environment';
+import { prepareImageForAI } from '../utils/image';
 import { ScreenContainer, AppButton, BottomSheet, IconBadge, LoadingState, EmptyState } from '../components/ui';
 
 const DISCLAIMER_STORAGE_KEY = 'mealCalorieHealthDisclaimerV1';
@@ -103,9 +104,10 @@ export default function MealCalorieScreen({ navigation }) {
       const res = useCamera ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
       if (res.canceled || !res.assets?.[0]) return;
       const asset = res.assets[0];
+      const prepared = await prepareImageForAI(asset);
       setImageUri(asset.uri);
-      setBase64(asset.base64 || null);
-      setMimeType(asset.mimeType || 'image/jpeg');
+      setBase64(prepared.base64);
+      setMimeType(prepared.mimeType);
       setResult(null);
     } catch (e) {
       handleError(e, { context: 'mealCalorie.pick', fallbackCode: ERROR_CODES.AI_IMAGE_INVALID });

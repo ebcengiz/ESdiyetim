@@ -56,7 +56,7 @@ export default function TipsScreen() {
     if (!force && adviceCache[categoryId]) { animateIn(); return; }
     setLoading(true);
     try {
-      const result = await aiService.getHealthTip(categoryId);
+      const result = await aiService.getHealthTip(categoryId, { force });
       setAdviceCache((prev) => ({ ...prev, [categoryId]: result.advice || '' }));
       animateIn();
     } catch (e) {

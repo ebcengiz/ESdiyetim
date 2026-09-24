@@ -23,7 +23,7 @@ ESdiyet aşağıdaki verileri toplar:
 İsterseniz yemek fotoğrafı yükleyerek tahmini kalori özeti alabilirsiniz. Bu özellik şu şekilde çalışır:
 
 - Fotoğraf **siz “Tahmini kaloriyi hesapla” dediğinizde** cihazınızdan çıkar ve üçüncü taraf yapay zeka hizmetlerine (**Groq** ve/veya **Google Gemini**) analiz için iletilir.
-- **ESdiyet sunucularında (Supabase) yemek görüntüsü kalıcı olarak saklanmaz.** Görsel, tahmin üretmek için yalnızca ilgili API’ye gönderilir; bu sağlayıcıların kendi gizlilik politikaları geçerlidir ([Groq](https://groq.com/privacy-policy/), [Google AI](https://policies.google.com/privacy)).
+- **ESdiyet sunucularında (Supabase) yemek görüntüsü kalıcı olarak saklanmaz.** Görsel, tahmin üretmek için ESdiyet’in Supabase üzerindeki aracı fonksiyonu üzerinden yalnızca ilgili API’ye iletilir (aracı fonksiyon içeriği saklamaz; kötüye kullanımı önlemek için yalnızca günlük istek **sayısı** tutulur — giriş yapmışsanız hesabınıza, misafirseniz IP adresinizin geri döndürülemez özetine bağlı); bu sağlayıcıların kendi gizlilik politikaları geçerlidir ([Groq](https://groq.com/privacy-policy/), [Google AI](https://policies.google.com/privacy)).
 - Tahmin sonuçları tıbbi ölçüm değildir; yaklaşık ve bilgilendirme amaçlıdır.
 
 ## Verilerin Kullanımı
@@ -71,7 +71,7 @@ Uygulama içinden **"Hesap Yönetimi → Hesabımı ve Tüm Verilerimi Sil"** se
 
 ESdiyet aşağıdaki altyapı hizmetlerini kullanmaktadır:
 
-- **Supabase** — Veritabanı ve kimlik doğrulama altyapısı
+- **Supabase** — Veritabanı, kimlik doğrulama ve yapay zeka isteklerini sağlayıcılara ileten aracı sunucu fonksiyonu
 - **Groq** — Metin tabanlı diyet/hedef tavsiyeleri; ayrıca isteğe bağlı **görsel analiz** (yemek fotoğrafı) için multimodal API
 - **Google (Gemini API)** — Groq kullanılamadığında veya yedek olarak **görsel analiz** (yemek fotoğrafı) için
 - **Google AdMob** — Yalnızca ücretsiz planda reklam gösterimi (bkz. "Reklamlar" bölümü)

@@ -1,5 +1,12 @@
 export { AppError, isAppError, ERROR_CODES } from './AppError';
-export { normalizeError, getUserMessage, logError } from './normalizeError';
+export {
+  normalizeError,
+  getUserMessage,
+  logError,
+  isUniqueViolation,
+  isMissingConflictTarget,
+  isMissingRpc,
+} from './normalizeError';
 export {
   startConnectivityWatch,
   stopConnectivityWatch,

@@ -24,7 +24,6 @@ import { AppError, ERROR_CODES } from './errors';
 
 let Ads = null;
 try {
-  // eslint-disable-next-line global-require
   Ads = require('react-native-google-mobile-ads');
 } catch (e) {
   console.warn('AdMob native modülü yok (Expo Go / build yenilenmeli):', String(e?.message || e).split('\n')[0]);

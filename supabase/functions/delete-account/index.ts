@@ -4,6 +4,9 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
+// Kullanıcı verisi tutan tablolar (supabase/sql/delete_own_account.sql ile aynı liste)
+const USER_TABLES = ["diet_plans", "weight_records", "body_info", "goals", "food_logs", "user_credits"];
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -45,6 +48,17 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
+
+    // Önce kullanıcıya bağlı satırlar: bazı FK'lar (ör. dashboard'dan açılan food_logs)
+    // CASCADE olmayabilir → deleteUser "violates foreign key" ile düşerdi.
+    // Tablo bu projede yoksa (42P01) atla.
+    for (const table of USER_TABLES) {
+      const { error } = await admin.from(table).delete().eq("user_id", user.id);
+      if (error && error.code !== "42P01") {
+        console.error(`delete-account: ${table} temizlenemedi`, error.message);
+      }
+    }
+    await admin.from("ai_usage").delete().eq("subject", `user:${user.id}`);
 
     const { error: delErr } = await admin.auth.admin.deleteUser(user.id);
     if (delErr) {
