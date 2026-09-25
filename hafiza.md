@@ -21,6 +21,9 @@
 
 ## 2. Yapılanlar (kronolojik, en yeni en üstte)
 
+### 2026-09-25 — TestFlight kurulumu ÇALIŞIYOR (build 1.4.2 (15))
+- Build 15 ASC'de "Ready to Submit", "ESdiyet Test" dahili grubuna (5 davetli) otomatik düştü. Kullanıcı TestFlight'tan kurup denedi: **sorun yok**. → 2026-09-15'ten beri süren `BETA_CONTRACT_MISSING` kurulum sorunu Apple tarafında çözülmüş (FB24778484).
+
 ### 2026-09-25 (~03:10) — Sunucu tarafı CANLIDA + RLS açığı kapatıldı + 1.4.2 (15) ASC'ye yüklendi
 - **SQL (kullanıcı SQL Editor'de çalıştırdı):** 4 migration birleşik (`140000` RLS düzeltmesi, `110000`, `120000`, `130000`). Doğrulama (anon anahtar, satır sayısı): weight_records/diet_plans/body_info/goals/food_logs/user_credits/subscriptions/ai_usage → **0** (önce 47 satır açıktı); `ai_usage_consume` anon'a 42501.
 - **CLI:** kullanıcı kendi Terminal'inde `npx supabase login` yaptı (bu kabukta TTY yok → login burada çalışmaz; sonrası `--project-ref qyfagnhmhovhlpbllioq` ile çalışıyor). Secrets: `GEMINI_API_KEY`, `GROQ_API_KEY`. Deploy (`--no-verify-jwt --use-api`): `ai-proxy`, `verify-subscription` (ilk deneme 500 internal error, tekrar OK), `delete-account`.
@@ -626,7 +629,7 @@ Kullanıcının telefonunda Expo Go SDK 57 kullanıyordu, proje SDK 54'teydi →
 - [ ] 1.4.2 (15) ASC'de (yüklendi 2026-09-25). TestFlight'ta giriş yapmış hesapla AI metin/foto, Tips yenileme, çıkış-giriş sayaç, restore akışı elle doğrulanmalı.
 - [ ] Kullanıcıların çoğu 1.4.2+'ya geçince Gemini/Groq anahtarlarını yenile (1.4.1 paketinde eski anahtarlar var).
 - [ ] **UI/UX programı — kalan:** (a) giriş gerektiren akışların gerçek hesapla uçtan uca görsel doğrulaması (Weight/BMI panelleri, DietPlan düzenleme, Goals formu, FoodLog, MealCalorie, Paywall); (b) `FoodSearchModal.js` (600 satır) ve `DietPlanHistorySheet.js`'in `BottomSheet` üstüne yapısal taşınması; (c) ~~`TouchableOpacity` → `Pressable`~~ (2026-09-25, `PressableOpacity`); (d) TestFlight'a yeni build (netinfo native modülü içermeli). (2026-09-16)
-- [ ] **TestFlight (Apple backend, BETA_CONTRACT_MISSING):** `APPLE_SUPPORT_TALEBI_TESTFLIGHT.md` içindeki talebi Apple Developer Support + Feedback Assistant'a gönder; Apple "resolved" deyince yeni build yükleyip tester'larla doğrula. Bu süre zarfında tester dağıtımı için EAS `preview` (ad-hoc) profili kullan. (2026-09-15)
+- [x] ~~**TestFlight (Apple backend, BETA_CONTRACT_MISSING):**~~ (2026-09-25: build 15 TestFlight'tan sorunsuz kuruldu — çözülmüş) `APPLE_SUPPORT_TALEBI_TESTFLIGHT.md` içindeki talebi Apple Developer Support + Feedback Assistant'a gönder; Apple "resolved" deyince yeni build yükleyip tester'larla doğrula. Bu süre zarfında tester dağıtımı için EAS `preview` (ad-hoc) profili kullan. (2026-09-15)
 - [ ] Bir sonraki EAS/TestFlight build'inde uçtan uca elle doğrulanması gerekenler: (a) AI onay modalının kabul/red ve Profil'den geri çekme **etkileşiminin** (Switch'e dokunma) tam akışı — görsel render doğrulandı ama toggle etkileşimi simulator'de otomatik tap kalibrasyonu zor olduğu için tam test edilemedi; (b) App Store Connect'teki App Privacy beyanının hâlâ koddaki `ios.privacyManifests` ile birebir uyumlu olduğunun App Review öncesi son kez gözle kontrolü.
 
 **Not (teknik):** Bu oturumda simulator'de gerçek tap/swipe simülasyonu için `idb` yerine `cliclick` (zaten kurulu) + AppleScript (Simulator penceresi konumu) + piksel bazlı bezel-kenarı tespiti kombinasyonu kullanıldı. Küçük hedefler (ör. Switch) için koordinat kalibrasyonu simulator'ün gerçekçi telefon çerçevesi grafiği yüzünden hassas hesap gerektiriyor — büyük hedefler (tab bar, kartlar) için yeterince güvenilir.
